@@ -1,39 +1,10 @@
-import Std.Data.Rat.Basic
-import Std.Data.List.Basic
 import Mathlib.Algebra.Ring.Defs
 import Mathlib.Data.Finset.Basic
 import Mathlib.Probability.Distributions.Uniform
--- import Piops.Math.TropicallyBoundPolynomials
 import Mathlib.Algebra.Ring.InjSurj
 import Mathlib.Algebra.Tropical.Basic
 import Mathlib.Data.Polynomial.Degree.Definitions
 import Lean.Data.RBMap
-
-
-section Tropical
-/-- This section courtesy of Junyan Xu -/
-
-instance : LinearOrderedAddCommMonoidWithTop (OrderDual (WithBot ℕ)) where
-  __ : LinearOrderedAddCommMonoid (OrderDual (WithBot ℕ)) := inferInstance
-  __ : Top (OrderDual (WithBot ℕ)) := inferInstance
-  le_top _ := bot_le (α := WithBot ℕ)
-  top_add' x := WithBot.bot_add x
-
-
-noncomputable instance (R) [Semiring R] : Semiring (Polynomial R × Tropical (OrderDual (WithBot ℕ))) := inferInstance
-
-noncomputable instance (R) [CommSemiring R] : CommSemiring (Polynomial R × Tropical (OrderDual (WithBot ℕ))) := inferInstance
-
-
-def TropicallyBoundPoly (R) [Semiring R] : Subsemiring (Polynomial R × Tropical (OrderDual (WithBot ℕ))) where
-  carrier := {p | p.1.degree ≤ OrderDual.ofDual p.2.untrop}
-  mul_mem' {p q} hp hq := (p.1.degree_mul_le q.1).trans (add_le_add hp hq)
-  one_mem' := Polynomial.degree_one_le
-  add_mem' {p q} hp hq := (p.1.degree_add_le q.1).trans (max_le_max hp hq)
-  zero_mem' := Polynomial.degree_zero.le
-
-end Tropical
-
 
 def List.matchLength (a : List α) (b : List α) (unit : α) : List α × List α :=
   if a.length < b.length then
@@ -181,6 +152,27 @@ This function produces the polynomial which is of degree n and is equal to r i a
 def Lagrange.interpolate' {F : Type} [Semiring F] (n : ℕ) (ω : F) (r : Fin n → F) : Polynomial' F := [] -- XXX TODO implement
 
 
+section Tropical
+/-- This section courtesy of Junyan Xu -/
+
+instance : LinearOrderedAddCommMonoidWithTop (OrderDual (WithBot ℕ)) where
+  __ : LinearOrderedAddCommMonoid (OrderDual (WithBot ℕ)) := inferInstance
+  __ : Top (OrderDual (WithBot ℕ)) := inferInstance
+  le_top _ := bot_le (α := WithBot ℕ)
+  top_add' x := WithBot.bot_add x
+
+
+noncomputable instance (R) [Semiring R] : Semiring (Polynomial R × Tropical (OrderDual (WithBot ℕ))) := inferInstance
+
+noncomputable instance (R) [CommSemiring R] : CommSemiring (Polynomial R × Tropical (OrderDual (WithBot ℕ))) := inferInstance
+
+
+def TropicallyBoundPoly (R) [Semiring R] : Subsemiring (Polynomial R × Tropical (OrderDual (WithBot ℕ))) where
+  carrier := {p | p.1.degree ≤ OrderDual.ofDual p.2.untrop}
+  mul_mem' {p q} hp hq := (p.1.degree_mul_le q.1).trans (add_le_add hp hq)
+  one_mem' := Polynomial.degree_one_le
+  add_mem' {p q} hp hq := (p.1.degree_add_le q.1).trans (max_le_max hp hq)
+  zero_mem' := Polynomial.degree_zero.le
 
 
 noncomputable def Polynomial'.toTropicallyBoundPolynomial {R : Type} [Semiring R] (p : Polynomial' R) :
@@ -205,62 +197,7 @@ noncomputable def Equiv.Polynomial'.TropicallyBoundPolynomial {R : Type} [Semiri
       map_mul' := by sorry
       map_add' := by sorry
 
+end Tropical
+
 
 end Polynomial
-
-
-section MvPolynomial
-
-def MvPolynomial' (R : Type) (n : ℕ) := List (R × List (Fin n))
-
-def MvPolynomial'.C {R : Type} {n : ℕ} [CommSemiring R] (r : R) : MvPolynomial' R n := [(r, [])]
-def MvPolynomial'.X {R : Type} {n : ℕ} [CommSemiring R] (s : (Fin n)) : MvPolynomial' R n := [(1, [s])]
-
-
-def MvPolynomial'.eval {R : Type} {n : ℕ} [Zero R] [Add R] [Mul R] (f : (Fin n) → R) (p : MvPolynomial' R n) : R := 0 -- TODO implement
-def MvPolynomial'.eval₂ {R S₁ : Type} {n : ℕ} [CommSemiring R] [Zero S₁] [One S₁] [Add S₁] [Mul S₁] (f : R → S₁) (g : (Fin n) → S₁) (p : MvPolynomial' R n) : S₁ :=
-  (p.map (fun ⟨r, s⟩ => (f r * (s.map g).prod))).sum
-
-
-def MvPolynomial'.add {R : Type} {n : ℕ} [CommSemiring R] (p q : MvPolynomial' R n) : MvPolynomial' R n := List.append p q
-def MvPolynomial'.mul {R : Type} {n : ℕ} [CommSemiring R] (p q : MvPolynomial' R n) : MvPolynomial' R n := List.foldl (fun a b => a.add (List.map (fun ⟨r, s⟩ => (r * b.1, s ++ b.2)) q)) [] p
-def MvPolynomial'.neg {R : Type} {n : ℕ} [CommRing R] (p : MvPolynomial' R n) : MvPolynomial' R n := List.map (fun ⟨r, s⟩ => (-r, s)) p
-def MvPolynomial'.sub {R : Type} {n : ℕ} [CommRing R] (p q : MvPolynomial' R n) : MvPolynomial' R n := p.add q.neg
-def MvPolynomial'.pow {R : Type} {n : ℕ} [CommSemiring R] (p : MvPolynomial' R n) (n' : Nat) : MvPolynomial' R n := List.foldl (fun a b => a.mul p) (MvPolynomial'.C 1) (List.replicate n' p)
-
-instance {R : Type} {n : ℕ} [CommSemiring R] : Zero (MvPolynomial' R n) := ⟨[]⟩
-instance {R : Type} {n : ℕ} [CommSemiring R] : Add (MvPolynomial' R n) := ⟨MvPolynomial'.add⟩
-instance {R : Type} {n : ℕ} [CommSemiring R] : Mul (MvPolynomial' R n) := ⟨MvPolynomial'.mul⟩
-instance {R : Type} {n : ℕ} [CommRing R] : Neg (MvPolynomial' R n) := ⟨MvPolynomial'.neg⟩
-instance {R : Type} {n : ℕ} [CommRing R] : Sub (MvPolynomial' R n) := ⟨MvPolynomial'.sub⟩
-instance {R : Type} {n : ℕ} [CommSemiring R] : Pow (MvPolynomial' R n) Nat := ⟨MvPolynomial'.pow⟩
-
-end MvPolynomial
-
-section PMF
-
-/-- A type analogous to `PMF` that supports computable operations. -/
-def ComputableDistribution (α : Type) := List α
--- def ComputableDistribution (α : Type) [BEq α] [Hashable α] := Std.HashMap α Rat
-
-
-def ComputableDistribution.length {α : Type} (d : ComputableDistribution α) : Rat := List.length d
-
-def ComputableDistribution.count {α : Type} [BEq α] (d : ComputableDistribution α) (a : α) : Rat := List.count a d
-
-def ComputableDistribution.pure {α : Type} (a : α) := List.pure a
-
-def ComputableDistribution.bind {α β : Type} (d : ComputableDistribution α) (f : α → ComputableDistribution β) : ComputableDistribution β :=
-  List.bind d f
-
-instance ComputableDistribution.Monad : Monad ComputableDistribution := {
-  pure := @ComputableDistribution.pure,
-  bind := @ComputableDistribution.bind
-}
-
-def ComputableDistribution.toFun {α : Type} [BEq α] (d : ComputableDistribution α) : α → Rat :=
-  fun a => d.count a / d.length
-
-def ComputableDistribution.uniformOfFintype (α : Type) [Fintype α] [Nonempty α] : ComputableDistribution α := [] -- TODO implement
-
-end PMF

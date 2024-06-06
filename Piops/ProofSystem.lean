@@ -54,7 +54,7 @@ structure ProofSystem (F : Type) [Field F] [Fintype F] (Stmt : Type)
   -- It also probably makes it easier to construct the monad stuff later, since we are dealing with concreate data
   --
   -- Is it ok for coins of later rounds to affect queries of earlier rounds?
-  -- I think it is, but it is a bit weird. The point is that the verifier knows all the coins at the end, so they know what queries should be made. Emphasize again that all query responses are sent at the end, since there is no need for them to be sent until the verifier is soing their final check.
+  -- I think it is, but it is a bit weird. The point is that the verifier knows all the coins at the end, so they know what queries should be made. Emphasize again that all query responses are sent at the end, since there is no need for them to be sent until the verifier is doing their final check.
   --
   -- Why isn't Wit present here? In theory we could have a prover which decides what query to make based on the witness
 

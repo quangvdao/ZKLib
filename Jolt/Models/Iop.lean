@@ -2,7 +2,7 @@ import Mathlib.Data.Fintype.Basic
 import Jolt.ComputableTypes
 
 
-
+/-
 -- Hmmm, seems like the most general object we should define is an "Interactive Oracle Reduction"
 --
 structure InteractiveOracleReduction (F : Type) [Fintype F] (Instance Witness : Type) :=
@@ -47,11 +47,34 @@ def execution (ip : InteractiveProof Instance VerifierState Response Randomness 
 
 end InteractiveProof
 
+-/
 
 
-def Coins (F : Type) : Type := List (List F)
+namespace PolynomialIop
 
--- def ProofProducer {F : Type} : Type := Coins F → Polynomial' F
+variable {F : Type} [Field F] [Fintype F]
+variable {Stmt : Type} {Wit : Type} {Randomness : Type}
+
+-- upgrade this to multivariate polynomials (w/o explicit bound on number of variables)
+def ProverMessage := List (Polynomial' F)
+
+def ChallengeRound : Type := List F
+
+def QueryPoints : Type := List (List F)
+
+def Evaluations : Type := List (List F)
+
+-- We let witness be both the witness to the protocol, but also mutable during prover's execution as prover's state
+def ProverRound {Stmt Wit Randomness : Type} : Type := Stmt → Wit → @ChallengeRound F → Randomness → (@ProverMessage F × Wit)
+
+def Prover {Stmt Wit Randomness : Type} : Type := List (@ProverRound Stmt Wit (@ChallengeRound F) Randomness)
+
+def QuerySampler : Type := Stmt → List (@ChallengeRound F) → @QueryPoints F
+
+def Verification :  Type := Stmt → QueryPoints → Evaluations → Bool
+
+def Verifier : Type := QuerySampler × Verification
+
 
 structure PolyIop (F : Type) [Field F] [Fintype F] (Stmt : Type) (Wit : Type) where
   -- number of rounds, may depend on statement
@@ -73,18 +96,12 @@ structure PolyIop (F : Type) [Field F] [Fintype F] (Stmt : Type) (Wit : Type) wh
   -- (each challenge is a field element)
   numChals : Stmt → ℕ → ℕ
 
-  proverType (Instance ProverState Challenge Randomness Response : Type) (num : Type) :
-  Instance → ProverState → List Challenge → Randomness → (Response × ProverState × num)
+  honestProver : Prover
+
+  honestVerifier : Verifier
 
 
-  honestProver : proverRound Instance ProverState Challenge Randomness Response
-
-  honestVerifier : ℕ
-
-  -- prover should be defined uniformly at random
-  -- base case: takes in statement and witness and first round's prover randomness, then outputs numPolys(x,0) number of polynomials, and a new state
-
-
+/-
   -- Define the prover function
   prover : Stmt → Wit → ℕ → List F → (List (Polynomial' F), List F)
   prover stmt wit 0 randomness :=
@@ -104,7 +121,7 @@ structure PolyIop (F : Type) [Field F] [Fintype F] (Stmt : Type) (Wit : Type) wh
   oracleQueries : Stmt → (Coins F) → List (List F)
 
   verification : Stmt → (Coins F) → (ℕ → List (F × F)) → Bool
-
+-/
 
 
 -- Perfect completeness here
@@ -128,13 +145,10 @@ def PolyIop.complete (F : Type) [Field F] [Fintype F] {Stmt Wit : Type}
 
 
 -- Todo: allow promises of statements
--- Note that PIOPs are info-theoretically sound (excluding the polynomial commitment).
 def PolyIop.sound (F : Type) [Field F] [Fintype F] {Stmt Wit : Type}
     (Relation : Stmt → Wit → Prop)
     (𝓟 : PolyIop F Stmt Wit)
-    (extractor :-- Should the extractor have access to stmt? Does it matter?
-        Stmt →
-        @ProofProducer F → Wit)
+    (extractor : Stmt → @ProofProducer F → Wit)
     (soundnessBound : Rat) : Prop :=
 -- For any statement and any adversary ...
   ∀ stmt : Stmt, ∀ adv_prover : @ProofProducer F,
@@ -176,3 +190,5 @@ def PolyIop.sound_enriched (F : Type) [Field F] [Fintype F] {Stmt Wit A : Type}
     let verified := (𝓟.verification stmt coins query_response_pairs)
     return verified ∨ ¬ Relation stmt (extractor stmt adv_prover) a
       ).toFun true > soundnessBound
+
+end PolynomialIop
