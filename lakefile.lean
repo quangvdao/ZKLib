@@ -7,7 +7,7 @@ def moreServerArgs := #[
 ]
 
 
-package «piops» {
+package «jolt-lean» {
   -- add any package configuration options here
   -- moreLinkArgs := #[
   --   "-L./.lake/packages/LeanCopilot/.lake/build/lib",
