@@ -58,7 +58,7 @@ def lagrangeBasisAux (r : Array R) (evals : Array R) (ell : Nat) (j : Nat) (size
     let evals :=
       (Array.range size).reverse.foldl
         (fun evals i =>
-          if i % 2 == 0 then
+          if i % 2 == 1 then
             let scalar := evals.get! (i / 2)
             let evals := evals.set! i (scalar * r.get! j)
             let evals := evals.set! (i - 1) (scalar - evals.get! i)
@@ -73,9 +73,6 @@ def lagrangeBasis (r : Array R) : Array R :=
   let evals := Array.mkArray (2 ^ ell) 1
   lagrangeBasisAux r evals ell 0 1
 
-#eval IO.println #[1,2]
-#eval lagrangeBasis #[(3 : ℤ), (2 : ℤ)]
-
 
 def add (p q : MlPoly R) : MlPoly R :=
   if p.nVars ≠ q.nVars then
@@ -86,7 +83,7 @@ def add (p q : MlPoly R) : MlPoly R :=
 
 def scalarMul (r : R) (p : MlPoly R) : MlPoly R := { evals := p.evals.map (λ a => r * a), nVars := p.nVars }
 
-
+-- Technically this is not the product of two multilinear polynomials, since the result of that would no longer be multilinear. This is only defining the product of the evaluations.
 def mul (p q : MlPoly R) : MlPoly R :=
   if p.nVars ≠ q.nVars then
     panic! "Polynomials must have same number of variables"
@@ -103,15 +100,6 @@ def eval (p : MlPoly R) (x : Array R) : R :=
 -- Partially evaluate the polynomial at some variables
 -- def bound_top_vars (p : MlPoly R) (x : Array R) : MlPoly R :=
 
-def p : MlPoly (ZMod 59) := new (Array.mk [1, 2])
-def q : MlPoly (ZMod 59) := new (Array.mk [5, 6, 7, 8])
-
-#eval eval p (Array.mk [3])
-#eval eval q (Array.mk [1, 2])
-
-#eval (1 * (1 - 3) + 2 * 3)
-
-#eval (1 * (1 - 3) * (1 - 2) + 2 * 3 * (1 - 2) + 3 * (1 - 3) * 2 + 4 * 3 * 2)
 
 end MlPoly
 
