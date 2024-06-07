@@ -1,5 +1,17 @@
 import Mathlib.Data.Nat.Log
 import Mathlib.Data.Int.Basic
+import Mathlib.Data.Bitvec.Defs
+
+
+
+def isBoolean {R : Type} [DecidableEq R] [Inhabited R] [Ring R] (x : Array R) : Bool := ∀ i, i < x.size → x.get! i = 0 ∨ x.get! i = 1
+
+#eval isBoolean #[(1 : ℤ )]
+
+def toNum {R : Type} [DecidableEq R] [Inhabited R] [Ring R] (x : Array R) : ℕ :=
+  (Array.map (λ r => if r = 0 then 0 else 1) x).foldl (λ acc elem => (acc * 2) + elem) 0
+
+
 
 def padPowerOfTwo {R : Type} [Inhabited R] [Ring R] (arr : Array R) : Array R × ℕ := Id.run do
 let n : ℕ := Nat.clog 2 arr.size -- upper log base 2
@@ -21,7 +33,7 @@ theorem dotProduct_comm {R : Type} [Inhabited R] [CommRing R] (x : Array R) (y :
 
 -- This function converts multilinear representation in the evaluation basis to the monomial basis
 -- This is also called the Walsh-Hadamard transform (either that or the inverse)
-def evalToMonomial {R : Type} [Inhabited R] [CommSemiring R] [HSub R R R] (a : Array R) : Array R :=
+def evalToMonomial {R : Type} [Inhabited R] [Ring R] (a : Array R) : Array R :=
   let n := Nat.clog 2 a.size
   if a.size ≠ 2 ^ n then
     panic! "Array size is not a power of two!"
@@ -81,3 +93,4 @@ theorem unitArray_size {R : Type} [Inhabited R] [Ring R] (n k : ℕ) (h : k < n)
 theorem dotProduct_unitArray_eq_get! {R : Type} [Inhabited R] [Ring R] (x : Array R) (k : ℕ) (h : k < x.size) : dotProduct x (unitArray x.size k) = x.get! k := by
   unfold dotProduct
   simp [unitArray_size]
+  sorry

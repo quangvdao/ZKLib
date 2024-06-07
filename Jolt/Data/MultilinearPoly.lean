@@ -8,14 +8,14 @@ import Mathlib.Data.ZMod.Defs
 
 -- We define multilinear polynomials over rings by their evaluation on the hypercube {0,1}^n (i.e. the Lagrange basis)
 -- We put the number of variables directly into the type for efficiency
-structure MlPoly (R : Type) [Inhabited R] [Ring R] where
+structure MlPoly (R : Type) [DecidableEq R] [Inhabited R] [Ring R] where
   evals : Array R
   nVars : ℕ
 
 namespace MlPoly
 
 
-variable {R : Type} [Inhabited R] [Ring R]
+variable {R : Type} [DecidableEq R] [Inhabited R] [Ring R]
 
 
 instance inhabited : Inhabited (MlPoly R) := ⟨{ evals := #[Inhabited.default], nVars := 1 }⟩
@@ -101,6 +101,12 @@ def eval (p : MlPoly R) (x : Array R) : R :=
 -- def bound_top_vars (p : MlPoly R) (x : Array R) : MlPoly R :=
 
 
+-- Theorems about evaluations
+
+-- Evaluation at a point in the Boolean hypercube is equal to the corresponding evaluation in the array
+theorem eval_eq_eval_array (p : MlPoly R) (x : Array R) (h : x.size = p.nVars) (h' : isBoolean x): eval p x = p.evals.get! x.toNum := sorry
+
+
 end MlPoly
 
 
@@ -117,6 +123,6 @@ variable {R : Type} [Inhabited R] [Ring R]
 
 -- Convert to multilinear polynomial in the monomial basis
 def fromMlPoly (p : MlPoly R) : MlPoly' R :=
-  { coeffs := p.evals, nVars := p.nVars }
+  { coeffs := evalToMonomial p.evals, nVars := p.nVars }
 
 end MlPoly'
