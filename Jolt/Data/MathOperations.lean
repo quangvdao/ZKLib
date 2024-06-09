@@ -9,7 +9,9 @@ def isBoolean {R : Type} [DecidableEq R] [Inhabited R] [Ring R] (x : Array R) : 
 #eval isBoolean #[(1 : ℤ )]
 
 def toNum {R : Type} [DecidableEq R] [Inhabited R] [Ring R] (x : Array R) : ℕ :=
-  (Array.map (λ r => if r = 0 then 0 else 1) x).foldl (λ acc elem => (acc * 2) + elem) 0
+  (Array.map (λ r => if r = 0 then 0 else 1) x).reverse.foldl (λ acc elem => (acc * 2) + elem) 0
+
+#eval toNum #[(1 : ℤ), (1 : ℤ), (0 : ℤ)]
 
 
 
@@ -22,10 +24,6 @@ let padArr : Array R := (Array.range (2 ^ n)).map (λ i => if i < arr.size then 
 def dotProduct {R : Type} [Inhabited R] [Ring R] (x : Array R) (y : Array R) : R :=
   let products := Array.zip x y |>.map (λ (a, b) => a * b)
   products.foldl (λ acc elem => acc + elem) 0
-
-lemma func_product_comm {R : Type} [Inhabited R] [CommRing R] : (λ (a : R) (b : R) => a * b) = (λ (a : R) (b : R) => b * a) := by
-  funext a b
-  apply mul_comm a b
 
 theorem dotProduct_comm {R : Type} [Inhabited R] [CommRing R] (x : Array R) (y : Array R) : dotProduct x y = dotProduct y x := by
   unfold dotProduct

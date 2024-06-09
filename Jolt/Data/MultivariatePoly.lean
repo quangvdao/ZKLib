@@ -1,4 +1,4 @@
-import Mathlib.Data.Nat.Basic
+import Mathlib.Data.Finset.Basic
 
 section MvPoly
 

@@ -21,7 +21,7 @@ variable {R : Type} [DecidableEq R] [Inhabited R] [Ring R]
 instance inhabited : Inhabited (MlPoly R) := ⟨{ evals := #[Inhabited.default], nVars := 1 }⟩
 
 -- maybe this can be done way better
-instance [DecidableEq R] : DecidableEq (MlPoly R) :=
+instance : DecidableEq (MlPoly R) :=
   fun p q =>
     if hEvals : p.evals = q.evals then
       if hNVars : p.nVars = q.nVars then
@@ -104,8 +104,16 @@ def eval (p : MlPoly R) (x : Array R) : R :=
 -- Theorems about evaluations
 
 -- Evaluation at a point in the Boolean hypercube is equal to the corresponding evaluation in the array
-theorem eval_eq_eval_array (p : MlPoly R) (x : Array R) (h : x.size = p.nVars) (h' : isBoolean x): eval p x = p.evals.get! x.toNum := sorry
+theorem eval_eq_eval_array (p : MlPoly R) (x : Array R) (h : x.size = p.nVars) (h' : isBoolean x): eval p x = p.evals.get! (toNum x) := by
+  unfold eval
+  unfold dotProduct
+  simp [↓reduceIte, h]
+  sorry
 
+#eval eval (new (Array.mk [(1 : ℤ), (2 : ℤ), (3 : ℤ), (4 : ℤ)])) (Array.mk [(1 : ℤ), (1 : ℤ)])
+
+example (a b c : Prop) [Decidable a] (h : a) : (if a then b else c) = b := by
+  simp_all only [↓reduceIte]
 
 end MlPoly
 
@@ -119,7 +127,7 @@ structure MlPoly' (R : Type) [Inhabited R] [Ring R] where
 
 namespace MlPoly'
 
-variable {R : Type} [Inhabited R] [Ring R]
+variable {R : Type} [DecidableEq R] [Inhabited R] [Ring R]
 
 -- Convert to multilinear polynomial in the monomial basis
 def fromMlPoly (p : MlPoly R) : MlPoly' R :=

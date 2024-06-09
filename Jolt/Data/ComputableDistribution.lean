@@ -1,3 +1,7 @@
+import Std.Data.Rat.Basic
+import Std.Data.List.Basic
+import Mathlib.Data.Finset.Basic
+import Mathlib.Probability.Distributions.Uniform
 
 section PMF
 
