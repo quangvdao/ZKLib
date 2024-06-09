@@ -21,11 +21,6 @@ require mathlib from git
 
 
 @[default_target]
-lean_lib «Piops» {
-  -- add any library configuration options here
-}
-
-@[default_target]
 lean_lib «Jolt» {
   -- add any library configuration options here
 }
