@@ -28,9 +28,30 @@ Among the space of zkVMs, Jolt has one of, if not, \emph{the} best-performing pr
 
 The same justifications were given in prior papers (Bailey-Miller and Bailey-Mishra).
 
+
+\paragraph{New Abstraction: Interactive Oracle Reductions (?)}
+
+
+Facilitates modular proofs of soundness for interactive protocols. Especially relevant for complex protocols such as Spartan, Lasso, or offline memory checking.
+
+
+
 \paragraph{Structure of the Formalization}
 
-We define the following 
+\begin{itemize}
+    \item Implementation of multilinear polynomials (in the evaluation basis) and binary tower fields. Proofs that these implementations matches the abstract definitions.
+    \item Definitions of Interactive Oracle Reductions (IOR), along with specializations to protocols with (multivariate) polynomials.
+    \item Specifications for the various subprotocols (such as sumcheck, linear combination, etc.) using Mathlib's Polynomials objects, which are noncomputable (and hence cannot be executed as code).
+    \item Completeness and soundness proofs of these abstract specifications.
+    \item Implementations of the subprotocols using our computable implementations of polynomials and binary tower fields.
+    \item Proofs that these implementations match the specifications.
+\end{itemize}
+
+{\color{red} Figures to add: (1) overall structure of the formalization, (2) examples about how larger protocols, such as Spartan, are combinations of smaller subprotocols, such as sumcheck.}
+
+
+
+\paragraph{Performance Comparison to an Unverified Implementation} While our goal is not to produce efficient formalized code, we do benchmark our code against the current Rust implementation of Jolt (suitably modified to strip out all other parts of the codebase, leaving only the interactive protocols). {\color{red} Put benchmark info here whenever available. Hopefully they are not too bad, especially for the verifier.}
 
 
 \subsection{Related Works}\label{sec:related-works}
