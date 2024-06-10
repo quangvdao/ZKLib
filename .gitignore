@@ -7,3 +7,12 @@
 *.lock
 *.c
 .DS_Store
+*.aux
+*.bbl
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.synctex.gz
+*.toc
+*.synctex

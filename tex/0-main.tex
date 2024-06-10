@@ -1,0 +1,87 @@
+% ====================================================
+% ============ Parameters
+% ====================================================
+\ifdefined\fullversion
+\else
+\def\fullversion{0}    % 0 = conference version; 1 = full version
+\fi
+
+\ifdefined\cameraversion
+\else
+\def\cameraversion{0}    % 0 = long version; 1 = proceedings version
+\fi
+
+\def\showoverflow{1}   % 1 = show overflows
+\def\allow{1}      % 0 = remove todo command
+\def\anonymous{0}      % 1 = anonymous
+\def\showoutline{0}    % 1 = show outline
+
+% Shortcut for conference version
+\newcommand{\ifconfver}[1]{\ifnum\fullversion=0 #1 \fi}
+\newcommand{\confver}[1]{\ifnum\fullversion=0 #1 \fi}
+
+% Shortcut for full version
+\newcommand{\iffullver}[1]{\ifnum\fullversion=1 #1 \fi}
+\newcommand{\fullver}[1]{\ifnum\fullversion=1 #1 \fi}
+
+% Shortcut for proceedings version
+\newcommand{\ifcamver}[1]{\ifnum\cameraversion=1 #1 \fi}
+\newcommand{\camver}[1]{\ifnum\cameraversion=1 #1 \fi}
+
+
+% ====================================================
+% ============ Document class
+% ====================================================
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+\ifnum\fullversion=1
+\usepackage[letterpaper, margin=1.1in]{geometry}
+\setlength{\marginparwidth}{2.5cm}
+\fi
+
+% ====================================================
+% ============ Imports
+% ====================================================
+\input{style/packages}
+\input{style/macros}
+\input{style/notation}
+
+
+\title{Formalizing Multilinear-Based Proof Systems in Lean}
+\date{}
+\ifnum\anonymous=0
+\author{
+  \IEEEauthorblockN{Quang Dao}
+  \IEEEauthorblockA{\textit{Carnegie Mellon University}}
+  \and
+  \IEEEauthorblockN{Justin Thaler}
+  \IEEEauthorblockA{\textit{a16z crypto research & Georgetown University}}
+}
+\else
+\author{} 
+\fi
+
+\begin{document}
+  \maketitle
+
+\input{00-abstract}
+
+\ifnum\showoutline=1
+\input{outline}
+\fi
+
+\input{1-introduction}
+
+
+% \section*{Acknowledgements}
+
+
+\bibliographystyle{abbrv}
+\bibliography{cryptobib/abbrev3, cryptobib/crypto, custom}
+
+\iffalse % No need for appendix in camera-ready or full version
+\appendix
+
+\fi
+
+\end{document}
