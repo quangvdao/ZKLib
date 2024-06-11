@@ -3,8 +3,7 @@ import Mathlib.Data.Int.Basic
 import Mathlib.Data.Bitvec.Defs
 
 
-
-def isBoolean {R : Type} [DecidableEq R] [Inhabited R] [Ring R] (x : Array R) : Bool := ∀ i, i < x.size → x.get! i = 0 ∨ x.get! i = 1
+def isBoolean {R : Type} [DecidableEq R] [Inhabited R] [Ring R] (x : Array R) : Bool := ∀ i, (h : i < x.size) → x[i] = 0 ∨ x[i] = 1
 
 #eval isBoolean #[(1 : ℤ )]
 
@@ -17,17 +16,61 @@ def toNum {R : Type} [DecidableEq R] [Inhabited R] [Ring R] (x : Array R) : ℕ 
 
 def padPowerOfTwo {R : Type} [Inhabited R] [Ring R] (arr : Array R) : Array R × ℕ := Id.run do
 let n : ℕ := Nat.clog 2 arr.size -- upper log base 2
-let padArr : Array R := (Array.range (2 ^ n)).map (λ i => if i < arr.size then arr.get! i else 0)
+let padArr : Array R := (Array.range (2 ^ n)).map (λ i => dite (i < arr.size) (λ h => arr[i]'h) (λ _ => 0))
 (padArr, n)
 
 
+@[inline]
 def dotProduct {R : Type} [Inhabited R] [Ring R] (x : Array R) (y : Array R) : R :=
-  let products := Array.zip x y |>.map (λ (a, b) => a * b)
-  products.foldl (λ acc elem => acc + elem) 0
+  x.zipWith y (λ a b => a * b) |>.foldl (λ acc elem => acc + elem) 0
+
+
+
+theorem length_eq_zipWith_length (x : List α) (y : List β) (f : α → β → γ) (h : x.length ≤ y.length) : (List.zipWith f x y).length = x.length := by
+  revert y
+  induction x with
+  | nil => aesop
+  | cons a x' _ => aesop
+
+
+
+lemma zipWithAux_at_size (a : Array α) (b : Array β) (f : α → β → γ) (h : n ≥ b.size) :
+  Array.zipWithAux f a b n c = c :=
+by
+  unfold Array.zipWithAux
+  split; split; simp
+  sorry
+  -- . cases Nat.not_le_of_gt ‹_› h
+  -- . simp
+  -- . simp
+
+
+theorem zipWith_eq_zipWith_data (x : Array α) (y : Array β) (f : α → β → γ) : (Array.zipWith x y f).data = List.zipWith f x.data y.data := by
+  unfold Array.zipWith
+  unfold Array.zipWithAux
+  split; split
+  sorry
+  -- . sorry
+
+
+theorem size_eq_zipWith_size (x : Array α) (y : Array β) (f : α → β → γ) (h : x.size = y.size) : (x.zipWith y f).size = x.size := by
+  revert y
+  induction x.data with
+  | nil =>
+
+
+
+
+theorem zipWith_comm {R : Type} [Inhabited R] [CommRing R] (x : Array R) (y : Array R) (h : x.size = y.size) : x.zipWith y (λ a b => a * b) = y.zipWith x (λ a b => a * b) := by
+  apply Array.ext
+
 
 theorem dotProduct_comm {R : Type} [Inhabited R] [CommRing R] (x : Array R) (y : Array R) : dotProduct x y = dotProduct y x := by
   unfold dotProduct
-  sorry
+  unfold Array.foldl
+  refine congrArg Id.run ?h
+
+  -- refine congrArg Id.run ?h
 
 -- This function converts multilinear representation in the evaluation basis to the monomial basis
 -- This is also called the Walsh-Hadamard transform (either that or the inverse)
@@ -86,6 +129,7 @@ def unitArray {R : Type} [Inhabited R] [Ring R] (n k : ℕ) : Array R :=
 theorem unitArray_size {R : Type} [Inhabited R] [Ring R] (n k : ℕ) (h : k < n) : (unitArray n k).get! k = (1 : R) := by
   unfold unitArray
   simp [h]
+  sorry
 
 
 theorem dotProduct_unitArray_eq_get! {R : Type} [Inhabited R] [Ring R] (x : Array R) (k : ℕ) (h : k < x.size) : dotProduct x (unitArray x.size k) = x.get! k := by

@@ -53,6 +53,15 @@ Facilitates modular proofs of soundness for interactive protocols. Especially re
 
 \paragraph{Performance Comparison to an Unverified Implementation} While our goal is not to produce efficient formalized code, we do benchmark our code against the current Rust implementation of Jolt (suitably modified to strip out all other parts of the codebase, leaving only the interactive protocols). {\color{red} Put benchmark info here whenever available. Hopefully they are not too bad, especially for the verifier.}
 
+\iffalse
+
+Potential concerns with the ``verified'' implementation:
+\begin{itemize}
+    \item Lean automatically uses ``unsafe'' implementations of Array operations, which is equal to the intended operations when the array has size less than the size of the machine word (which is either $32$ or $64$ bits, depending on the architecture).
+\end{itemize}
+
+\fi
+
 
 \subsection{Related Works}\label{sec:related-works}
 
