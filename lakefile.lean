@@ -24,3 +24,7 @@ require mathlib from git
 lean_lib «Jolt» {
   -- add any library configuration options here
 }
+
+lean_exe «jolt-lean» {
+  root := "Tests"
+}
