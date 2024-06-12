@@ -25,6 +25,7 @@ lean_lib «Jolt» {
   -- add any library configuration options here
 }
 
-lean_exe «jolt-lean» {
-  root := "Tests"
+@[default_target]
+lean_exe «tests» {
+  root := `Jolt.Tests.Testing
 }

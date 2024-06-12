@@ -38,7 +38,7 @@ lemma zipWithAux_at_size (a : Array α) (b : Array β) (f : α → β → γ) (h
   Array.zipWithAux f a b n c = c :=
 by
   unfold Array.zipWithAux
-  split; split; simp
+  split; split; simp_rw
   sorry
   -- . cases Nat.not_le_of_gt ‹_› h
   -- . simp

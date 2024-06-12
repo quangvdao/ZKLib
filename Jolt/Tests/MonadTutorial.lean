@@ -97,7 +97,16 @@ def firstThirdFifth' [Monad' m] (lookup : List α → Nat → m α) (xs : List �
 #eval firstThirdFifth get plants
 #eval firstThirdFifth' get plants
 
-theorem triv (a b : Nat) (h : a < b) (h' : a ≥ b) : False :=
-  Nat.not_lt_of_ge h' h
+inductive Expr (op : Type) where
+  | const : Int → Expr op
+  | prim : op → Expr op → Expr op → Expr op
 
-#eval triv 1 2 (by decide) (by decide)
+inductive Arith where
+  | plus
+  | minus
+  | times
+  | div
+
+def evalM [Monad m] (applyPrim : Arith → Int → Int → m Int) : Expr Arith → m Int
+  | const n => pure n
+  | prim f x y => applyPrim f (evalM x) (evalM y)
