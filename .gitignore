@@ -16,3 +16,5 @@
 *.synctex.gz
 *.toc
 *.synctex
+main.pdf
+.latexmkrc
