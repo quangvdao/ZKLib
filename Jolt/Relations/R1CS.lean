@@ -1,5 +1,6 @@
 import Mathlib.Data.Matrix.Basic
 import Mathlib.Data.Matrix.Hadamard
+import Jolt.Relations.Basic
 
 /-!
 # R1CS
