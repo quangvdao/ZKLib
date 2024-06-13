@@ -1,4 +1,4 @@
-/build
+*/build/*
 /lake-packages/*
 *.olean
 *.ilean
@@ -6,6 +6,7 @@
 *.hash
 *.lock
 *.c
+*.c.o
 .DS_Store
 *.aux
 *.bbl

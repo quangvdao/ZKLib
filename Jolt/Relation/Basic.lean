@@ -8,7 +8,9 @@
   We model relations as a type class.
 -/
 
-class Relation {u v w : Level} (PublicParams : Type u) (Stmt : PublicParams → Type v) (Wit : PublicParams → Type w) where
+universe u v w
+
+class Relation (PublicParams : Type u) (Stmt : PublicParams → Type v) (Wit : PublicParams → Type w) where
   isValid : (pp : PublicParams) → Stmt pp → Wit pp → Bool
 
 export Relation (isValid)

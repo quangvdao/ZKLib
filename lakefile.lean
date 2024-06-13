@@ -27,5 +27,5 @@ lean_lib «Jolt» {
 
 @[default_target]
 lean_exe «tests» {
-  root := `Jolt.Tests.Testing
+  root := `Jolt.Tests.CodeExtraction
 }

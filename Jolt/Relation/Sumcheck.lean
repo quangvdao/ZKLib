@@ -1,6 +1,5 @@
 import Mathlib.Data.MvPolynomial.Basic
-import Jolt.Relations.Basic
-import Mathlib.Data.Finset.Basic
+import Jolt.Relation.Basic
 
 /-!
 # Sumcheck Relation
@@ -21,29 +20,34 @@ $$ \sum_{y \in \{0,1\}^n} p(y) = T. $$
 
 noncomputable section
 
-open MvPolynomial
+open MvPolynomial BigOperators
 
 open Relation
 
-variable {R : Type} [CommSemiring R]
+variable {R : Type _} [CommSemiring R]
 
-def isBool (r : R) : Prop := r = 0 ∨ r = 1
 
 -- def zero_one : Finset R := {0, 1}
-def zero_one : Type := {r : R // isBool r}
 
-def hyperCube (n : ℕ) : Type := Fin n → zero_one
+def zero_one : Type := {r : R // r = 0 ∨ r = 1}
 
--- def f : hyperCube {ℕ} 2 :=
---   fun i => if i = 0 then (0, or.inl rfl) else (1, or.inr rfl)
+def hyperCube (n : ℕ) : Type := Fin n → @zero_one R _
 
-def sumHypercube (n : ℕ) (p : MvPolynomial (Fin n) R) : R :=
-  ∑ (y in hyperCube n) p.eval y
+def hCTwo : @hyperCube R _ 2 :=
+  fun i => if i = 0 then ⟨0, Or.inl rfl⟩ else ⟨1, Or.inr rfl⟩
 
-structure AbstractSumcheckInstance (R : Type) [CommSemiring R] (n : ℕ) where
-  d : Fin n → ℕ
-  stmt : MvPolynomial (Fin n) R
-  wit : R
+def sumOverSubset (n : ℕ) (p : MvPolynomial (Fin n) R) (H : Finset ((Fin n) → R)) : R :=
+  Finset.sum H (fun x => eval x p)
+
+-- def sumOverHyperCube (n : ℕ) (p : MvPolynomial (Fin n) R) : R :=
+--   sumOverSubset n p (Finset (hyperCube n))
+
+structure AbstractSumcheckInstance (R : Type) [CommSemiring R] where
+  nVars : ℕ
+  degs : Fin nVars → ℕ
+  poly : MvPolynomial (Fin nVars) R
+  domainPredicate : R → Prop
+  target : R
 
 -- instance AbstractSumcheckRelation [Inhabited R] [CommSemiring R] : Relation (R × (n : ℕ) × (Fin n → ℕ)) _ _ where
 --   isValid := fun {pp stmt wit} => isValidBool stmt wit
