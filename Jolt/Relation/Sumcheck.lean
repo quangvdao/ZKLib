@@ -1,5 +1,7 @@
 import Mathlib.Data.MvPolynomial.Basic
+import Mathlib.Data.Fintype.Basic
 import Jolt.Relation.Basic
+import Mathlib.Data.Bitvec.Defs
 
 /-!
 # Sumcheck Relation
@@ -27,9 +29,13 @@ open Relation
 variable {R : Type _} [CommSemiring R]
 
 
--- def zero_one : Finset R := {0, 1}
+def zero_one_set : Set R := {r : R | r = 0 ∨ r = 1}
+
+#check ↑zero_one_set
 
 def zero_one : Type := {r : R // r = 0 ∨ r = 1}
+
+#check ↑zero_one
 
 def hyperCube (n : ℕ) : Type := Fin n → @zero_one R _
 
@@ -39,8 +45,12 @@ def hCTwo : @hyperCube R _ 2 :=
 def sumOverSubset (n : ℕ) (p : MvPolynomial (Fin n) R) (H : Finset ((Fin n) → R)) : R :=
   Finset.sum H (fun x => eval x p)
 
--- def sumOverHyperCube (n : ℕ) (p : MvPolynomial (Fin n) R) : R :=
---   sumOverSubset n p (Finset (hyperCube n))
+def sumOverHyperCube (n : ℕ) (p : MvPolynomial (Fin n) R) : R :=
+  sumOverSubset n p (Finset.univ Finset.pi )
+
+#check Finset.pi
+
+#check UInt8
 
 structure AbstractSumcheckInstance (R : Type) [CommSemiring R] where
   nVars : ℕ

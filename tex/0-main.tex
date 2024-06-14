@@ -33,7 +33,8 @@
 % ============ Document class
 % ====================================================
 \documentclass[conference]{IEEEtran}
-\IEEEoverridecommandlockouts
+% \IEEEoverridecommandlockouts
+
 \ifnum\fullversion=1
 \usepackage[letterpaper, margin=1.1in]{geometry}
 \setlength{\marginparwidth}{2.5cm}
@@ -47,19 +48,22 @@
 \input{style/notation}
 
 
-\title{Formalizing Multilinear-Based Proof Systems in Lean}
+\title{A Formalized Toolbox for \\ Multilinear-Based Proof Systems}
 \date{}
+
 \ifnum\anonymous=0
 \author{
   \IEEEauthorblockN{Quang Dao}
   \IEEEauthorblockA{\textit{Carnegie Mellon University}}
+  \thanks{Part of the work was done while the first author was at a16z crypto research.}
   \and
   \IEEEauthorblockN{Justin Thaler}
-  \IEEEauthorblockA{\textit{a16z crypto research & Georgetown University}}
+  \IEEEauthorblockA{\textit{a16z crypto research and Georgetown University}}
 }
 \else
 \author{} 
 \fi
+
 
 \begin{document}
   \maketitle
@@ -71,6 +75,12 @@
 \fi
 
 \input{1-introduction}
+\input{2-iop-definitions}
+\input{3-proof-systems}
+\input{4-concrete-datatypes}
+\input{5-evaluation}
+\input{6-discussion}
+\input{7-conclusion}
 
 
 % \section*{Acknowledgements}
@@ -79,9 +89,9 @@
 \bibliographystyle{abbrv}
 \bibliography{cryptobib/abbrev3, cryptobib/crypto, custom}
 
-\iffalse % No need for appendix in camera-ready or full version
-\appendix
+% \iffalse
+% \appendix
 
-\fi
+% \fi
 
 \end{document}

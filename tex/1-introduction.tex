@@ -2,7 +2,9 @@
 
 \paragraph{Why formal verification of SNARK implementations?}
 
-\paragraph{Why zkVMs (and Jolt in general)?}
+\paragraph{Why multilinear-based proof systems?}
+
+Spartan~\cite{C:Setty20}, Brakedown
 
 De-duplicating efforts to prove soundness of individual circuits, instead having a ``universal'' approach that allows to prove any program that may be compiled down to virtual machine instructions.
 
@@ -22,8 +24,8 @@ Among the space of zkVMs, Jolt has one of, if not, \emph{the} best-performing pr
 \paragraph{Why Lean?}
 
 \begin{itemize}
-    \item Both a programming language and a theorem prover. Other tools, such as Easycrypt or Coq, requires code extraction for executable code.
     \item Contains Mathlib, a huge undertaking by mathematicians to formalize modern mathematics. Of interests to us are results about finite fields and multivariate polynomials.
+    \item Potential future integration with other Mathlib libraries, to formalize protocols such as e.g. Graph Hamiltonicity~\cite{blum...} or Graph 3-Coloring~\cite{...}, or others.
 \end{itemize}
 
 The same justifications were given in prior papers (Bailey-Miller and Bailey-Mishra).
@@ -39,12 +41,11 @@ Facilitates modular proofs of soundness for interactive protocols. Especially re
 \paragraph{Structure of the Formalization}
 
 \begin{itemize}
-    \item Implementation of multilinear polynomials (in the evaluation basis) and binary tower fields. Proofs that these implementations matches the abstract definitions.
     \item Definitions of Interactive Oracle Reductions (IOR), along with specializations to protocols with (multivariate) polynomials.
     \item Specifications for the various subprotocols (such as sumcheck, linear combination, etc.) using Mathlib's Polynomials objects, which are noncomputable (and hence cannot be executed as code).
-    \item Completeness and soundness proofs of these abstract specifications.
-    \item Implementations of the subprotocols using our computable implementations of polynomials and binary tower fields.
-    \item Proofs that these implementations match the specifications.
+    \item Completeness and (round-by-round) soundness proofs of these abstract specifications.
+    \item Implementation of multilinear polynomials (in the evaluation basis) and binary tower fields. Proofs that these implementations matches the abstract definitions.
+    \item Implementations of the subprotocols using our computable implementations of polynomials and binary tower fields. Proofs that these implementations match the specifications.
 \end{itemize}
 
 {\color{red} Figures to add: (1) overall structure of the formalization, (2) examples about how larger protocols, such as Spartan, are combinations of smaller subprotocols, such as sumcheck.}
@@ -75,8 +76,8 @@ Formal verification of sumcheck in Isabelle:
 
 Verification of other aspects of SNARKs:
 \begin{itemize}
-    \item SNARK circuits and relations [citations] 
+    \item SNARK circuits and relations (citations)
 \end{itemize}
 These are complementary to our work.
 
-Other projects on cryptography meets formal verification: [give citations & quick descriptions]
+Other projects on cryptography meets formal verification: [give citations and quick descriptions]
