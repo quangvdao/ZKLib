@@ -12,4 +12,15 @@ We define the sumcheck protocol using Mathlib's types for polynomials, which are
 open Polynomial
 open MvPolynomial
 
+namespace AbstractSumcheck
+
 -- structure SumcheckAbstract extends InteractiveOracleProofs := sorry
+
+-- For now, even if we haven't figured out the full theory for IOPs, we can still define the sumcheck prover/verifier and state theorems about completeness and soundness
+
+def abstractSumcheckProver : Type _ := sorry
+def abstractSumcheckVerifier : Type _ := sorry
+
+
+
+end AbstractSumcheck

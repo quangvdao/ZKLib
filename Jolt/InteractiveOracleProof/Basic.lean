@@ -16,7 +16,7 @@ Note: the definition of IOPs as defined above generalizes those found in the lit
 
 We formalize IOPs with the following objects:
 
-  - The prover and verifier are modeled as Monads. In particular, we define the "proverM" and "verifierM" monads.
+  - The prover and verifier are modeled as Monads (especially if they are probabilistic). In particular, we define the "proverM" and "verifierM" monads.
 
   - The "proverM" monad has the following structure:
 
@@ -24,12 +24,12 @@ We formalize IOPs with the following objects:
 
 
 
-
-
 -- Type signature for a single round of the prover
 -- Takes in an instance, a prover state, a list of challenges for the current round, and a randomness value, then outputs a response and a new prover state
 def proverRound (Instance ProverState Challenge Randomness Response : Type) :=
   Instance → ProverState → List Challenge → Randomness → (Response × ProverState)
+
+opaque def maliciousProver :=
 
 -- Define the structure for the interactive proof system
 -- Note: this structure is bad / not general enough, since it assumes the verifier takes the same action in each round (i.e. for ver1)

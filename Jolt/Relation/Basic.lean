@@ -12,7 +12,7 @@
   Marlin paper?
 -/
 
-class Relation where
+class Relation (PublicParams : Type) where
   Index : Type _
   Stmt : Index → Type _
   Wit : Index → Type _

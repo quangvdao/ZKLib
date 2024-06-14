@@ -48,18 +48,18 @@ variable {R : Type _} [CommSemiring R]
 --   poly : MvPolynomial (Fin nVars) R
 --   target : R
 
-structure ParamsType where
+structure IndexType (R : Type _) [CommSemiring R] where
   nVars : ℕ
   degs : Fin nVars → ℕ
   domain : Finset R
 
-#check @ParamsType R
+#check @IndexType R
 
-structure StmtType (pp : @ParamsType R) where
+structure StmtType (R : Type _) [CommSemiring R] (pp : IndexType R) where
   poly : MvPolynomial (Fin pp.nVars) R
   target : R
 
-def WitType (_ : @ParamsType R) : Type := Empty
+def WitType (R : Type _) [CommSemiring R] (_ : IndexType R) : Type := Empty
 
 def productDomain (n : ℕ) (D : Finset R) : Finset (Fin n → R) :=
   @Fintype.piFinset (Fin n) _ _ (fun _ => R) (fun _ => D)
@@ -69,11 +69,11 @@ def sumOverDomain (n : ℕ) (p : MvPolynomial (Fin n) R) (D : Finset R) : R :=
 
 
 -- TODO: fix the synthesization order issue
-instance SumcheckRelation : Relation where
-  Index := @ParamsType R
-  Stmt := StmtType
-  Wit := WitType
-  isValid := fun index stmt wit =>
+instance SumcheckRelation (R : Type _) [CommSemiring R] : Relation R where
+  Index := IndexType R
+  Stmt := StmtType R
+  Wit := WitType R
+  isValid := fun index stmt _ =>
     sumOverDomain index.nVars stmt.poly index.domain = stmt.target
         ∧ ∀ i : Fin index.nVars, stmt.poly.degreeOf i ≤ index.degs i
 
