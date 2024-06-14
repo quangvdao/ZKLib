@@ -1,6 +1,7 @@
 import Mathlib.Data.Polynomial.Basic
 import Mathlib.Data.MvPolynomial.Basic
-import Jolt.Models.InteractiveOracleProof
+-- import Jolt.InteractiveOracleProof.Basic
+import Jolt.Relation.Sumcheck
 
 /-!
 # The Sumcheck Protocol, abstract version
@@ -11,5 +12,4 @@ We define the sumcheck protocol using Mathlib's types for polynomials, which are
 open Polynomial
 open MvPolynomial
 
-structure SumcheckAbstract extends InteractiveOracleProofs :=
-  (sumcheck : ∀ (p : MvPolynomial σ R) (h : p = 0), ∃ (q : MvPolynomial σ R), p.coeff 0 = q.coeff 0 ∧ ∀ (i : σ), p.coeff i = q.coeff i)
+-- structure SumcheckAbstract extends InteractiveOracleProofs := sorry

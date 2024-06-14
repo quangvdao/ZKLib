@@ -1,7 +1,7 @@
 import Mathlib.Data.MvPolynomial.Basic
+import Mathlib.Data.MvPolynomial.Degrees
 import Mathlib.Data.Fintype.Basic
 import Jolt.Relation.Basic
-import Mathlib.Data.Bitvec.Defs
 
 /-!
 # Sumcheck Relation
@@ -18,7 +18,20 @@ The witness of the sumcheck protocol is a value $T \in R$.
 
 The sumcheck relation states that the following holds:
 $$ \sum_{y \in \{0,1\}^n} p(y) = T. $$
+
+## TODOs
+
+Extend the relation to capture sumcheck over modules. This will allow instantiating e.g. the Bulletproofs protocol as an instance of sumcheck.
+
+## References
+
+[JACM:LFKN92]
+
+[C:BooChiSot21]
+
 -/
+
+namespace AbstractSumcheck
 
 noncomputable section
 
@@ -28,40 +41,93 @@ open Relation
 
 variable {R : Type _} [CommSemiring R]
 
+-- structure AbstractSumcheckInstance (R : Type) [CommSemiring R] where
+--   nVars : ℕ
+--   degs : Fin nVars → ℕ
+--   domain : Finset R
+--   poly : MvPolynomial (Fin nVars) R
+--   target : R
 
-def zero_one_set : Set R := {r : R | r = 0 ∨ r = 1}
-
-#check ↑zero_one_set
-
-def zero_one : Type := {r : R // r = 0 ∨ r = 1}
-
-#check ↑zero_one
-
-def hyperCube (n : ℕ) : Type := Fin n → @zero_one R _
-
-def hCTwo : @hyperCube R _ 2 :=
-  fun i => if i = 0 then ⟨0, Or.inl rfl⟩ else ⟨1, Or.inr rfl⟩
-
-def sumOverSubset (n : ℕ) (p : MvPolynomial (Fin n) R) (H : Finset ((Fin n) → R)) : R :=
-  Finset.sum H (fun x => eval x p)
-
-def sumOverHyperCube (n : ℕ) (p : MvPolynomial (Fin n) R) : R :=
-  sumOverSubset n p (Finset.univ Finset.pi )
-
-#check Finset.pi
-
-#check UInt8
-
-structure AbstractSumcheckInstance (R : Type) [CommSemiring R] where
+structure ParamsType where
   nVars : ℕ
   degs : Fin nVars → ℕ
-  poly : MvPolynomial (Fin nVars) R
-  domainPredicate : R → Prop
+  domain : Finset R
+
+#check @ParamsType R
+
+structure StmtType (pp : @ParamsType R) where
+  poly : MvPolynomial (Fin pp.nVars) R
   target : R
 
--- instance AbstractSumcheckRelation [Inhabited R] [CommSemiring R] : Relation (R × (n : ℕ) × (Fin n → ℕ)) _ _ where
---   isValid := fun {pp stmt wit} => isValidBool stmt wit
+def WitType (_ : @ParamsType R) : Type := Empty
 
-namespace Sumcheck
+def productDomain (n : ℕ) (D : Finset R) : Finset (Fin n → R) :=
+  @Fintype.piFinset (Fin n) _ _ (fun _ => R) (fun _ => D)
 
-end Sumcheck
+def sumOverDomain (n : ℕ) (p : MvPolynomial (Fin n) R) (D : Finset R) : R :=
+  Finset.sum (productDomain n D) (fun x => eval x p)
+
+
+-- TODO: fix the synthesization order issue
+instance SumcheckRelation : Relation where
+  Index := @ParamsType R
+  Stmt := StmtType
+  Wit := WitType
+  isValid := fun index stmt wit =>
+    sumOverDomain index.nVars stmt.poly index.domain = stmt.target
+        ∧ ∀ i : Fin index.nVars, stmt.poly.degreeOf i ≤ index.degs i
+
+
+#check SumcheckRelation
+
+
+section HyperCube
+
+variable {R : Type _} [CommSemiring R] [Nontrivial R]
+
+def zeroOnePred : R → Prop := fun r => r = 0 ∨ r = 1
+
+def zeroOneSet : Set R := {r : R | zeroOnePred r}
+
+@[simp]
+instance zeroOneSetFinset : Finset R where
+  val := {0, 1}
+  nodup := by simp
+
+-- def hyperCube (n : ℕ) : Finset ((Fin n) → R) :=
+--   @Fintype.piFinset (Fin n) _ _ (fun _ => R) (fun _ => zeroOneSetFinset)
+
+def sumOverHyperCube (n : ℕ) (p : MvPolynomial (Fin n) R) : R :=
+  sumOverDomain n p zeroOneSetFinset
+
+-- def zeroOneSubtype : Type := {r : R // zeroOnePred r}
+
+-- def zeroInSubtype : @zeroOneSubtype R _ := ⟨0, Or.inl rfl⟩
+
+-- def oneInSubtype : @zeroOneSubtype R _ := ⟨1, Or.inr rfl⟩
+
+-- instance zeroOneSubtypeFintype : Fintype (@zeroOneSubtype R _) where
+--   elems := Finset.subtype zeroOnePred
+--   complete := fun x => by
+--     simp
+
+-- #check zeroOneSubtype
+
+-- instance zero_one_fintype : Fintype (zero_one R) where
+--   elems := {⟨0, Or.inl rfl⟩, ⟨1, Or.inr rfl⟩}
+--   complete := fun x => by
+--     cases x
+--     . simp
+--     . simp
+
+-- def hyperCube (n : ℕ) : Type := Fin n → zeroOneSet
+
+-- def hCTwo : @hyperCube R _ 2 :=
+--   fun i => if i = 0 then ⟨0, Or.inl rfl⟩ else ⟨1, Or.inr rfl⟩
+
+end HyperCube
+
+
+end
+
+end AbstractSumcheck
