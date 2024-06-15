@@ -53,10 +53,8 @@ structure IndexType (R : Type _) [CommSemiring R] where
   degs : Fin nVars → ℕ
   domain : Finset R
 
-#check @IndexType R
-
-structure StmtType (R : Type _) [CommSemiring R] (pp : IndexType R) where
-  poly : MvPolynomial (Fin pp.nVars) R
+structure StmtType (R : Type _) [CommSemiring R] (index : IndexType R) where
+  poly : MvPolynomial (Fin index.nVars) R
   target : R
 
 def WitType (R : Type _) [CommSemiring R] (_ : IndexType R) : Type := Empty
@@ -68,7 +66,6 @@ def sumOverDomain (n : ℕ) (p : MvPolynomial (Fin n) R) (D : Finset R) : R :=
   Finset.sum (productDomain n D) (fun x => eval x p)
 
 
--- TODO: fix the synthesization order issue
 instance SumcheckRelation (R : Type _) [CommSemiring R] : Relation R where
   Index := IndexType R
   Stmt := StmtType R
@@ -78,12 +75,9 @@ instance SumcheckRelation (R : Type _) [CommSemiring R] : Relation R where
         ∧ ∀ i : Fin index.nVars, stmt.poly.degreeOf i ≤ index.degs i
 
 
-#check SumcheckRelation
-
-
 section HyperCube
 
-variable {R : Type _} [CommSemiring R] [Nontrivial R]
+variable [Nontrivial R]
 
 def zeroOnePred : R → Prop := fun r => r = 0 ∨ r = 1
 
@@ -93,9 +87,6 @@ def zeroOneSet : Set R := {r : R | zeroOnePred r}
 instance zeroOneSetFinset : Finset R where
   val := {0, 1}
   nodup := by simp
-
--- def hyperCube (n : ℕ) : Finset ((Fin n) → R) :=
---   @Fintype.piFinset (Fin n) _ _ (fun _ => R) (fun _ => zeroOneSetFinset)
 
 def sumOverHyperCube (n : ℕ) (p : MvPolynomial (Fin n) R) : R :=
   sumOverDomain n p zeroOneSetFinset
@@ -112,18 +103,6 @@ def sumOverHyperCube (n : ℕ) (p : MvPolynomial (Fin n) R) : R :=
 --     simp
 
 -- #check zeroOneSubtype
-
--- instance zero_one_fintype : Fintype (zero_one R) where
---   elems := {⟨0, Or.inl rfl⟩, ⟨1, Or.inr rfl⟩}
---   complete := fun x => by
---     cases x
---     . simp
---     . simp
-
--- def hyperCube (n : ℕ) : Type := Fin n → zeroOneSet
-
--- def hCTwo : @hyperCube R _ 2 :=
---   fun i => if i = 0 then ⟨0, Or.inl rfl⟩ else ⟨1, Or.inr rfl⟩
 
 end HyperCube
 
