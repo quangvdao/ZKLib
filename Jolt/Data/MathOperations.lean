@@ -1,13 +1,15 @@
 import Mathlib.Data.Nat.Log
 import Mathlib.Data.Int.Basic
 import Mathlib.Data.Bitvec.Defs
+import Jolt.ToMathlib.Arrays.Basic
 
 
-def isBoolean {R : Type} [DecidableEq R] [Inhabited R] [Ring R] (x : Array R) : Bool := ∀ i, (h : i < x.size) → x[i] = 0 ∨ x[i] = 1
 
-#eval isBoolean #[(1 : ℤ )]
+def isBoolean {R : Type} [CommSemiring R] (x : Array R) : Prop := ∀ i, (h : i < x.size) → x[i] = 0 ∨ x[i] = 1
 
-def toNum {R : Type} [DecidableEq R] [Inhabited R] [Ring R] (x : Array R) : ℕ :=
+-- #eval isBoolean #[(1 : ℤ )]
+
+def toNum {R : Type} [DecidableEq R] [CommSemiring R] (x : Array R) : ℕ :=
   (Array.map (λ r => if r = 0 then 0 else 1) x).reverse.foldl (λ acc elem => (acc * 2) + elem) 0
 
 #eval toNum #[(1 : ℤ), (1 : ℤ), (0 : ℤ)]
@@ -24,51 +26,14 @@ let padArr : Array R := (Array.range (2 ^ n)).map (λ i => dite (i < arr.size) (
 def dotProduct {R : Type} [Inhabited R] [Ring R] (x : Array R) (y : Array R) : R :=
   x.zipWith y (λ a b => a * b) |>.foldl (λ acc elem => acc + elem) 0
 
+-- theorem zipWith_comm {R : Type} [Inhabited R] [CommRing R] (x : Array R) (y : Array R) (h : x.size = y.size) : x.zipWith y (λ a b => a * b) = y.zipWith x (λ a b => a * b) := by
+--   apply Array.ext
 
 
-theorem length_eq_zipWith_length (x : List α) (y : List β) (f : α → β → γ) (h : x.length ≤ y.length) : (List.zipWith f x y).length = x.length := by
-  revert y
-  induction x with
-  | nil => aesop
-  | cons a x' _ => aesop
-
-
-
-lemma zipWithAux_at_size (a : Array α) (b : Array β) (f : α → β → γ) (h : n ≥ b.size) :
-  Array.zipWithAux f a b n c = c :=
-by
-  unfold Array.zipWithAux
-  split; split; simp_rw
-  sorry
-  -- . cases Nat.not_le_of_gt ‹_› h
-  -- . simp
-  -- . simp
-
-
-theorem zipWith_eq_zipWith_data (x : Array α) (y : Array β) (f : α → β → γ) : (Array.zipWith x y f).data = List.zipWith f x.data y.data := by
-  unfold Array.zipWith
-  unfold Array.zipWithAux
-  split; split
-  sorry
-  -- . sorry
-
-
-theorem size_eq_zipWith_size (x : Array α) (y : Array β) (f : α → β → γ) (h : x.size = y.size) : (x.zipWith y f).size = x.size := by
-  revert y
-  induction x.data with
-  | nil =>
-
-
-
-
-theorem zipWith_comm {R : Type} [Inhabited R] [CommRing R] (x : Array R) (y : Array R) (h : x.size = y.size) : x.zipWith y (λ a b => a * b) = y.zipWith x (λ a b => a * b) := by
-  apply Array.ext
-
-
-theorem dotProduct_comm {R : Type} [Inhabited R] [CommRing R] (x : Array R) (y : Array R) : dotProduct x y = dotProduct y x := by
-  unfold dotProduct
-  unfold Array.foldl
-  refine congrArg Id.run ?h
+-- theorem dotProduct_comm {R : Type} [Inhabited R] [CommRing R] (x : Array R) (y : Array R) : dotProduct x y = dotProduct y x := by
+--   unfold dotProduct
+--   unfold Array.foldl
+--   refine congrArg Id.run ?h
 
   -- refine congrArg Id.run ?h
 
@@ -95,6 +60,7 @@ def evalToMonomial {R : Type} [Inhabited R] [Ring R] (a : Array R) : Array R :=
         a
   termination_by (2 ^ n - h)
   loop a 1
+
 
 def monomialToEval {R : Type} [Inhabited R] [CommSemiring R] [HSub R R R] (a : Array R) (n : ℕ) : Array R :=
   if a.size ≠ 2 ^ n then
@@ -126,13 +92,13 @@ def unitArray {R : Type} [Inhabited R] [Ring R] (n k : ℕ) : Array R :=
 
 -- #eval unitArray 3 2
 
-theorem unitArray_size {R : Type} [Inhabited R] [Ring R] (n k : ℕ) (h : k < n) : (unitArray n k).get! k = (1 : R) := by
-  unfold unitArray
-  simp [h]
-  sorry
+-- theorem unitArray_size {R : Type} [Inhabited R] [Ring R] (n k : ℕ) (h : k < n) : (unitArray n k).get! k = (1 : R) := by
+--   unfold unitArray
+--   simp [h]
+--   sorry
 
 
-theorem dotProduct_unitArray_eq_get! {R : Type} [Inhabited R] [Ring R] (x : Array R) (k : ℕ) (h : k < x.size) : dotProduct x (unitArray x.size k) = x.get! k := by
-  unfold dotProduct
-  simp [unitArray_size]
-  sorry
+-- theorem dotProduct_unitArray_eq_get! {R : Type} [Inhabited R] [Ring R] (x : Array R) (k : ℕ) (h : k < x.size) : dotProduct x (unitArray x.size k) = x.get! k := by
+--   unfold dotProduct
+--   simp [unitArray_size]
+--   sorry

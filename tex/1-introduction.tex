@@ -61,6 +61,13 @@ Potential concerns with the ``verified'' implementation:
     \item Lean automatically uses ``unsafe'' implementations of Array operations, which is equal to the intended operations when the array has size less than the size of the machine word (which is either $32$ or $64$ bits, depending on the architecture).
 \end{itemize}
 
+What is the trusted computing base anyway?
+\begin{itemize}
+    \item If we just look at the executable code \& theorems about them in Lean, then we only need to trust the Lean kernel.
+    \item If we use ``lake'' to compile down to C code, then we need to trust both the Lean compiler, and that the optimized versions of e.g. Arrays operations (as defined in Lean) are correct.
+    {\color{red} Can we prove that these more efficient versions of array operations are equivalent to the one that has been proven to be correct?}
+\end{itemize}
+
 \fi
 
 
