@@ -33,9 +33,12 @@ opaque def maliciousProver :=
 
 -- Define the structure for the interactive proof system
 -- Note: this structure is bad / not general enough, since it assumes the verifier takes the same action in each round (i.e. for ver1)
-structure InteractiveProof (Instance VerifierState Response Randomness Challenge : Type) :=
-  (ver0 : Instance → VerifierState → Bool)
-  (ver1 : Instance → Response → Randomness → Challenge → List Challenge → VerifierState → (Bool × Instance × VerifierState))
+structure InteractiveOracleProof (ProverType : Type _) (VerifierType : Type _) where
+  honestProver : ProverType
+  honestVerifier : VerifierType
+
+  -- (ver0 : Instance → VerifierState → Bool)
+  -- (ver1 : Instance → Response → Randomness → Challenge → List Challenge → VerifierState → (Bool × Instance × VerifierState))
 
 -- Define the prove function within the context of InteractiveProof
 namespace InteractiveProof
@@ -63,7 +66,7 @@ variable {F : Type} [Field F] [Fintype F]
 variable {Stmt : Type} {Wit : Type} {Randomness : Type}
 
 -- upgrade this to multivariate polynomials (w/o explicit bound on number of variables)
-def ProverMessage := List (Polynomial' F)
+def ProverMessage := List (Polynomial F)
 
 def ChallengeRound : Type := List F
 
@@ -110,7 +113,7 @@ structure PolyIop (F : Type) [Field F] [Fintype F] (Stmt : Type) (Wit : Type) wh
 
 /-
   -- Define the prover function
-  prover : Stmt → Wit → ℕ → List F → (List (Polynomial' F), List F)
+  prover : Stmt → Wit → ℕ → List F → (List (Polynomial F), List F)
   prover stmt wit 0 randomness :=
     let polys := List.range (numPolys stmt 0) |>.map (λ _, generatePolynomial (numVars stmt 0 _) (degreeBound stmt 0 _))
     let newState := updateState stmt wit randomness
@@ -139,7 +142,7 @@ def PolyIop.complete (F : Type) [Field F] [Fintype F] {Stmt Wit : Type}
   -- The proof should verify with probability 1
     (do -- This do block over the probability monad is interpreted as a function
       let coins ← 𝓟.roundRandomness stmt
-      let oracles : ℕ → Polynomial' F := fun i =>
+      let oracles : ℕ → Polynomial F := fun i =>
         𝓟.prover stmt wit (coins.take i)
       let oracle_queries : ℕ → List F := fun i => (𝓟.oracleQueries stmt coins).getD i []
       let oracle_responses : ℕ → List F := fun i =>
@@ -162,7 +165,7 @@ def PolyIop.sound (F : Type) [Field F] [Fintype F] {Stmt Wit : Type}
   -- ... if the probability of convinicing the verifier is more than the soundness ε ...
   (do
     let coins ← 𝓟.roundRandomness stmt
-    let oracles : ℕ → Polynomial' F := fun i =>
+    let oracles : ℕ → Polynomial F := fun i =>
       adv_prover (coins.take i)
     let oracle_queries : ℕ → List F := fun i => (𝓟.oracleQueries stmt coins).getD i []
     let oracle_responses : ℕ → List F := fun i =>
@@ -187,7 +190,7 @@ def PolyIop.sound_enriched (F : Type) [Field F] [Fintype F] {Stmt Wit A : Type}
   ∀ stmt : Stmt, ∀ adv_prover : @ProofProducer F, ∀ a : A,
   (do
     let coins ← 𝓟.roundRandomness stmt
-    let oracles : ℕ → Polynomial' F := fun i =>
+    let oracles : ℕ → Polynomial F := fun i =>
       adv_prover (coins.take i)
     let oracle_queries : ℕ → List F := fun i => (𝓟.oracleQueries stmt coins).getD i []
     let oracle_responses : ℕ → List F := fun i =>
