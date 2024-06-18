@@ -1,5 +1,6 @@
 import Mathlib.FieldTheory.Tower
 import Mathlib.FieldTheory.Finite.GaloisField
+import Mathlib.RingTheory.Adjoin.Basic
 -- import Mathlib.Data.Polynomial.Basic
 
 /-!
@@ -13,19 +14,40 @@ noncomputable section
 
 open Polynomial
 
-#check Polynomial.C 1
-
 notation:10 "GF(" term:10 ")" => GaloisField term 1
 
-#check (X + 1 : GaloisField 3 3)
+#check (AdjoinRoot.mk (X^2 + X + 1 : Polynomial (GaloisField 2 1))).toFun X
 
-class FieldWithDistinguishedElements (F : Type _) extends Field F where
-  distinguishedElements : List F
+#check GaloisField 2 1
 
-def AbstractBTF (k : ℕ) : FieldWithDistinguishedElements :=
-  | 0 => GaloisField 2 1
-  | 1 => AdjoinRoot (X^2 + X + 1 : Polynomial (GaloisField 2 1))
-  | k + 1 => sorry -- Quotient (Polynomial (AbstractBTF k)) (X^2 + X + 1)
+def func (k : ℕ) : ℕ :=
+  match k with
+  | 0 => 0
+  | k + 1 => new_k
+    where new_k := k + 1
+
+def someType : (F : Type _) × List F := ⟨ Nat, ([1] : List Nat) ⟩
+
+#check (F : Type _) × List F
+
+-- structure FieldWithDistinguishedElements (F : Type _) [Field F] where
+--   distinguishedElements : List F
+
+def AbstractBTF (k : ℕ) : (F : Type _) × List F :=
+  match k with
+  | 0 =>
+    let F := GaloisField 2 1
+    have : Inhabited F := inferInstance
+    have : Semiring F := inferInstance
+    ⟨ F, [(1 : F)] ⟩
+  | k + 1 =>
+    let ⟨ F, elements ⟩ := AbstractBTF k
+    have : Semiring F := inferInstance
+    let newF := AdjoinRoot (X^2 + elements.getLastD * X + 1 : Polynomial F)
+    have : Semiring newF := inferInstance
+    let newX := AdjoinRoot.root (X^2 + elements.getLastD * X + 1 : Polynomial F)
+    ⟨ newF, elements.map (fun x => AdjoinRoot.of.toFun x) ++ [newX] ⟩
+
 
 end
 
