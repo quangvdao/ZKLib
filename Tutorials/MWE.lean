@@ -6,6 +6,7 @@ def otherNat : Type := Nat
 
 
 
+
 noncomputable section
 
 open Polynomial

@@ -34,9 +34,17 @@ def abstractSumcheckVerifier : Type _ := sorry
 
 
 
--- Define the restriction operator on a sumcheck claim
+/-- Evaluate the first variable of a multivariate polynomial -/
+def boundFirstVar (n : ℕ) (p : MvPolynomial (Fin (n + 1)) R) (r : R) : MvPolynomial (Fin n) R := ((finSuccEquiv R n).toFun p).eval (C r)
 
-def boundTopVar (n : ℕ) (p : MvPolynomial (Fin (n + 1)) R) (r : R) : MvPolynomial (Fin n) R := ((finSuccEquiv R n).toFun p).eval (C r)
+def testPoly : MvPolynomial (Fin 2) ℕ := X 0 * X 0
+
+theorem eval_testPoly : boundFirstVar 1 testPoly 2 = 4 := by
+  simp only [boundFirstVar, testPoly, finSuccEquiv_X_zero]
+  -- conv in MvPolynomial.eval _ (C 2) => { unfold finnSuccEquiv }
+  -- simp [finSuccEquiv_X_zero]
+
+-- def boundFirstVar (n : ℕ) (p : MvPolynomial (Fin (n + 1)) R) (r : R) : MvPolynomial (Fin n) R := rename (Fin.rev)(boundLastVar n (rename (Fin.rev) p) r)
 
 -- def productDomain (n : ℕ) (D : Finset R) : Finset (Fin n → R) :=
 --   @Fintype.piFinset (Fin n) _ _ (fun _ => R) (fun _ => D)
@@ -46,7 +54,7 @@ def boundTopVar (n : ℕ) (p : MvPolynomial (Fin (n + 1)) R) (r : R) : MvPolynom
 
 --
 
-def boundTopVarSum (n : ℕ) (p : MvPolynomial (Fin (n + 1)) R) (D : Finset R) : Polynomial R :=
+def boundTopVarSum (n : ℕ) (p : MvPolynomial (Fin (n + 1)) R) (D : Finset R) : Polynomial R := sorry
 
 
 end AbstractSumcheck
