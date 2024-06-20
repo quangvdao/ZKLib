@@ -1,5 +1,6 @@
 import Mathlib.Data.Polynomial.Basic
 import Mathlib.Data.MvPolynomial.Equiv
+import Mathlib.Logic.Equiv.Fin
 -- import Jolt.InteractiveOracleProof.Basic
 import Jolt.Relation.Sumcheck
 
@@ -26,35 +27,28 @@ variable {R : Type _} [CommSemiring R]
 def abstractSumcheckProver : Type _ := sorry
 def abstractSumcheckVerifier : Type _ := sorry
 
-#check MvPolynomial.commSemiring
-
-#check MvPolynomial.C (1 : ℤ)
-
-#check Polynomial.eval
-
-
-
 /-- Evaluate the first variable of a multivariate polynomial -/
-def boundFirstVar (n : ℕ) (p : MvPolynomial (Fin (n + 1)) R) (r : R) : MvPolynomial (Fin n) R := ((finSuccEquiv R n).toFun p).eval (C r)
-
-def testPoly : MvPolynomial (Fin 2) ℕ := X 0 * X 0
-
-theorem eval_testPoly : boundFirstVar 1 testPoly 2 = 4 := by
-  simp only [boundFirstVar, testPoly, finSuccEquiv_X_zero]
-  -- conv in MvPolynomial.eval _ (C 2) => { unfold finnSuccEquiv }
-  -- simp [finSuccEquiv_X_zero]
-
--- def boundFirstVar (n : ℕ) (p : MvPolynomial (Fin (n + 1)) R) (r : R) : MvPolynomial (Fin n) R := rename (Fin.rev)(boundLastVar n (rename (Fin.rev) p) r)
+def boundFirstVar (n : ℕ) (p : MvPolynomial (Fin (n + 1)) R) (r : R) : MvPolynomial (Fin n) R := (finSuccEquiv R n p).eval (C r)
 
 -- def productDomain (n : ℕ) (D : Finset R) : Finset (Fin n → R) :=
 --   @Fintype.piFinset (Fin n) _ _ (fun _ => R) (fun _ => D)
 
--- def sumOverDomain (n : ℕ) (p : MvPolynomial (Fin n) R) (D : Finset R) : R :=
---   Finset.sum (productDomain n D) (fun x => eval x p)
+-- Equivalence that sends 0 to n and shift everything down by 1
+def Fin.finSuccEquiv (n : ℕ) : Fin (n + 1) ≃ Sum (Fin n) (Fin 1) := by apply Equiv.symm (@finSumFinEquiv n 1)
 
---
+#check sumAlgEquiv
 
-def boundTopVarSum (n : ℕ) (p : MvPolynomial (Fin (n + 1)) R) (D : Finset R) : Polynomial R := sorry
+-- Sum over all but the first variable
+-- First convert p(X_0,...,X_n) to q(X)(X_0,...,X_{n-1})
+def sumOverDomainPoly (n : ℕ) (p : MvPolynomial (Fin (n + 1)) R) (D : Finset R) : Polynomial R :=
+  let q := sumAlgEquiv R (Fin n) (Fin 1)
+  sumOverDomain n (productDomain n D) q
+
+
+-- Input: p(X_0, X_1, ..., X_{n+1}), subset D of R, value r
+-- Output: q(X) := ∑ (b_0, b_1, ..., b_{n-1}) in D^n, p(r, X, b_0, ..., b_{n-1})
+-- Why not? First bound the first variable, then do a sum over the last n variables
+def boundTopVarSum (n : ℕ) (p : MvPolynomial (Fin (n + 2)) R) (D : Finset R) (r : R) : Polynomial R := sorry
 
 
 end AbstractSumcheck
