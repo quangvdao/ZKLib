@@ -252,4 +252,4 @@ open Expr Prim in
 
 /- do-Notation for Monads -/
 
-#print EStateM.Result
+#print IO.getStdout

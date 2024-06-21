@@ -1,4 +1,4 @@
--- import Mathlib.Data.Fintype.Basic
+import Mathlib.Probability.ProbabilityMassFunction.Basic
 import Jolt.Data.ComputableDistribution
 
 /-!
@@ -29,7 +29,18 @@ We formalize IOPs with the following objects:
 def proverRound (Instance ProverState Challenge Randomness Response : Type) :=
   Instance → ProverState → List Challenge → Randomness → (Response × ProverState)
 
-opaque def maliciousProver :=
+universes u v w y
+
+variable (σ : Type u) (Input : Type v) (Output: Type w)
+
+def State := String
+
+structure Party (α : Type y) where
+  run : State → Input → State × Output
+
+class PartyM (m : Type _ → Type _) where
+  getInput : m (Option Input)
+  returnOutput : Output → m Unit
 
 -- Define the structure for the interactive proof system
 -- Note: this structure is bad / not general enough, since it assumes the verifier takes the same action in each round (i.e. for ver1)

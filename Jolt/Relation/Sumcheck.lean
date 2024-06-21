@@ -1,9 +1,9 @@
-import Mathlib.Data.MvPolynomial.Basic
-import Mathlib.Data.MvPolynomial.Degrees
-import Mathlib.Data.Fintype.Basic
-import Mathlib.Algebra.Ring.Equiv
+import Mathlib.Data.MvPolynomial.Equiv
+-- import Mathlib.Data.Fintype.Basic
+-- import Mathlib.Algebra.Ring.Equiv
 import Mathlib.Algebra.BigOperators.RingEquiv
 import Jolt.Relation.Basic
+import Jolt.ToMathlib.MvPolynomial.Aux
 
 /-!
 # Sumcheck Relation
@@ -43,13 +43,6 @@ open Relation
 
 variable {R : Type _} [CommSemiring R]
 
--- structure AbstractSumcheckInstance (R : Type) [CommSemiring R] where
---   nVars : ℕ
---   degs : Fin nVars → ℕ
---   domain : Finset R
---   poly : MvPolynomial (Fin nVars) R
---   target : R
-
 structure IndexType (R : Type _) [CommSemiring R] where
   nVars : ℕ
   degs : Fin nVars → ℕ
@@ -61,20 +54,13 @@ structure StmtType (R : Type _) [CommSemiring R] (index : IndexType R) where
 
 def WitType (R : Type _) [CommSemiring R] (_ : IndexType R) : Type := Empty
 
-def productDomain (n : ℕ) (D : Finset R) : Finset (Fin n → R) :=
-  @Fintype.piFinset (Fin n) _ _ (fun _ => R) (fun _ => D)
-
-def sumOverDomain (n : ℕ) (D : Finset R) : MvPolynomial (Fin n) R →ₗ[R] R where
-  toFun := fun p => ∑ x in productDomain n D, eval x p
-  map_add' := fun p q => by simp [Finset.sum_add_distrib]
-  map_smul' := fun r p => by simp [Finset.mul_sum]
-
+/-- The sumcheck relation -/
 instance SumcheckRelation (R : Type _) [CommSemiring R] : Relation R where
   Index := IndexType R
   Stmt := StmtType R
   Wit := WitType R
   isValid := fun index stmt _ =>
-    sumOverDomain index.nVars index.domain stmt.poly = stmt.target
+    sumFinset index.nVars index.domain stmt.poly = stmt.target
         ∧ ∀ i : Fin index.nVars, stmt.poly.degreeOf i ≤ index.degs i
 
 
@@ -92,20 +78,7 @@ instance zeroOneSetFinset : Finset R where
   nodup := by simp
 
 def sumOverHyperCube (n : ℕ) (p : MvPolynomial (Fin n) R) : R :=
-  sumOverDomain n zeroOneSetFinset p
-
--- def zeroOneSubtype : Type := {r : R // zeroOnePred r}
-
--- def zeroInSubtype : @zeroOneSubtype R _ := ⟨0, Or.inl rfl⟩
-
--- def oneInSubtype : @zeroOneSubtype R _ := ⟨1, Or.inr rfl⟩
-
--- instance zeroOneSubtypeFintype : Fintype (@zeroOneSubtype R _) where
---   elems := Finset.subtype zeroOnePred
---   complete := fun x => by
---     simp
-
--- #check zeroOneSubtype
+  sumFinset n zeroOneSetFinset p
 
 end HyperCube
 
