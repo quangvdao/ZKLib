@@ -63,26 +63,6 @@ instance SumcheckRelation (R : Type _) [CommSemiring R] : Relation R where
     sumFinset index.nVars index.domain stmt.poly = stmt.target
         ∧ ∀ i : Fin index.nVars, stmt.poly.degreeOf i ≤ index.degs i
 
-
-section HyperCube
-
-variable [Nontrivial R]
-
-def zeroOnePred : R → Prop := fun r => r = 0 ∨ r = 1
-
-def zeroOneSet : Set R := {r : R | zeroOnePred r}
-
-@[simp]
-instance zeroOneSetFinset : Finset R where
-  val := {0, 1}
-  nodup := by simp
-
-def sumOverHyperCube (n : ℕ) (p : MvPolynomial (Fin n) R) : R :=
-  sumFinset n zeroOneSetFinset p
-
-end HyperCube
-
-
 end
 
 end AbstractSumcheck

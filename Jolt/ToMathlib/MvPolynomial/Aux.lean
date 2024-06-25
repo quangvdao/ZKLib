@@ -19,9 +19,8 @@ variable {R : Type u} [CommSemiring R] {σ : Type*} {m n : ℕ}
 def CEmbedding : R ↪ MvPolynomial (Fin m) R := ⟨C, C_injective (Fin m) R⟩
 
 
--- def productFinset (n : ℕ) (D : Finset R) : Finset (Fin n → R) :=
---   @Fintype.piFinset (Fin n) _ _ (fun _ => R) (fun _ => D)
-
+def productFinset (n : ℕ) (D : Finset R) : Finset (Fin n → R) := Fintype.piFinset (fun _ => D)
+  -- @Fintype.piFinset (Fin n) _ _ (fun _ => R) (fun _ => D)
 
 /-- Equivalence that splits `Fin (m + n)` to `Fin m` and `Fin n`, then swaps the two -/
 def finSumCommEquiv (m : ℕ) (n : ℕ) : Fin (m + n) ≃ Sum (Fin n) (Fin m) := (@finSumFinEquiv m n).symm.trans (Equiv.sumComm (Fin m) (Fin n))
@@ -34,7 +33,7 @@ def sumPartialFinset (m : ℕ) (n : ℕ) (D : Finset R) : MvPolynomial (Fin (m +
     let q := rename (finSumCommEquiv m n) p
     let q' := sumAlgEquiv R (Fin n) (Fin m) q
     let D' := Finset.map CEmbedding D
-    let prod_D' := @piFinset (Fin n) _ _ (fun _ => MvPolynomial (Fin m) R) (fun _ => D')
+    let prod_D' := Fintype.piFinset (fun _ => D')
     ∑ x in prod_D', eval x q'
   map_add' := fun p q => by simp [sum_add_distrib]
   map_smul' := fun r p => by simp [smul_eq_C_mul, mul_sum]

@@ -2,6 +2,7 @@ import Mathlib.Data.Array.Basic
 
 /-!
   ## Some proofs for Array.zipWith
+  No longer needed, just import `batteries`
 -/
 
 

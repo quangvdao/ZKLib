@@ -26,8 +26,8 @@ We formalize IOPs with the following objects:
 
 -- Type signature for a single round of the prover
 -- Takes in an instance, a prover state, a list of challenges for the current round, and a randomness value, then outputs a response and a new prover state
-def proverRound (Instance ProverState Challenge Randomness Response : Type) :=
-  Instance → ProverState → List Challenge → Randomness → (Response × ProverState)
+def proverRound (Instance ProverState Challenge Randomness Response : Type _) : Type _ :=
+  Instance → ProverState → List Challenge → Randomness → PMF (Response × ProverState)
 
 universes u v w y
 
