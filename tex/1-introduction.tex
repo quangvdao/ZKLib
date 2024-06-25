@@ -26,22 +26,24 @@ Among the space of zkVMs, Jolt has one of, if not, \emph{the} best-performing pr
 \begin{itemize}
     \item Contains Mathlib, a huge undertaking by mathematicians to formalize modern mathematics. Of interests to us are results about finite fields and multivariate polynomials.
     \item Potential future integration with other Mathlib libraries, to formalize protocols such as e.g. Graph Hamiltonicity~\cite{blum...} or Graph 3-Coloring~\cite{...}, or others.
+    \item Powerful native metaprogramming framework (for future custom tactics)?
+    \item Generate efficient code
 \end{itemize}
 
 The same justifications were given in prior papers (Bailey-Miller and Bailey-Mishra).
 
 
-\paragraph{New Abstraction: Interactive Oracle Reductions (?)}
+% \paragraph{New Abstraction: Interactive Oracle Reductions (?)}
 
 
-Facilitates modular proofs of soundness for interactive protocols. Especially relevant for complex protocols such as Spartan, Lasso, or offline memory checking.
+% Facilitates modular proofs of soundness for interactive protocols. Especially relevant for complex protocols such as Spartan, Lasso, or offline memory checking.
 
 
 
 \paragraph{Structure of the Formalization}
 
 \begin{itemize}
-    \item Definitions of Interactive Oracle Reductions (IOR), along with specializations to protocols with (multivariate) polynomials.
+    \item Definitions of Interactive Oracle Proofs (IOPs), along with specializations to protocols with (multivariate) polynomials.
     \item Specifications for the various subprotocols (such as sumcheck, linear combination, etc.) using Mathlib's Polynomials objects, which are noncomputable (and hence cannot be executed as code).
     \item Completeness and (round-by-round) soundness proofs of these abstract specifications.
     \item Implementation of multilinear polynomials (in the evaluation basis) and binary tower fields. Proofs that these implementations matches the abstract definitions.
@@ -60,6 +62,8 @@ Potential concerns with the ``verified'' implementation:
 \begin{itemize}
     \item Lean automatically uses ``unsafe'' implementations of Array operations, which is equal to the intended operations when the array has size less than the size of the machine word (which is either $32$ or $64$ bits, depending on the architecture).
 \end{itemize}
+
+How to make sure that the spec is correct? Need to ensure that the definitions and theorem statements are readable to non-experts in Lean / formal verification.
 
 What is the trusted computing base anyway?
 \begin{itemize}
