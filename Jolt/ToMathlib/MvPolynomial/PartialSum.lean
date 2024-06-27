@@ -2,7 +2,7 @@ import Mathlib.Data.MvPolynomial.Equiv
 import Mathlib.Algebra.BigOperators.RingEquiv
 
 /-!
-  # Auxiliary definitions and theorems for `MvPolynomial` relevant to the project
+  # Sum of `MvPolynomial` over some variables taking values in a finite set
 -/
 
 noncomputable section
@@ -26,7 +26,11 @@ def productFinset (n : ℕ) (D : Finset R) : Finset (Fin n → R) := Fintype.piF
 def finSumCommEquiv (m : ℕ) (n : ℕ) : Fin (m + n) ≃ Sum (Fin n) (Fin m) := (@finSumFinEquiv m n).symm.trans (Equiv.sumComm (Fin m) (Fin n))
 
 /--
-A $R$-linear mapping that sends $p(X_0,\dots,X_{m-1},X_m,\dots,X_{m+n-1})$ to $\sum_{x_m,\dots,x_{m+n-1} \in D} p(X_0,\dots,X_{m-1},x_m,\dots,x_{m+n-1})$
+A $R$-linear mapping that sends
+
+$p(X_0,\dots,X_{m-1},X_m,\dots,X_{m+n-1})$ to
+
+$\sum_{x_m,\dots,x_{m+n-1} \in D} p(X_0,\dots,X_{m-1},x_m,\dots,x_{m+n-1})$
 -/
 def sumPartialFinset (m : ℕ) (n : ℕ) (D : Finset R) : MvPolynomial (Fin (m + n)) R →ₗ[R] MvPolynomial (Fin m) R where
   toFun := fun p =>
