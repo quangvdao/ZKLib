@@ -1,12 +1,4 @@
-*/build/*
-/lake-packages/*
-*.olean
-*.ilean
-*.trace
-*.hash
-*.lock
-*.c
-*.c.o
+/.lake/
 .DS_Store
 *.aux
 *.bbl
