@@ -1,6 +1,6 @@
 -- Minimum working example (MWE) to post on Zulip
 
-import Mathlib.Data.MvPolynomial.Equiv
+import Mathlib.Algebra.MvPolynomial.Equiv
 
 noncomputable section
 

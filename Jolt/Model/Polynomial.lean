@@ -1,5 +1,5 @@
-import Mathlib.Data.Polynomial.Basic
-import Mathlib.Data.MvPolynomial.Basic
+import Mathlib.Algebra.Polynomial.Basic
+import Mathlib.Algebra.MvPolynomial.Basic
 -- import Jolt.InteractiveOracleProof.Basic
 
 

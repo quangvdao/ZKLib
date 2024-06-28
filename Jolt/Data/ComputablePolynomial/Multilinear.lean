@@ -3,7 +3,7 @@
 -- import Mathlib.Algebra.Ring.InjSurj
 
 import Jolt.Data.MathOperations
-import Mathlib.Data.MvPolynomial.Basic
+import Mathlib.Algebra.MvPolynomial.Basic
 import Mathlib.Data.ZMod.Defs
 
 -- We define multilinear polynomials over rings by their evaluation on the hypercube {0,1}^n (i.e. the Lagrange basis)

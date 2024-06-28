@@ -25,11 +25,6 @@ lean_lib «Jolt» {
   -- add any library configuration options here
 }
 
-@[default_target]
-lean_exe «tests» {
-  -- root := `Jolt.Tests.TBD
-}
-
 lean_lib «Tutorials» {
   -- root := `Tutorials.CodeExtraction
 }

@@ -3,7 +3,7 @@ import Mathlib.Data.Finset.Basic
 import Mathlib.Probability.Distributions.Uniform
 import Mathlib.Algebra.Ring.InjSurj
 import Mathlib.Algebra.Tropical.Basic
-import Mathlib.Data.Polynomial.Degree.Definitions
+import Mathlib.Algebra.Polynomial.Degree.Definitions
 import Lean.Data.RBMap
 
 def List.matchLength (a : List α) (b : List α) (unit : α) : List α × List α :=

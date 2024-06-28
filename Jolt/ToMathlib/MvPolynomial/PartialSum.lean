@@ -1,4 +1,4 @@
-import Mathlib.Data.MvPolynomial.Equiv
+import Mathlib.Algebra.MvPolynomial.Equiv
 import Mathlib.Algebra.BigOperators.RingEquiv
 
 /-!

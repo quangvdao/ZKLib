@@ -1,7 +1,7 @@
 import Mathlib.FieldTheory.Tower
 import Mathlib.FieldTheory.Finite.GaloisField
 import Mathlib.RingTheory.Adjoin.Basic
--- import Mathlib.Data.Polynomial.Basic
+-- import Mathlib.Algebra.Polynomial.Basic
 
 /-!
 # Binary Tower Field

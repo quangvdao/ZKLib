@@ -6,8 +6,8 @@ Authors: Bolton Bailey
 
 -- Quang Dao: I revised the broken import in this file (Jun 13 2024)
 
-import Mathlib.Data.MvPolynomial.Equiv
-import Mathlib.Data.Polynomial.RingDivision
+import Mathlib.Algebra.MvPolynomial.Equiv
+import Mathlib.Algebra.Polynomial.RingDivision
 import Mathlib.Data.Fin.Tuple.Basic
 
 /-!

@@ -11,5 +11,14 @@ def fibonacci (n : Nat) : Nat :=
       (b, a + b)
   (loop n).snd
 
+def factorial : Nat → Nat
+  | 0 => 1
+  | n + 1 => (n + 1) * factorial n
+
+noncomputable def factorial' : Nat → Nat := factorial
+
+
+#eval factorial 5  -- This will work and output 120
+
 def main : IO Unit := do
   IO.println (fibonacci 5000)

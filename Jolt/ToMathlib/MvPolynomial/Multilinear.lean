@@ -1,4 +1,4 @@
-import Mathlib.Data.MvPolynomial.CommRing
+import Mathlib.Algebra.MvPolynomial.CommRing
 import Jolt.ToMathlib.MvPolynomial.Degrees
 -- import Mathlib.RingTheory.MvPolynomial.Basic
 
@@ -46,7 +46,6 @@ def EqPolynomial (r : Fin n → R) : MvPolynomial (Fin n) R :=
 
 /-- Multilinear extension of evaluations on the hypercube -/
 def MLE (evals : Fin (2 ^ n) → R) : MvPolynomial (Fin n) R := sorry
-
 
 
 

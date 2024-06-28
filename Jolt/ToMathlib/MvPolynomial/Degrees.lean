@@ -1,4 +1,4 @@
-import Mathlib.Data.MvPolynomial.Degrees
+import Mathlib.Algebra.MvPolynomial.Degrees
 
 noncomputable section
 
@@ -23,7 +23,7 @@ section DegreeOf
 
 /-
 -- TODO we can prove equality here if R is a domain
-theorem degreeOf_mul_eq [IsDomain R] (i : σ) (f g : MvPolynomial σ R) :
+theorem degreeOf_mul_eq' [IsDomain R] (i : σ) (f g : MvPolynomial σ R) :
     degreeOf i (f * g) = degreeOf i f + degreeOf i g := by
   classical
   repeat' rw [degreeOf]
