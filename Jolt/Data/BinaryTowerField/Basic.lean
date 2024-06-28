@@ -17,6 +17,17 @@ open Polynomial
 
 notation:10 "GF(" term:10 ")" => GaloisField term 1
 
+-- TODO: consider bundling all the fields below into just one structure, and then make the instances inside accessible. Example from R1CS:
+/-
+-- Bundle R and its CommSemiring instance
+structure RingParams where
+  R : Type _
+  [commSemiring : CommSemiring R]
+
+-- Make the CommSemiring instance accessible
+attribute [instance] RingParams.commSemiring
+-/
+
 -- In this definition, the field defined by (AbstractBinaryTower k) corresponds to GF(2^{2^{k-1}})
 def AbstractBinaryTower (k : ℕ) : (F : Type _) × (List F) × (CommRing F) × (Inhabited F) :=
   match k with
@@ -92,7 +103,7 @@ instance isFieldBTF (n : ℕ) : Field (AbstractBinaryTower n).1 := by
   | zero => simp [AbstractBinaryTower] ; exact inferInstance
   | succ n =>
     simp [AbstractBinaryTower]
-    exact AdjoinRoot.field (polyIrreducibleFact (n + 1))
+    apply AdjoinRoot.field (polyIrreducibleFact (n + 1))
 
 
 

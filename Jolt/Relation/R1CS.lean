@@ -1,4 +1,3 @@
-import Mathlib.Data.Matrix.Basic
 import Mathlib.Data.Matrix.Hadamard
 import Jolt.Relation.Basic
 
@@ -13,42 +12,42 @@ namespace R1CS
 
 open Matrix
 
-variable {R : Type _} [CommSemiring R]
+-- Bundle R and its CommSemiring instance
+structure RingParams where
+  R : Type _
+  [commSemiring : CommSemiring R]
 
-structure IndexType (R : Type _) [CommSemiring R] where
+-- Make the CommSemiring instance accessible
+attribute [instance] RingParams.commSemiring
+
+structure Index (pp : RingParams) where
   m : ℕ -- number of columns
   inputSize : ℕ
   witnessSize : ℕ
-  A : Matrix (Fin m) (Fin (1 + inputSize + witnessSize)) R
-  B : Matrix (Fin m) (Fin (1 + inputSize + witnessSize)) R
-  C : Matrix (Fin m) (Fin (1 + inputSize + witnessSize)) R
+  A : Matrix (Fin m) (Fin (1 + inputSize + witnessSize)) pp.R
+  B : Matrix (Fin m) (Fin (1 + inputSize + witnessSize)) pp.R
+  C : Matrix (Fin m) (Fin (1 + inputSize + witnessSize)) pp.R
 
 @[simp]
-def IndexType.n (index : IndexType R) : ℕ := 1 + index.inputSize + index.witnessSize
+def Index.n (index : Index pp) : ℕ := 1 + index.inputSize + index.witnessSize
 
-structure StmtType (R : Type _) [CommSemiring R] (index : IndexType R) where
-  x : Fin index.inputSize → R
+structure Statement (pp : RingParams) (index : Index pp) where
+  x : Fin index.inputSize → pp.R
 
-structure WitType (R : Type _) [CommSemiring R] (index : IndexType R) where
-  w : Fin index.witnessSize → R
+structure Witness (pp : RingParams) (index : Index pp) where
+  w : Fin index.witnessSize → pp.R
 
--- structure R1CS (R : Type) [Inhabited R] [Ring R] where
---   m : Nat -- number of columns
---   inputSize : Nat
---   witnessSize : Nat
---   -- TODO: define n to be this sum
---   A : Matrix (Fin m) (Fin (1 + inputSize + witnessSize)) R
---   B : Matrix (Fin m) (Fin (1 + inputSize + witnessSize)) R
---   C : Matrix (Fin m) (Fin (1 + inputSize + witnessSize)) R
---   x : Fin inputSize → R
---   w : Fin witnessSize → R
 
-instance R1CSRelation (R : Type _) [CommSemiring R] : Relation R where
-  Index := IndexType R
-  Stmt := StmtType R
-  Wit := WitType R
-  isValid := fun index stmt wit =>
-    let z : Fin index.n → R := Fin.append (Fin.append (λ _ => 1) stmt.x) wit.w
+-- Relation instance for R1CS
+instance relation (pp : RingParams) (index : Index pp) : Relation RingParams Index where
+  Statement := Statement pp index
+  Witness := Witness pp index
+  isValid := fun stmt wit =>
+    let z : Fin index.n → pp.R := Fin.append (Fin.append (λ _ => 1) stmt.x) wit.w
     (index.A *ᵥ z) * (index.B *ᵥ z) = (index.C *ᵥ z)
+
+instance relationFamily (pp : RingParams) : RelationFamily RingParams where
+  Index := Index
+  Relation := relation pp
 
 end R1CS

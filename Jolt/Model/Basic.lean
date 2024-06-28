@@ -1,6 +1,6 @@
 import Mathlib.Probability.ProbabilityMassFunction.Basic
 import Mathlib.Control.Monad.Basic
-import Jolt.Data.SPMF
+-- import Jolt.Data.SPMF
 
 /-!
 # Formalism of Interactive Oracle Proofs
@@ -22,43 +22,59 @@ We formalize IOPs with the following objects:
 -/
 
 
+/--
+  Define the class of Public-Coin Interactive Oracle Proofs
+-/
+class IOP (PParams : Type _) (Index : PParams → Type _) where
+  numRounds : ℕ
+  Statement : Type _
+  PrvState : Type _
+  PrvRand : Type _
+  Message : Type _
+  Challenge : Type _
+  OQuery : Type _
+  OResponse : Type _
+  oracle : Message → OQuery → OResponse
+  honestProver : Statement → PrvState → PrvRand → List Challenge → List Message × PrvState
+  honestVerifier : Statement → List (OQuery → OResponse) → List Challenge → Prop
 
--- Type signature for a single round of the prover
--- Takes in an instance, a prover state, a list of challenges for the current round, and a randomness value, then outputs a response and a new prover state
-def proverRound (Instance ProverState Challenge Response : Type _) : Type _ :=
-  Instance → List Challenge → ProverState → SPMF (Response × ProverState)
+/--
+  Collection of IOPs with the same public parameters `PParams` but possible different indices `Index`
+-/
+structure IOPFamily (PParams : Type _) where
+  Index : PParams → Type _
+  [IOP : IOP PParams Index]
 
-universes u v w y
-
-variable (σ : Type u) (Input : Type v) (Output: Type w)
-
-def State := String
-
-structure Party (α : Type y) where
-  run : State → Input → State × Output
-
-class PartyM (m : Type _ → Type _) where
-  getInput : m (Option Input)
-  returnOutput : Output → m Unit
+attribute [instance] IOPFamily.IOP
 
 
-
--- Define the structure for the interactive proof system
-structure IOP (ProverType : Type _) (VerifierType : Type _) where
-  honestProver : ProverType
-  honestVerifier : VerifierType
-
--- Define the prove function within the context of IOP
 namespace IOP
 
-def execution (ip : IOP Instance VerifierState Response Randomness Challenge)
-          (vs : VerifierState) (prv : proverRound Instance ProverState Challenge Randomness Response)
-          (ps : ProverState) (inst : Instance) (rnd : Randomness) (rounds : List (Challenge × Randomness)) : Bool :=
-  match rounds with
-  | [] => ip.ver0 inst vs
-  | (round_data, rnd') :: remaining_rounds =>
-    let (resp, ps') := prv inst round_data (remaining_rounds.map Prod.fst) rnd ps in
-    let (ok, inst', vs') := ip.ver1 inst resp rnd' round_data (remaining_rounds.map Prod.fst) vs in
-    ok && prove ip vs' prv ps' inst' rnd' remaining_rounds
+/-- Type of an IOP prover -/
+@[simp]
+def Prover (Iop : IOP pp index) : Type _ := Iop.Statement → Iop.PrvState → Iop.PrvRand → List Iop.Challenge → List Iop.Message × Iop.PrvState
+
+/-- Type of an IOP verifier -/
+@[simp]
+def Verifier (Iop : IOP pp index) : Type _ := Iop.Statement → List (Iop.OQuery → Iop.OResponse) → List Iop.Challenge → Prop
+
+
+def execution (Iop : IOP pp index) (verifier : Verifier Iop) (prover : Prover Iop) : Prop :=
+  sorry
+
+
+def completeness (Iop : IOP pp index) (verifier : Verifier Iop) (prover : Prover Iop) : Prop :=
+  sorry
+
+
+def soundness (Iop : IOP pp index) (verifier : Verifier Iop) (prover : Prover Iop) (soundnessBound : Rat) : Prop :=
+  sorry
+
+
+def roundByRoundSoundness (Iop : IOP pp index) (verifier : Verifier Iop) (prover : Prover Iop) (badFunction : List Iop.Message → List Iop.Challenge → Prop) : Prop :=
+  sorry
+
+def zeroKnowledge (Iop : IOP pp index) (verifier : Verifier Iop) (prover : Prover Iop) : Prop :=
+  sorry
 
 end IOP

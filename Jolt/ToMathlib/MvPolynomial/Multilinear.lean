@@ -41,7 +41,7 @@ def isMultilinear (p : MvPolynomial σ R) : Prop := ∀ n : σ, p.degreeOf n ≤
 
 def singleEqPolynomial (r : R) (x : MvPolynomial (Fin n) R) : MvPolynomial (Fin n) R := (1 - C r) * (1 - x) + C r * x
 
-def EqPolynomial (r : Fin n → R) : MvPolynomial (Fin n) R :=
+def eqPolynomial (r : Fin n → R) : MvPolynomial (Fin n) R :=
   ∏ i : Fin n, singleEqPolynomial (r i) (X i)
 
 /-- Multilinear extension of evaluations on the hypercube -/
@@ -82,8 +82,8 @@ theorem singleEqPolynomial_degreeOf (r : R) (i : Fin n) :
   --   apply le_trans (degreeOf_C_mul_le _ _ _) _
   --   apply
 
-theorem EqPolynomial_isMultilinear (r : Fin n → R) : isMultilinear (EqPolynomial r) := by
-  simp [isMultilinear, EqPolynomial, degreeOf]
+theorem eqPolynomial_isMultilinear (r : Fin n → R) : isMultilinear (eqPolynomial r) := by
+  simp [isMultilinear, eqPolynomial, degreeOf]
   intro i
   have hi : degreeOf i (singleEqPolynomial (r i) (X i)) ≤ 1 := by
     unfold singleEqPolynomial
