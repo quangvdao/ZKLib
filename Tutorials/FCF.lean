@@ -1,13 +1,9 @@
 import Mathlib.Tactic.Common
-import Mathlib.Data.BitVec.Defs
 import Mathlib.Control.Random
 
 open scoped Classical
 
 variable {α : Type*} {β : α → Type*}
-
-class Fix (α : Type*) where
-  fix : (α → α) → α
 
 inductive Comp : Type _ → Type _ :=
 | ret {A : Type _} [DecidableEq A] : A → Comp A
@@ -25,3 +21,9 @@ inductive OracleComp : Type _ → Type _ → Type _ → Type _ where
 --   Comp.ret (Comp.rnd n)
 
 -- def double (x : ℕ) := x * 2
+
+class Fix (α : Type*) where
+  fix : (α → α) → α
+
+-- instance (α : Type*) : Fix α where
+--   fix f := f (fix f)

@@ -29,18 +29,17 @@ theorem degreeOf_mul_eq' [IsDomain R] (i : σ) (f g : MvPolynomial σ R) :
   repeat' rw [degreeOf]
   convert Multiset.count_le_of_le i (degrees_mul f g)
   rw [Multiset.count_add]
+-/
 
 -- TODO in the following we have equality iff f ≠ 0
 theorem degreeOf_mul_X_eq' (j : σ) (f : MvPolynomial σ R) (h : f ≠ 0) :
     degreeOf j (f * X j) = degreeOf j f + 1 := by
   classical
   repeat' rw [degreeOf]
-  apply (Multiset.count_le_of_le j (degrees_mul f (X j))).trans
+  apply (Multiset.count_add j (degrees_mul f (X j))).trans
   simp only [Multiset.count_add, add_le_add_iff_left]
   convert Multiset.count_le_of_le j (degrees_X' (R := R) j)
   rw [Multiset.count_singleton_self]
--/
-
 
 theorem degreeOf_linear_le {a b : R} : degreeOf n (C a + C b * p) ≤ degreeOf n p := by
   apply le_trans (degreeOf_add_le _ _ _) _
@@ -54,14 +53,7 @@ theorem degreeOf_sum_le {ι : Type*} [DecidableEq σ] (n : σ) (s : Finset ι) (
   exact supDegree_sum_le
 
 
--- TODO: remove these pesky lemmas
-lemma Finsupp.map_zero' : (fun fsupp : σ →₀ ℕ => fsupp n) 0 = 0 := by simp
-
-lemma Finsupp.map_add' : ∀ (a1 a2 : σ →₀ ℕ), (fun fsupp => fsupp n) (a1 + a2) = (fun fsupp => fsupp n) a1 + (fun fsupp => fsupp n) a2 := by
-  intro a1 a2
-  simp
-
 theorem degreeOf_prod_le {ι : Type*} [DecidableEq σ] (n : σ) (s : Finset ι) (f : ι → MvPolynomial σ R) :
     degreeOf n (∏ i in s, f i) ≤ ∑ i in s, degreeOf n (f i) := by
   simp_rw [degreeOf_eq_sup]
-  classical exact supDegree_prod_le (A := σ →₀ ℕ) (B := ℕ) (D := fun fsupp => fsupp n) Finsupp.map_zero' Finsupp.map_add'
+  classical exact supDegree_prod_le (A := σ →₀ ℕ) (B := ℕ) (D := fun fsupp => fsupp n) (by simp) (by intro a1 a2 ; simp)

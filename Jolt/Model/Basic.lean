@@ -30,6 +30,8 @@ class IOP (PParams : Type _) (Index : PParams → Type _) where
   Statement : Type _
   PrvState : Type _
   PrvRand : Type _
+  VerState : Type _
+  VerRand : Type _
   Message : Type _
   Challenge : Type _
   OQuery : Type _
@@ -37,6 +39,13 @@ class IOP (PParams : Type _) (Index : PParams → Type _) where
   oracle : Message → OQuery → OResponse
   honestProver : Statement → PrvState → PrvRand → List Challenge → List Message × PrvState
   honestVerifier : Statement → List (OQuery → OResponse) → List Challenge → Prop
+
+
+
+  -- honestProver : StateT PrvState (Statement × PrvRand) (List Message)
+  -- verifier : Statement → VerState → VerRand → List Message → List Challenge × VerState
+  -- verifierFinal : Statement → VerState → VerRand → List Message → List Challenge → Prop
+
 
 /--
   Collection of IOPs with the same public parameters `PParams` but possible different indices `Index`
