@@ -11,12 +11,108 @@ import Mathlib.Data.Finset.Sups
 
 universe u v w
 
-inductive Free (F : Type u → Type v) (α : Type w) : Type (max u v w + 1) where
+inductive Free (F : Type u → Type v) (α : Type w) : Type (max (max (u + 1) v) w) where
   | pure : α → Free F α
-  | free : ∀ (β : Type u), F β → (β → Free F α) → Free F α
+  | free : ∀ {β : Type u}, F β → (β → Free F α) → Free F α
 
--- Attempted definition using Haskell-like syntax
--- def ResM' (α : Type u) : Type _ := Sum α (ResM' α)
+inductive CoFree (F : Type u → Type v) (α : Type w) : Type (max (max (u + 1) v) w) where
+  | cofree : ∀ {β : Type u}, α → F β → (β → CoFree F α) → CoFree F α
+
+
+namespace Free
+
+protected def bind : Free F α → (α → Free F β) → Free F β
+| .pure a, f => f a
+| free fc g, f =>
+  free fc (fun c => g c |>.bind f)
+
+instance instMonad : Monad (Free f) where
+  pure := Free.pure
+  bind := Free.bind
+
+instance instMonadLift : MonadLift M (Free M) where
+  monadLift m := free m .pure
+
+
+
+/-! ## Now I can write `Pause` -/
+
+inductive Pause.Op (σ : Type u) (α : Type u)
+| mutate : (σ → σ) → α → Op σ α
+| yield : α → Op σ α
+
+abbrev Pause (σ : Type u) :=
+  Free (Pause.Op σ)
+
+namespace Pause
+
+def mutate (f : σ → σ) (next : α) : Pause σ α :=
+  liftM (Pause.Op.mutate f next)
+
+def yield (a : α) : Pause σ α :=
+  liftM (Pause.Op.yield (σ := σ) a)
+
+def done (a : α) : Pause σ α :=
+  .pure a
+
+def step (code : Pause σ Unit) (state : σ) : σ × Option (Pause σ Unit) :=
+  match code with
+  | .pure () => (state, none)
+  | .free (.mutate f next) k =>
+    let code := k next
+    step code $ f state
+  | .free (.yield next) k => (state, k next)
+
+def test : Pause Nat Unit := do
+  mutate Nat.succ ()
+  yield ()
+  mutate Nat.succ ()
+  yield ()
+  mutate Nat.succ ()
+  yield ()
+  done ()
+
+end Pause
+
+/- A concrete example of a monad that can be seen as a `Free` monad -/
+
+inductive PreGroup (α : Type u) : Type u where
+  | ret : α → PreGroup α
+  | id : PreGroup α
+  | mul : PreGroup α → PreGroup α → PreGroup α
+  | inv : PreGroup α → PreGroup α
+
+def PreGroup.bindAux {α β : Type u} (f : α → PreGroup β) : PreGroup α → PreGroup β
+  | PreGroup.ret a => f a
+  | PreGroup.id => (PreGroup.id : PreGroup β)
+  | PreGroup.mul s t => PreGroup.mul (bindAux f s) (bindAux f t)
+  | PreGroup.inv s => PreGroup.inv (bindAux f s)
+
+instance preGroupMonad : Monad PreGroup where
+  pure := PreGroup.ret
+  bind := fun r f => PreGroup.bindAux f r
+
+/- Showing that `PreGroup` is an instance of a `Free` monad -/
+
+inductive GroupF (α : Type u) : Type u where
+  | id : GroupF α
+  | mul : α → α → GroupF α
+  | inv : α → GroupF α
+
+
+-- def preGroupToFree {α : Type u} {GroupF : Type u → Type u} : PreGroup α → Free GroupF α
+--   | PreGroup.ret a => Free.pure a
+--   | PreGroup.id => Free.free GroupF.id (fun _ => Free.pure GroupF.id)
+--   | PreGroup.mul x y => Free.free (GroupF.mul (preGroupToFree x) (preGroupToFree y)) (fun _ => Free.pure GroupF.id)
+--   | PreGroup.inv x => Free.free (GroupF.inv (preGroupToFree x)) (fun _ => Free.pure GroupF.id)
+
+
+-- def freeToPreGroup {α : Type u} {GroupF : Type u → Type u} : Free GroupF α → PreGroup α
+--   | Free.pure a => PreGroup.ret a
+--   | Free.free _ GroupF.id k => PreGroup.mul PreGroup.id (freeToPreGroup (k ()))
+--   | Free.free _ (GroupF.mul x y) k => PreGroup.mul (freeToPreGroup x) (PreGroup.mul (freeToPreGroup y) (freeToPreGroup (k ())))
+--   | Free.free _ (GroupF.inv x) k => PreGroup.mul (PreGroup.inv (freeToPreGroup x)) (freeToPreGroup (k ()))
+
 
 inductive ResM (α : Type u) : Type u where
   | done : α → ResM α
@@ -48,16 +144,17 @@ def StateResM (σ α : Type u) := StateT σ ResM α
 -- Attempted translation from Haskell, does not work
 -- def ResT (m : Type u → Type v) (α : Type w) : Type (max u v w) := m (Sum α (ResT m α))
 
--- This seems to be more difficult to show well-founded recursion
--- inductive ResT (m : Type u → Type v) (α : Type u) : Type (max u v) where
---   | done : α → ResT m α
---   | pause : (ULift m) (ResT m α) → ResT m α
+-- How do I get the types to match??
+inductive ResT (m : Type (max u v) → Type v) (α : Type u) : Type (max u v + 1) where
+  | deResT : m (Sum α (ResT m α)) → ResT m α
+
+
 
 -- instance MonadLift m (ResT m) := sorry
 
 
 /-- Reactive resumption monad -/
-inductive ReacM (input : Type u) (output : Type v) (α : Type w) : Type (max u v w) where
+inductive ReacM (input : Type u) (output : Type u) (α : Type u) : Type u where
   | done : α → ReacM input output α
   | pause : output × (input → ReacM input output α) → ReacM input output α
 
@@ -72,18 +169,39 @@ inductive ReacM (input : Type u) (output : Type v) (α : Type w) : Type (max u v
 -- decreasing_by
 --   apply Nat.lt_succ_self
 
-
-instance [Fintype input] : SizeOf (ReacM input output α) where
-  sizeOf := ReacM.size
+-- instance [Fintype input] : SizeOf (ReacM input output α) where
+--   sizeOf := ReacM.size
 
 /-- Helper function for bind of `ReacM` -/
 -- def ReacM.bindAux {α β : Type u} (f : α → ReacM input output β) : ReacM input output α → ReacM input output β
 --   | done a => f a
---   | pause r => pause (bindAux f r)
--- termination_by r => r.size
--- decreasing_by
---   apply Nat.lt_succ_self
+--   | pause ⟨q, r⟩ => pause ⟨q, fun i => bindAux f (r i)⟩
+-- termination_by x1 => x1
 
-instance : Monad ResM where
-  pure := ResM.done
-  bind := fun r f => ResM.bindAux f r
+-- decreasing_by
+
+
+-- instance reacMonad : Monad (ReacM input output) where
+--   pure := ReacM.done
+--   bind := fun r f => ReacM.bindAux f r
+
+
+
+inductive ReacM' (n : ℕ) (output : Type u) (α : Type u) : Type u where
+  | done : α → ReacM' n output α
+  | pause : output × (ReacM' n output α × ReacM' n output α × ReacM' n output α) → ReacM' n output α
+
+def ReacM'.bindAux {α β : Type u} (f : α → ReacM' n output β) : ReacM' n output α → ReacM' n output β
+  | done a => f a
+  | pause ⟨q, (r, s, t)⟩ => pause ⟨q, (bindAux f r, bindAux f s, bindAux f t)⟩
+
+instance reacMonad' : Monad (ReacM' n output) where
+  pure := ReacM'.done
+  bind := fun r f => ReacM'.bindAux f r
+
+
+def ack : Nat → Nat → Nat
+  | 0,   y   => y+1
+  | x+1, 0   => ack x 1
+  | x+1, y+1 => ack x (ack (x+1) y)
+termination_by x y => (x, y)
