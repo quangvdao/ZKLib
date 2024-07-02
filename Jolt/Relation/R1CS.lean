@@ -13,14 +13,14 @@ namespace R1CS
 open Matrix
 
 -- Bundle R and its CommSemiring instance
-structure RingParams where
+structure PParams where
   R : Type _
   [commSemiring : CommSemiring R]
 
 -- Make the CommSemiring instance accessible
-attribute [instance] RingParams.commSemiring
+attribute [instance] PParams.commSemiring
 
-structure Index (pp : RingParams) where
+structure Index (pp : PParams) where
   m : ℕ -- number of columns
   inputSize : ℕ
   witnessSize : ℕ
@@ -28,26 +28,27 @@ structure Index (pp : RingParams) where
   B : Matrix (Fin m) (Fin (1 + inputSize + witnessSize)) pp.R
   C : Matrix (Fin m) (Fin (1 + inputSize + witnessSize)) pp.R
 
+
 @[simp]
 def Index.n (index : Index pp) : ℕ := 1 + index.inputSize + index.witnessSize
 
-structure Statement (pp : RingParams) (index : Index pp) where
+structure Statement (pp : PParams) (index : Index pp) where
   x : Fin index.inputSize → pp.R
 
-structure Witness (pp : RingParams) (index : Index pp) where
+structure Witness (pp : PParams) (index : Index pp) where
   w : Fin index.witnessSize → pp.R
 
 
 -- Relation instance for R1CS
-instance relation (pp : RingParams) (index : Index pp) : Relation RingParams Index where
-  Statement := Statement pp index
-  Witness := Witness pp index
-  isValid := fun stmt wit =>
+instance relation : Relation PParams Index where
+  Statement := fun pp index => Statement pp index
+  Witness := fun pp index => Witness pp index
+  isValid := fun pp index stmt wit =>
     let z : Fin index.n → pp.R := Fin.append (Fin.append (λ _ => 1) stmt.x) wit.w
     (index.A *ᵥ z) * (index.B *ᵥ z) = (index.C *ᵥ z)
 
-instance relationFamily (pp : RingParams) : RelationFamily RingParams where
+instance relationFamily : RelationFamily PParams where
   Index := Index
-  Relation := relation pp
+  Relation := relation
 
 end R1CS
