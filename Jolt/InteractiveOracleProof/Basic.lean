@@ -62,29 +62,37 @@ structure IORFormat where
   OResponse : Fin numRounds → Type _
   oracle : ∀ i, Message i → OQuery i → OResponse i
 
-structure IOR extends IORFormat where
-  PrvState : Fin (numRounds + 1) → Type _
-  PrvRand : Fin numRounds → Type _
-  honestProver : ∀ i, StatementIn → PrvState i → PrvRand i → Challenge i → Message i × (PrvState (i + 1))
-  honestVerifier : StatementIn → (∀ i : Fin numRounds, (OQuery i → OResponse i) × Challenge i) → StatementOut
+structure IORProver (Ior : IORFormat) where
+  PrvState : Fin (Ior.numRounds + 1) → Type _
+  PrvRand : Fin Ior.numRounds → Type _
+  prover : ∀ i, Ior.StatementIn → PrvState i → PrvRand i → Ior.Challenge i → Ior.Message i × (PrvState (i + 1))
+
+structure IORVerifier (Ior : IORFormat) where
+  verifier : Ior.StatementIn → (∀ i : Fin Ior.numRounds, (Ior.OQuery i → Ior.OResponse i) × Ior.Challenge i) → Ior.StatementOut
+
+structure IOR (Ior : IORFormat) extends IORProver Ior, IORVerifier Ior
+  -- honestPrvState : Fin (numRounds + 1) → Type _
+  -- honestPrvRand : Fin numRounds → Type _
+  -- honestProver : ∀ i, StatementIn → honestPrvState i → honestPrvRand i → Challenge i → Message i × (honestPrvState (i + 1))
+  -- honestVerifier : StatementIn → (∀ i : Fin numRounds, (OQuery i → OResponse i) × Challenge i) → StatementOut
 
 
 namespace IOR
 
 /-- Type of an IOR transcript -/
-def Transcript (Ior : IOR) : Type _ := (i : Fin Ior.numRounds) → Ior.Message i × Ior.Challenge i
+def Transcript (Ior : IORFormat) : Type _ := (i : Fin Ior.numRounds) → Ior.Message i × Ior.Challenge i
 
-/-- Type of an IOR prover -/
-@[simp]
-def Prover (Ior : IOR) : Type _ := ∀ i, Ior.StatementIn → Ior.PrvState i → Ior.PrvRand i → Ior.Challenge i → Ior.Message i × (Ior.PrvState (i + 1))
+-- /-- Type of an IOR prover -/
+-- @[simp]
+-- def Prover (Ior : IORProver) : Type _ := ∀ i, Ior.StatementIn → Ior.PrvState i → Ior.PrvRand i → Ior.Challenge i → Ior.Message i × (Ior.PrvState (i + 1))
 
-/-- Type of an IOR verifier -/
-@[simp]
-def Verifier (Ior : IOR) : Type _ := Ior.StatementIn → (∀ i : Fin Ior.numRounds, (Ior.OQuery i → Ior.OResponse i) × Ior.Challenge i) → Ior.StatementOut
+-- /-- Type of an IOR verifier -/
+-- @[simp]
+-- def Verifier (Ior : IORVerifier) : Type _ := Ior.StatementIn → (∀ i : Fin Ior.numRounds, (Ior.OQuery i → Ior.OResponse i) × Ior.Challenge i) → Ior.StatementOut
 
 
 /-- An IOR execution on a given statement; returns both the transcript and the verifier's decision -/
-def execution (Ior : IOR) (verifier : Verifier Ior) (prover : Prover Ior) (stmt : Ior.StatementIn) : Ior.StatementOut × Transcript Ior :=
+def execution (Ior : IORFormat) (verifier : IORVerifier) (prover : IORProver) (stmt : Ior.StatementIn) : Ior.StatementOut × Transcript Ior :=
   sorry
 
 
@@ -122,6 +130,7 @@ def perfectCompleteness (Ior : IOR) (WitnessIn : Type _) (WitnessOut : Type _) (
 
 /-- For all statement not in the language and all (malicious) provers, the honest verifier will accept the interaction with probability at most `soundnessBound` -/
 def soundness (Ior : IOR) (verifier : Verifier Ior) (prover : Prover Ior) (soundnessBound : unitInterval) : Prop :=
+-- How to quantify over all possible provers? We could quantify over all `PrvState` and `PrvRand`?
   sorry
 
 
