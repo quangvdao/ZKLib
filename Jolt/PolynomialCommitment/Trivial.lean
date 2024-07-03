@@ -1,1 +1,0 @@
--- The trivial polynomial commitment scheme where you just send the polynomial directly

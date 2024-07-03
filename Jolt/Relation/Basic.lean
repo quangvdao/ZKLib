@@ -1,4 +1,4 @@
-
+import Mathlib.Algebra.Polynomial.Basic
 
 /-!
   # Relations
@@ -8,24 +8,21 @@
   We define the corresponding language $L_R$ to be the set of all $(i,x)$ such that there exists some $w$ with $(i,x,w) \in R$.
 -/
 
+-- variable (PParams : Type _) (Index : PParams → Type _)
 
-/-- Define a binary relation, taking in public parameters `PParams` and an index `Index` -/
-class Relation (PParams : Type _) (Index : PParams → Type _) where
-  Statement : (pp : PParams) → Index pp → Type _
-  Witness : (pp : PParams) → Index pp → Type _
-  isValid : (pp : PParams) → (i : Index pp) → Statement pp i → Witness pp i → Prop
+-- /-- An instance is a statement-witness pair, which may depend on public parameters `PParams` and an index `Index` -/
+-- structure Instance where
+--   Statement : (pp : PParams) → Index pp → Type _
+--   Witness : (pp : PParams) → Index pp → Type _
 
-/-- Define a family of relations where `PParams` are the same -/
-class RelationFamily (PParams : Type _) where
-  Index : PParams → Type _
-  [Relation : Relation PParams Index]
-
-attribute [instance] RelationFamily.Relation
-
+/-- A binary relation on an instance -/
+class Relation (Statement : Type _) (Witness : Type _) where
+  isValid : Statement → Witness → Prop
 
 namespace Relation
 
--- def language [Relation PParams Index] (pp : PParams) (index : Index pp) : Subtype (Rel.isValid pp index) :=
---   { stmt // Rel.isValid pp index stmt wit }
+/-- The corresponding language for a relation -/
+def language (R : Relation Statement Witness) : Type _ :=
+  { stmt : Statement // ∃ wit : Witness, R.isValid stmt wit }
 
 end Relation

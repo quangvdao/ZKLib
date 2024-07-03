@@ -11,6 +11,16 @@ theorem eq_do_mut [LawfulMonad m] (b : Bool) (ma ma' : m α) :
         return x) =
     (ma >>= fun x => if b then ma' else pure x) := by simp
 
+example [LawfulMonad m] (ma ma' : m α) :
+     (do if b then {
+            let x ← ma;
+            return x
+          };
+          ma')
+     =
+     (if b then ma else ma')
+:= by cases b <;> simp
+
 theorem byCases_Bool_bind (x : m Bool) (f g : Bool → m β) (isTrue : f true = g true) (isFalse : f false = g false) :
     (x >>= f) = (x >>= g) := by
   have : f = g := by

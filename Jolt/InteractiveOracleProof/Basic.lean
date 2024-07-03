@@ -1,8 +1,6 @@
-import Mathlib.Control.Monad.Basic
-import Mathlib.Probability.ProbabilityMassFunction.Basic
+import Mathlib.Probability.ProbabilityMassFunction.Constructions
 import Mathlib.Topology.UnitInterval
 import Jolt.Relation.Basic
--- import Jolt.Data.SPMF
 
 /-!
 # Formalism of Interactive Oracle Proofs
@@ -23,28 +21,26 @@ We formalize IOPs with the following objects:
 
 -/
 
+/- Public parameters `PParams` and index information `Index` are assumed throughout -/
+variable (PParams : Type _) (Index : PParams → Type _)
 
 /--
-  Define the class of Public-Coin Interactive Oracle Proofs
+  Define the format of a Public-Coin Interactive Oracle Proof
 -/
-class IOP (PParams : Type _) (Index : PParams → Type _) where
-  numRounds : (pp : PParams) → Index pp → ℕ
-  Statement : (pp : PParams) → Index pp → Type _
-  PrvState : (pp : PParams) → Index pp → Type _
-  PrvRand : (pp : PParams) → (index : Index pp) → Fin (numRounds pp index) → Type _
-  -- These are not needed for public-coin verifier
-  -- VerState : (pp : PParams) → Index pp → Type _
-  -- VerRand : (pp : PParams) → (index : Index pp) → Fin (numRounds pp index) → Type _
-  Message : (pp : PParams) → (index : Index pp) → Fin (numRounds pp index) → Type _
-  Challenge : (pp : PParams) → (index : Index pp) → Fin (numRounds pp index) → Type _
-  OQuery : (pp : PParams) → (index : Index pp) → Fin (numRounds pp index) → Type _
-  OResponse : (pp : PParams) → (index : Index pp) → Fin (numRounds pp index) → Type _
-  oracle : (pp : PParams) → (index : Index pp) → (n : Fin (numRounds pp index)) → Message pp index n → OQuery pp index n → OResponse pp index n
+-- structure IOPFormat where
+--   Statement : Type _
+--   numRounds : ℕ+
+--   Message : Fin numRounds → Type _
+--   Challenge : Fin numRounds → Type _
+--   OQuery : Fin numRounds → Type _
+--   OResponse : Fin numRounds → Type _
+--   oracle : ∀ i, Message i → OQuery i → OResponse i
 
-class IOPWithHonestParties (PParams : Type _) (Index : PParams → Type _) extends IOP PParams Index where
-  honestProver : Statement → PrvState → PrvRand → List Challenge → List Message × PrvState
-  honestVerifier : Statement → List (OQuery → OResponse) → List Challenge → Prop
-
+-- structure IOP extends IOPFormat where
+--   PrvState : Fin (numRounds + 1) → Type _
+--   PrvRand : Fin (numRounds + 1) → Type _
+--   honestProver : ∀ i, Statement → PrvState i → PrvRand i → List Challenge → List Message × PrvState
+--   honestVerifier : Statement → List (OQuery → OResponse) → List Challenge → Prop
 
 
   -- honestProver : StateT PrvState (Statement × PrvRand) (List Message)
@@ -52,32 +48,43 @@ class IOPWithHonestParties (PParams : Type _) (Index : PParams → Type _) exten
   -- verifierFinal : Statement → VerState → VerRand → List Message → List Challenge → Prop
 
 
-/--
-  Collection of IOPs with the same public parameters `PParams` but possible different indices `Index`
--/
-structure IOPFamily (PParams : Type _) where
-  Index : PParams → Type _
-  [IOP : IOP PParams Index]
-
-attribute [instance] IOPFamily.IOP
+-- TODO: IOPs where both parties have access to some oracle?
 
 
-namespace IOP
+-- TODO: Interactive Oracle Reductions?
+structure IORFormat where
+  StatementIn : Type _
+  StatementOut : Type _
+  numRounds : ℕ+
+  Message : Fin numRounds → Type _
+  Challenge : Fin numRounds → Type _
+  OQuery : Fin numRounds → Type _
+  OResponse : Fin numRounds → Type _
+  oracle : ∀ i, Message i → OQuery i → OResponse i
 
-/-- Type of an IOP transcript -/
-def Transcript (Iop : IOP pp index) : Type _ := List (Iop.Message × Iop.Challenge)
+structure IOR extends IORFormat where
+  PrvState : Fin (numRounds + 1) → Type _
+  PrvRand : Fin numRounds → Type _
+  honestProver : ∀ i, StatementIn → PrvState i → PrvRand i → Challenge i → Message i × (PrvState (i + 1))
+  honestVerifier : StatementIn → (∀ i : Fin numRounds, (OQuery i → OResponse i) × Challenge i) → StatementOut
 
-/-- Type of an IOP prover -/
+
+namespace IOR
+
+/-- Type of an IOR transcript -/
+def Transcript (Ior : IOR) : Type _ := (i : Fin Ior.numRounds) → Ior.Message i × Ior.Challenge i
+
+/-- Type of an IOR prover -/
 @[simp]
-def Prover (Iop : IOP pp index) : Type _ := Iop.Statement → Iop.PrvState → Iop.PrvRand → List Iop.Challenge → List Iop.Message × Iop.PrvState
+def Prover (Ior : IOR) : Type _ := ∀ i, Ior.StatementIn → Ior.PrvState i → Ior.PrvRand i → Ior.Challenge i → Ior.Message i × (Ior.PrvState (i + 1))
 
-/-- Type of an IOP verifier -/
+/-- Type of an IOR verifier -/
 @[simp]
-def Verifier (Iop : IOP pp index) : Type _ := Iop.Statement → List (Iop.OQuery → Iop.OResponse) → List Iop.Challenge → Prop
+def Verifier (Ior : IOR) : Type _ := Ior.StatementIn → (∀ i : Fin Ior.numRounds, (Ior.OQuery i → Ior.OResponse i) × Ior.Challenge i) → Ior.StatementOut
 
 
-/-- An IOP execution on a given statement; returns both the transcript and the verifier's decision -/
-def execution (Iop : IOP pp index) (verifier : Verifier Iop) (prover : Prover Iop) (stmt : Iop.Statement) : Prop × Transcript Iop :=
+/-- An IOR execution on a given statement; returns both the transcript and the verifier's decision -/
+def execution (Ior : IOR) (verifier : Verifier Ior) (prover : Prover Ior) (stmt : Ior.StatementIn) : Ior.StatementOut × Transcript Ior :=
   sorry
 
 
@@ -103,25 +110,28 @@ def execution (Iop : IOP pp index) (verifier : Verifier Iop) (prover : Prover Io
 open unitInterval
 
 /-- For all valid statement-witness pair, the honest prover will convince the verifier except with probability `completenessError` -/
-def completeness (Iop : IOP pp index) (R : Relation pp index) (completenessError : unitInterval) : Prop := sorry
+def completeness (Ior : IOR) (WitnessIn : Type _) (WitnessOut : Type _) (RelIn : Relation Ior.StatementIn WitnessIn) (RelOut : Relation Ior.StatementOut WitnessOut) (completenessError : unitInterval) : Prop := sorry
 -- ∀ stmt wit : R.isValid stmt wit = True,
 -- PMF.run ((execution Iop Iop.honestProver Iop.honestVerifier stmt wit).1 = false) ≥ 1 - completenessError
 
 
 /-- Perfect completeness when there is no completeness error -/
-def perfectCompleteness (Iop : IOP pp index) (R : Relation pp index) : Prop :=
-  completeness Iop R 0
+def perfectCompleteness (Ior : IOR) (WitnessIn : Type _) (WitnessOut : Type _) (RelIn : Relation Ior.StatementIn WitnessIn) (RelOut : Relation Ior.StatementOut WitnessOut) : Prop :=
+  completeness Ior WitnessIn WitnessOut RelIn RelOut 0
 
 
 /-- For all statement not in the language and all (malicious) provers, the honest verifier will accept the interaction with probability at most `soundnessBound` -/
-def soundness (Iop : IOP pp index) (verifier : Verifier Iop) (prover : Prover Iop) (soundnessBound : unitInterval) : Prop :=
+def soundness (Ior : IOR) (verifier : Verifier Ior) (prover : Prover Ior) (soundnessBound : unitInterval) : Prop :=
   sorry
 
 
-def roundByRoundSoundness (Iop : IOP pp index) (verifier : Verifier Iop) (prover : Prover Iop) (badFunction : List Iop.Message → List Iop.Challenge → Prop) : Prop :=
+def roundByRoundSoundness (Ior : IOR) (verifier : Verifier Ior) (prover : Prover Ior) (badFunction : ∀ i : Fin Ior.numRounds, Ior.Message i → Ior.Challenge i → Prop) : Prop :=
   sorry
 
-def zeroKnowledge (Iop : IOP pp index) (verifier : Verifier Iop) (prover : Prover Iop) : Prop :=
+def zeroKnowledge (Ior : IOR) (verifier : Verifier Ior) (prover : Prover Ior) : Prop :=
   sorry
 
-end IOP
+end IOR
+
+
+-- TODO: IOP as a special case of IOR, where `StatementOut := Prop`
