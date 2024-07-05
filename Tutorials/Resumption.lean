@@ -2,6 +2,7 @@
 import Mathlib.Control.Basic
 import Mathlib.Data.Fintype.Basic
 import Mathlib.Data.Finset.Sups
+import Mathlib.Probability.ProbabilityMassFunction.Constructions
 
 /-!
   # The basic resumption monad
@@ -113,6 +114,20 @@ inductive GroupF (α : Type u) : Type u where
 --   | Free.free _ (GroupF.mul x y) k => PreGroup.mul (freeToPreGroup x) (PreGroup.mul (freeToPreGroup y) (freeToPreGroup (k ())))
 --   | Free.free _ (GroupF.inv x) k => PreGroup.mul (PreGroup.inv (freeToPreGroup x)) (freeToPreGroup (k ()))
 
+end Free
+
+
+/-- Subprobability distribution (SPMF) as PMF of Option type -/
+abbrev SPMF (α : Type u) := OptionT PMF α
+
+noncomputable section
+
+/-- SPMF of a single element -/
+def SPMF.pure (a : α) : SPMF α := OptionT.pure a
+
+def SPMF.bind (r : SPMF α) (f : α → SPMF β) : SPMF β := OptionT.bind r f
+
+end
 
 inductive ResM (α : Type u) : Type u where
   | done : α → ResM α
@@ -140,27 +155,12 @@ instance : Monad ResM where
 
 def StateResM (σ α : Type u) := StateT σ ResM α
 
-
--- Attempted translation from Haskell, does not work
--- def ResT (m : Type u → Type v) (α : Type w) : Type (max u v w) := m (Sum α (ResT m α))
-
-/- The resumption monad transformer? -/
--- inductive ResT (m : Type (max u v) → Type v) (α : Type u) : Type (max u v) where
---   | deResT : m (Sum α (ResT m α)) → ResT m α
-
--- inductive ResT' (m : Type (max u v) → Type v) (α : Type u) : Type (max u v) where
---   | done : m (ULift α) → ResT' m α
---   | pause : m (ResT' m α) → ResT' m α
-
--- inductive ResM' (α : Type u) : Type u where
---   | deResM : Sum α (ResM' α) → ResM' α
-
-
--- instance MonadLift m (ResT m) := sorry
-
+-- inductive SPMFResM (α : Type u) : Type u where
+--   | done : SPMF α → SPMFResM α
+--   | pause : SPMFResM α → SPMFResM α
 
 /-- Reactive resumption monad -/
-inductive ReacM (input : Type u) (output : Type u) (α : Type u) : Type u where
+inductive ReacM (input : Type v) (output : Type w) (α : Type u) : Type (max u v w) where
   | done : α → ReacM input output α
   | pause : output → (input → ReacM input output α) → ReacM input output α
 
@@ -172,6 +172,23 @@ def ReacM.bindAux {α β : Type u} (f : α → ReacM input output β) : ReacM in
 instance reacMonad : Monad (ReacM input output) where
   pure := ReacM.done
   bind := fun r f => ReacM.bindAux f r
+
+
+
+-- Generative Probabilistic Values (GPVs) are defined as `ReacT` applied to `SPMF`
+-- Not sure how to make it work for now?
+-- inductive GPV (input : Type v) (output : Type w) (α : Type u) : Type (max u v w) where
+--   | done : SPMF α → GPV input output α
+--   | pause : SPMF (output → (input → GPV input output α)) → GPV input output α
+
+
+
+
+-- The below definitions do not work since Lean does not understand what structure `m` may have. For arbitrary `m` this may lead to a contradiction. Adding that `m` is a `LawfulMonad` does not help either (why?).
+
+/- The resumption monad transformer? -/
+-- inductive ResT (m : Type (max u v) → Type v) [Monad m] [LawfulMonad m] (α : Type u) : Type (max u v) where
+--   | deResT : m (Sum α (ResT m α)) → ResT m α
 
 /- Reactive resumption monad transformer -/
 -- inductive ReacT (input : Type u) (output : Type u) (m : Type u → Type u) (α : Type u) : Type u where

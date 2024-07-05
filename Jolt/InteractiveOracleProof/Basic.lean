@@ -91,8 +91,9 @@ def Transcript (Ior : IORFormat) : Type _ := (i : Fin Ior.numRounds) → Ior.Mes
 -- def Verifier (Ior : IORVerifier) : Type _ := Ior.StatementIn → (∀ i : Fin Ior.numRounds, (Ior.OQuery i → Ior.OResponse i) × Ior.Challenge i) → Ior.StatementOut
 
 
-/-- An IOR execution on a given statement; returns both the transcript and the verifier's decision -/
-def execution (Ior : IORFormat) (verifier : IORVerifier) (prover : IORProver) (stmt : Ior.StatementIn) : Ior.StatementOut × Transcript Ior :=
+/-- An IOR execution on a given statement; returns a probability distribution over the prover's end private state and a verifier's output statement -/
+-- TODO: Return the transcript of the execution as well
+def execution (Ior : IORFormat) (verifier : IORVerifier) (prover : IORProver) (stmt : Ior.StatementIn) : PMF Ior.StatementOut := try do
   sorry
 
 

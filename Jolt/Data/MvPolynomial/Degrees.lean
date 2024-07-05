@@ -32,14 +32,14 @@ theorem degreeOf_mul_eq' [IsDomain R] (i : σ) (f g : MvPolynomial σ R) :
 -/
 
 -- TODO in the following we have equality iff f ≠ 0
-theorem degreeOf_mul_X_eq' (j : σ) (f : MvPolynomial σ R) (h : f ≠ 0) :
-    degreeOf j (f * X j) = degreeOf j f + 1 := by
-  classical
-  repeat' rw [degreeOf]
-  apply (Multiset.count_add j (degrees_mul f (X j))).trans
-  simp only [Multiset.count_add, add_le_add_iff_left]
-  convert Multiset.count_le_of_le j (degrees_X' (R := R) j)
-  rw [Multiset.count_singleton_self]
+-- theorem degreeOf_mul_X_eq' (j : σ) (f : MvPolynomial σ R) (h : f ≠ 0) :
+--     degreeOf j (f * X j) = degreeOf j f + 1 := by
+--   classical
+--   repeat' rw [degreeOf]
+--   apply (Multiset.count_add j (degrees_mul f (X j))).trans
+--   simp only [Multiset.count_add, add_le_add_iff_left]
+--   convert Multiset.count_le_of_le j (degrees_X' (R := R) j)
+--   rw [Multiset.count_singleton_self]
 
 theorem degreeOf_linear_le {a b : R} : degreeOf n (C a + C b * p) ≤ degreeOf n p := by
   apply le_trans (degreeOf_add_le _ _ _) _

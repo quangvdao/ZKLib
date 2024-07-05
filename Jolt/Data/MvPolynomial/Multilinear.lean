@@ -1,6 +1,7 @@
 import Mathlib.Algebra.MvPolynomial.CommRing
-import Jolt.ToMathlib.MvPolynomial.Degrees
--- import Mathlib.RingTheory.MvPolynomial.Basic
+import Mathlib.Tactic.Common
+import Jolt.Data.MvPolynomial.Degrees
+
 
 /-!
   # Multilinear Polynomials as instantiations of `MvPolynomial`
@@ -47,7 +48,9 @@ def eqPolynomial (r : Fin n → R) : MvPolynomial (Fin n) R :=
 /-- Multilinear extension of evaluations on the hypercube -/
 def MLE (evals : Fin (2 ^ n) → R) : MvPolynomial (Fin n) R := sorry
 
-
+theorem singleEqPolynomial_rewrite (r : R) : singleEqPolynomial r (X i : MvPolynomial (Fin n) R) = (2 * C r - 1) * X i + (1 - C r) := by
+  unfold singleEqPolynomial
+  ring_nf
 
 
 section DegreeOf
