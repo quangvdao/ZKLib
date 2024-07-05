@@ -144,10 +144,16 @@ def StateResM (σ α : Type u) := StateT σ ResM α
 -- Attempted translation from Haskell, does not work
 -- def ResT (m : Type u → Type v) (α : Type w) : Type (max u v w) := m (Sum α (ResT m α))
 
--- How do I get the types to match??
-inductive ResT (m : Type (max u v) → Type v) (α : Type u) : Type (max u v + 1) where
-  | deResT : m (Sum α (ResT m α)) → ResT m α
+/- The resumption monad transformer? -/
+-- inductive ResT (m : Type (max u v) → Type v) (α : Type u) : Type (max u v) where
+--   | deResT : m (Sum α (ResT m α)) → ResT m α
 
+-- inductive ResT' (m : Type (max u v) → Type v) (α : Type u) : Type (max u v) where
+--   | done : m (ULift α) → ResT' m α
+--   | pause : m (ResT' m α) → ResT' m α
+
+-- inductive ResM' (α : Type u) : Type u where
+--   | deResM : Sum α (ResM' α) → ResM' α
 
 
 -- instance MonadLift m (ResT m) := sorry
@@ -156,52 +162,17 @@ inductive ResT (m : Type (max u v) → Type v) (α : Type u) : Type (max u v + 1
 /-- Reactive resumption monad -/
 inductive ReacM (input : Type u) (output : Type u) (α : Type u) : Type u where
   | done : α → ReacM input output α
-  | pause : output × (input → ReacM input output α) → ReacM input output α
-
-
-/- I don't think this size function necessarily terminates
-  What if you have something like `input = {0, 1}`, and `1 ↦ pause^n done` for arbitrarily large `n`?
--/
--- def ReacM.size [Fintype input] : ReacM input output α → Nat
---   | done _ => 1
---   | pause ⟨_, f⟩ => 1 + Finset.sup Finset.univ (fun i => (f i).size)
--- termination_by r => r.size
--- decreasing_by
---   apply Nat.lt_succ_self
-
--- instance [Fintype input] : SizeOf (ReacM input output α) where
---   sizeOf := ReacM.size
+  | pause : output → (input → ReacM input output α) → ReacM input output α
 
 /-- Helper function for bind of `ReacM` -/
--- def ReacM.bindAux {α β : Type u} (f : α → ReacM input output β) : ReacM input output α → ReacM input output β
---   | done a => f a
---   | pause ⟨q, r⟩ => pause ⟨q, fun i => bindAux f (r i)⟩
--- termination_by x1 => x1
-
--- decreasing_by
-
-
--- instance reacMonad : Monad (ReacM input output) where
---   pure := ReacM.done
---   bind := fun r f => ReacM.bindAux f r
-
-
-
-inductive ReacM' (n : ℕ) (output : Type u) (α : Type u) : Type u where
-  | done : α → ReacM' n output α
-  | pause : output × (ReacM' n output α × ReacM' n output α × ReacM' n output α) → ReacM' n output α
-
-def ReacM'.bindAux {α β : Type u} (f : α → ReacM' n output β) : ReacM' n output α → ReacM' n output β
+def ReacM.bindAux {α β : Type u} (f : α → ReacM input output β) : ReacM input output α → ReacM input output β
   | done a => f a
-  | pause ⟨q, (r, s, t)⟩ => pause ⟨q, (bindAux f r, bindAux f s, bindAux f t)⟩
+  | pause q r => pause q (fun i => bindAux f (r i))
 
-instance reacMonad' : Monad (ReacM' n output) where
-  pure := ReacM'.done
-  bind := fun r f => ReacM'.bindAux f r
+instance reacMonad : Monad (ReacM input output) where
+  pure := ReacM.done
+  bind := fun r f => ReacM.bindAux f r
 
-
-def ack : Nat → Nat → Nat
-  | 0,   y   => y+1
-  | x+1, 0   => ack x 1
-  | x+1, y+1 => ack x (ack (x+1) y)
-termination_by x y => (x, y)
+/- Reactive resumption monad transformer -/
+-- inductive ReacT (input : Type u) (output : Type u) (m : Type u → Type u) (α : Type u) : Type u where
+--   | deReacT : m (Sum α (ReacT input output m α)) → ReacT input output m α
