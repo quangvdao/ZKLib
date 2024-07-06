@@ -21,40 +21,26 @@ We formalize IOPs with the following objects:
 
 -/
 
-/- Public parameters `PParams` and index information `Index` are assumed throughout -/
-variable (PParams : Type _) (Index : PParams → Type _)
+-- TODO: IORs where both parties have access to some oracle?
 
-/--
-  Define the format of a Public-Coin Interactive Oracle Proof
+namespace IOR
+
+/-
+Public parameters `PParams` and index information `Index` are assumed throughout
+
+Too cumbersome to do this? Is there a better way? Leaving this out for now
 -/
--- structure IOPFormat where
---   Statement : Type _
---   numRounds : ℕ+
---   Message : Fin numRounds → Type _
---   Challenge : Fin numRounds → Type _
---   OQuery : Fin numRounds → Type _
---   OResponse : Fin numRounds → Type _
---   oracle : ∀ i, Message i → OQuery i → OResponse i
 
--- structure IOP extends IOPFormat where
---   PrvState : Fin (numRounds + 1) → Type _
---   PrvRand : Fin (numRounds + 1) → Type _
---   honestProver : ∀ i, Statement → PrvState i → PrvRand i → List Challenge → List Message × PrvState
---   honestVerifier : Statement → List (OQuery → OResponse) → List Challenge → Prop
+-- variable {PParams : Type _} {Index : PParams → Type _}
 
-
-  -- honestProver : StateT PrvState (Statement × PrvRand) (List Message)
-  -- verifier : Statement → VerState → VerRand → List Message → List Challenge × VerState
-  -- verifierFinal : Statement → VerState → VerRand → List Message → List Challenge → Prop
-
-
--- TODO: IOPs where both parties have access to some oracle?
-
-
--- TODO: Interactive Oracle Reductions?
-structure IORFormat where
+/-- Define the format of an Interactive Oracle Reduction -/
+structure Spec where
   StatementIn : Type _
   StatementOut : Type _
+  WitnessIn : Type _
+  WitnessOut : Type _
+  relIn : Relation StatementIn WitnessIn
+  relOut : Relation StatementOut WitnessOut
   numRounds : ℕ+
   Message : Fin numRounds → Type _
   Challenge : Fin numRounds → Type _
@@ -62,39 +48,59 @@ structure IORFormat where
   OResponse : Fin numRounds → Type _
   oracle : ∀ i, Message i → OQuery i → OResponse i
 
-structure IORProver (Ior : IORFormat) where
-  PrvState : Fin (Ior.numRounds + 1) → Type _
-  PrvRand : Fin Ior.numRounds → Type _
-  prover : ∀ i, Ior.StatementIn → PrvState i → PrvRand i → Ior.Challenge i → Ior.Message i × (PrvState (i + 1))
+/-- The IOR transcript; also can be seen as the final view of the IOR prover -/
+def Transcript (spec : Spec) := (i : Fin spec.numRounds) → spec.Message i × spec.Challenge i
 
-structure IORVerifier (Ior : IORFormat) where
-  verifier : Ior.StatementIn → (∀ i : Fin Ior.numRounds, (Ior.OQuery i → Ior.OResponse i) × Ior.Challenge i) → Ior.StatementOut
+/-- The verifier's view of an IOR -/
+def VerifierView (spec : Spec) := (i : Fin spec.numRounds) → spec.OQuery i × spec.Challenge i
 
-structure IOR (Ior : IORFormat) extends IORProver Ior, IORVerifier Ior
-  -- honestPrvState : Fin (numRounds + 1) → Type _
-  -- honestPrvRand : Fin numRounds → Type _
-  -- honestProver : ∀ i, StatementIn → honestPrvState i → honestPrvRand i → Challenge i → Message i × (honestPrvState (i + 1))
-  -- honestVerifier : StatementIn → (∀ i : Fin numRounds, (OQuery i → OResponse i) × Challenge i) → StatementOut
+/-- The prover function for each round of the IOR, disregarding the witness input and output -/
+structure ProverRound (spec : Spec) where
+  PrvState : Fin (spec.numRounds + 1) → Type _
+  PrvRand : Fin spec.numRounds → Type _
+  prove : ∀ i, spec.StatementIn → PrvState i → PrvRand i → spec.Challenge i → spec.Message i × (PrvState (i + 1))
 
+/-- The full prover, including the witness input and output -/
+structure Prover (spec : Spec) extends ProverRound spec where
+  fromWitnessIn : spec.WitnessIn → PrvState 0
+  toWitnessOut : PrvState spec.numRounds → spec.WitnessOut
 
-namespace IOR
+/-- The public-coin verifier of an IOR -/
+structure Verifier (spec : Spec) where
+  verify : spec.StatementIn → VerifierView spec → spec.StatementOut
 
-/-- Type of an IOR transcript -/
-def Transcript (Ior : IORFormat) : Type _ := (i : Fin Ior.numRounds) → Ior.Message i × Ior.Challenge i
-
--- /-- Type of an IOR prover -/
--- @[simp]
--- def Prover (Ior : IORProver) : Type _ := ∀ i, Ior.StatementIn → Ior.PrvState i → Ior.PrvRand i → Ior.Challenge i → Ior.Message i × (Ior.PrvState (i + 1))
-
--- /-- Type of an IOR verifier -/
--- @[simp]
--- def Verifier (Ior : IORVerifier) : Type _ := Ior.StatementIn → (∀ i : Fin Ior.numRounds, (Ior.OQuery i → Ior.OResponse i) × Ior.Challenge i) → Ior.StatementOut
+/-- An IOR protocol consists of an honest prover and an honest verifier, to reduce a relation `RelIn` to relation `RelOut` -/
+structure Protocol (spec : Spec) extends Prover spec, Verifier spec
 
 
-/-- An IOR execution on a given statement; returns a probability distribution over the prover's end private state and a verifier's output statement -/
+
+
+-- Since we are using `PMF`, this section is marked as noncomputable
+noncomputable section
+
+/--
+  An IOR execution between an arbitrary prover and an arbitrary verifier, on a given initial statement and witness.
+
+  Returns a probability distribution over the prover's end private state and a verifier's output statement.
+-/
 -- TODO: Return the transcript of the execution as well
-def execution (Ior : IORFormat) (verifier : IORVerifier) (prover : IORProver) (stmt : Ior.StatementIn) : PMF Ior.StatementOut := try do
-  sorry
+def execution (spec : Spec) (prover : Prover spec) (verifier : Verifier spec) (stmt : spec.StatementIn) (wit : spec.WitnessIn) : PMF (spec.StatementOut × spec.WitnessOut) :=
+  do {
+    let mut newState := prover.fromWitnessIn wit ;
+    let mut oracles := [] ;
+    let mut challenges := [] ;
+    for i in Fin spec.numRounds do {
+      let newRand ← PMF.uniform (prover.PrvRand i)
+      let challenge ← PMF.uniform (spec.Challenge i)
+      let ⟨msg, state⟩ := prover.prove i stmt newState newRand challenge
+      oracles.append (spec.oracle i msg);
+      challenges.append (challenge);
+      newState := state
+    }
+    let newStmt := verifier.verify stmt (fun j => (oracles.getD j [], challenges.getD j []))
+    let newWit := prover.toWitnessOut newState
+    return ⟨newStmt, newWit⟩
+  }
 
 
 -- def PolyIop.complete (F : Type) [Field F] [Fintype F] {Stmt Wit : Type}
@@ -119,14 +125,14 @@ def execution (Ior : IORFormat) (verifier : IORVerifier) (prover : IORProver) (s
 open unitInterval
 
 /-- For all valid statement-witness pair, the honest prover will convince the verifier except with probability `completenessError` -/
-def completeness (Ior : IOR) (WitnessIn : Type _) (WitnessOut : Type _) (RelIn : Relation Ior.StatementIn WitnessIn) (RelOut : Relation Ior.StatementOut WitnessOut) (completenessError : unitInterval) : Prop := sorry
+def completeness (spec : Spec) (protocol : Protocol spec) (RelIn : Relation spec.StatementIn WitnessIn) (RelOut : Relation spec.StatementOut WitnessOut) (completenessError : unitInterval) : Prop := sorry
 -- ∀ stmt wit : R.isValid stmt wit = True,
 -- PMF.run ((execution Iop Iop.honestProver Iop.honestVerifier stmt wit).1 = false) ≥ 1 - completenessError
 
 
 /-- Perfect completeness when there is no completeness error -/
-def perfectCompleteness (Ior : IOR) (WitnessIn : Type _) (WitnessOut : Type _) (RelIn : Relation Ior.StatementIn WitnessIn) (RelOut : Relation Ior.StatementOut WitnessOut) : Prop :=
-  completeness Ior WitnessIn WitnessOut RelIn RelOut 0
+def perfectCompleteness (spec : Spec) (protocol : Protocol spec) (RelIn : Relation spec.StatementIn WitnessIn) (RelOut : Relation spec.StatementOut WitnessOut) : Prop :=
+  completeness spec protocol RelIn RelOut 0
 
 
 /-- For all statement not in the language and all (malicious) provers, the honest verifier will accept the interaction with probability at most `soundnessBound` -/
@@ -140,6 +146,8 @@ def roundByRoundSoundness (Ior : IOR) (verifier : Verifier Ior) (prover : Prover
 
 def zeroKnowledge (Ior : IOR) (verifier : Verifier Ior) (prover : Prover Ior) : Prop :=
   sorry
+
+end
 
 end IOR
 

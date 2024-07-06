@@ -15,6 +15,8 @@ import Mathlib.Algebra.Polynomial.Basic
 --   Statement : (pp : PParams) → Index pp → Type _
 --   Witness : (pp : PParams) → Index pp → Type _
 
+-- variable {PParams : Type _} {Index : PParams → Type _}
+
 /-- A binary relation on an instance -/
 class Relation (Statement : Type _) (Witness : Type _) where
   isValid : Statement → Witness → Prop
