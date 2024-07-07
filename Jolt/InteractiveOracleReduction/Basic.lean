@@ -1,23 +1,21 @@
 import Mathlib.Probability.ProbabilityMassFunction.Constructions
+import Mathlib.Probability.Distributions.Uniform
+import Mathlib.Data.Fin.VecNotation
 import Mathlib.Topology.UnitInterval
 import Jolt.Relation.Basic
 
 /-!
-# Formalism of Interactive Oracle Proofs
+# Formalism of Interactive Oracle Reductions
 
-We define (public-coin) interactive oracle proofs (IOPs). This is an interactive protocol between a prover and a verifier with the following format:
+We define (public-coin) interactive oracle reductions (IORs). This is an interactive protocol between a prover and a verifier with the following format:
 
   - At the beginning, the prover and verifier both hold a public statement x (and potentially have access to some public parameters pp). The prover may also hold some private state which in particular may contain a witness w to the statement x.
 
   - In each round, the verifier sends some random challenges, and the prover sends back responses to the challenges. The responses are received as oracles by the verifier. The verifier only sees some abstract representation of the responses, and is only allowed to query these oracles in specific ways (i.e. point queries, polynomial evaluation queries, tensor queries).
 
-  - At each step, the verifier may make oracle queries and perform some checks on the responses so far. At the end of the interaction, the verifier outputs a bit indicating accept or reject; it may also output the bit earlier at any round.
+  - At each step, the verifier may make oracle queries and perform some checks on the responses so far. At the end of the interaction, the verifier outputs a new statement, and the prover outputs a new witness.
 
-Note: the definition of IOPs as defined above generalizes those found in the literature. It has the same name as the interactive protocol in the [BCS16] paper, but it is strictly more general. We call the IOP defined in [BCS16] as a "point IOP". We also get "polynomial IOP" [BCG+19] and "tensor IOP" [BCG20] (and other kinds of IOPs) from our definition.
-
-We formalize IOPs with the following objects:
-
-  - The prover and verifier are modeled as probabilistic, stateful computations, where the prover outputs oracles, and the verifier has black-box access to oracles.
+Note: the definition of IORs as defined above generalizes those found in the literature. When the output relation is the Boolean relation (where `StatementOut = Bool`), then we recover a generalized version of Interactive Oracle Proofs (IOPs) [BCS16]. The particular IOP considered in [BCS16] may be called "point IOP" due to its query structure. We also get "polynomial IOP" [BCG+19] and "tensor IOP" [BCG20] (and other kinds of IOPs) from our definition.
 
 -/
 
@@ -44,6 +42,7 @@ structure Spec where
   numRounds : ℕ+
   Message : Fin numRounds → Type _
   Challenge : Fin numRounds → Type _
+  sampleChallenge : ∀ i, PMF (Challenge i)
   OQuery : Fin numRounds → Type _
   OResponse : Fin numRounds → Type _
   oracle : ∀ i, Message i → OQuery i → OResponse i
@@ -58,7 +57,9 @@ def VerifierView (spec : Spec) := (i : Fin spec.numRounds) → spec.OQuery i × 
 structure ProverRound (spec : Spec) where
   PrvState : Fin (spec.numRounds + 1) → Type _
   PrvRand : Fin spec.numRounds → Type _
-  prove : ∀ i, spec.StatementIn → PrvState i → PrvRand i → spec.Challenge i → spec.Message i × (PrvState (i + 1))
+  samplePrvRand : ∀ i, PMF (PrvRand i)
+  prove : ∀ (i : Fin spec.numRounds), spec.StatementIn → PrvState i → PrvRand i → spec.Challenge i → spec.Message i × (PrvState (i + 1))
+
 
 /-- The full prover, including the witness input and output -/
 structure Prover (spec : Spec) extends ProverRound spec where
@@ -75,6 +76,16 @@ structure Protocol (spec : Spec) extends Prover spec, Verifier spec
 
 
 
+-- inductive HList : List (Type u) → Type (u + 1) where
+--   | nil : HList []
+--   | cons {α : Type u} (x : α) {αs : List (Type u)} (xs : HList αs) : HList (α :: αs)
+
+inductive HList {α : Type v} (β : α → Type u) : List α → Type (max u v)
+  | nil  : HList β []
+  | cons : β i → HList β is → HList β (i::is)
+
+
+
 -- Since we are using `PMF`, this section is marked as noncomputable
 noncomputable section
 
@@ -84,22 +95,25 @@ noncomputable section
   Returns a probability distribution over the prover's end private state and a verifier's output statement.
 -/
 -- TODO: Return the transcript of the execution as well
+-- TODO: Provide another definition without extended `do` notation sugar, then prove equivalence (to enhance trustworthiness of the definition)
 def execution (spec : Spec) (prover : Prover spec) (verifier : Verifier spec) (stmt : spec.StatementIn) (wit : spec.WitnessIn) : PMF (spec.StatementOut × spec.WitnessOut) :=
   do {
-    let mut newState := prover.fromWitnessIn wit ;
-    let mut oracles := [] ;
-    let mut challenges := [] ;
-    for i in Fin spec.numRounds do {
-      let newRand ← PMF.uniform (prover.PrvRand i)
-      let challenge ← PMF.uniform (spec.Challenge i)
-      let ⟨msg, state⟩ := prover.prove i stmt newState newRand challenge
-      oracles.append (spec.oracle i msg);
-      challenges.append (challenge);
-      newState := state
+    -- TODO: fix the issue of heterogeneous types
+
+    -- let mut newState := prover.fromWitnessIn wit ;
+    -- let mut oracles := HList.empty ;
+    -- let mut challenges := HList.empty ;
+    for h : i in [0:spec.numRounds] do {
+        let newRand ← prover.samplePrvRand i
+        let challenge ← spec.sampleChallenge i
+      -- let output := (prover.prove i) stmt newState newRand challenge
+      -- oracles.append (spec.oracle i msg);
+      -- challenges.append (challenge);
+      -- newState := state
     }
-    let newStmt := verifier.verify stmt (fun j => (oracles.getD j [], challenges.getD j []))
-    let newWit := prover.toWitnessOut newState
-    return ⟨newStmt, newWit⟩
+    -- let newStmt := verifier.verify stmt (fun j => (oracles.getD j [], challenges.getD j []))
+    -- let newWit := prover.toWitnessOut newState
+    -- return ⟨newStmt, newWit⟩
   }
 
 
