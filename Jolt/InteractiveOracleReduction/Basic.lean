@@ -1,7 +1,7 @@
 import Mathlib.Probability.ProbabilityMassFunction.Constructions
 import Mathlib.Probability.Distributions.Uniform
-import Mathlib.Data.Fin.VecNotation
 import Mathlib.Topology.UnitInterval
+import Jolt.Data.DVec
 import Jolt.Relation.Basic
 
 /-!
@@ -111,10 +111,9 @@ noncomputable section
 
   Returns a probability distribution over the prover's end private state and a verifier's output statement.
 -/
--- TODO: Return the transcript of the execution as well
--- TODO: Provide another definition without extended `do` notation sugar, then prove equivalence (to enhance the trustworthiness of the definition)
 def execution (spec : Spec) (prover : Prover spec) (verifier : Verifier spec) (stmt : spec.relIn.Statement) (wit : spec.relIn.Witness) : PMF (spec.relOut.Statement × spec.relOut.Witness) :=
   sorry
+  -- Really have to develop support for dependent vectors
   -- do {
   --   -- TODO: fix the issue of heterogeneous types
 
@@ -133,6 +132,11 @@ def execution (spec : Spec) (prover : Prover spec) (verifier : Verifier spec) (s
   --   -- let newWit := prover.toWitnessOut newState
   --   -- return ⟨newStmt, newWit⟩
   -- }
+
+
+
+-- TODO: Return the transcript of the execution as well
+-- TODO: Provide another definition without extended `do` notation sugar, then prove equivalence (to enhance the trustworthiness of the definition)
 
 #check execution
 

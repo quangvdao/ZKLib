@@ -7,6 +7,6 @@ import Jolt.CommitmentScheme.Basic
 -/
 
 /-- The trivial polynomial commitment scheme where you just send the polynomial directly -/
-class TrivialCommitmentScheme (pp : PParams) (index : Index pp) extends CommitmentScheme pp index where
-  Statement := Statement pp index
-  Witness := Witness pp index
+class TrivialCommitmentScheme extends CommitmentScheme where
+  Statement := Statement
+  Witness := Witness
