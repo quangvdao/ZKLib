@@ -33,12 +33,8 @@ Too cumbersome to do this? Is there a better way? Leaving this out for now
 
 /-- Define the format of an Interactive Oracle Reduction -/
 structure Spec where
-  StatementIn : Type _
-  StatementOut : Type _
-  WitnessIn : Type _
-  WitnessOut : Type _
-  relIn : Relation StatementIn WitnessIn
-  relOut : Relation StatementOut WitnessOut
+  relIn : Relation
+  relOut : Relation
   numRounds : ℕ+
   Message : Fin numRounds → Type _
   Challenge : Fin numRounds → Type _
@@ -58,20 +54,34 @@ structure ProverRound (spec : Spec) where
   PrvState : Fin (spec.numRounds + 1) → Type _
   PrvRand : Fin spec.numRounds → Type _
   samplePrvRand : ∀ i, PMF (PrvRand i)
-  prove : ∀ (i : Fin spec.numRounds), spec.StatementIn → PrvState i → PrvRand i → spec.Challenge i → spec.Message i × (PrvState (i + 1))
+  prove : ∀ (i : Fin spec.numRounds), spec.relIn.Statement → PrvState i → PrvRand i → spec.Challenge i → spec.Message i × (PrvState (i + 1))
 
 
 /-- The full prover, including the witness input and output -/
 structure Prover (spec : Spec) extends ProverRound spec where
-  fromWitnessIn : spec.WitnessIn → PrvState 0
-  toWitnessOut : PrvState spec.numRounds → spec.WitnessOut
+  fromWitnessIn : spec.relIn.Witness → PrvState 0
+  toWitnessOut : PrvState spec.numRounds → spec.relOut.Witness
 
 /-- The public-coin verifier of an IOR -/
 structure Verifier (spec : Spec) where
-  verify : spec.StatementIn → VerifierView spec → spec.StatementOut
+  verify : spec.relIn.Statement → VerifierView spec → spec.relOut.Statement
 
 /-- An IOR protocol consists of an honest prover and an honest verifier, to reduce a relation `RelIn` to relation `RelOut` -/
 structure Protocol (spec : Spec) extends Prover spec, Verifier spec
+
+
+/-- Define family of IOR specifications, depending on public parameters `PParams` and index `Index` -/
+structure SpecFamily where
+  PParams : Type _
+  Index : PParams → Type _
+  Spec : (pp : PParams) → Index pp → Spec
+
+/-- Define family of IOR protocols depending on `PParams` and `Index` -/
+structure ProtocolFamily where
+  PParams : Type _
+  Index : PParams → Type _
+  Spec : (pp : PParams) → Index pp → Spec
+  Protocol : (pp : PParams) → (index : Index pp) → Protocol (Spec pp index)
 
 
 
@@ -84,6 +94,13 @@ inductive HList {α : Type v} (β : α → Type u) : List α → Type (max u v)
   | nil  : HList β []
   | cons : β i → HList β is → HList β (i::is)
 
+def NatInt : Fin 2 → Type _
+  | 0 => ℕ
+  | 1 => ℤ
+
+def funNatInt (i : Fin 2) : NatInt i := match i with
+  | 0 => (0 : ℕ)
+  | 1 => (-1 : ℤ)
 
 
 -- Since we are using `PMF`, this section is marked as noncomputable
@@ -95,70 +112,75 @@ noncomputable section
   Returns a probability distribution over the prover's end private state and a verifier's output statement.
 -/
 -- TODO: Return the transcript of the execution as well
--- TODO: Provide another definition without extended `do` notation sugar, then prove equivalence (to enhance trustworthiness of the definition)
-def execution (spec : Spec) (prover : Prover spec) (verifier : Verifier spec) (stmt : spec.StatementIn) (wit : spec.WitnessIn) : PMF (spec.StatementOut × spec.WitnessOut) :=
-  do {
-    -- TODO: fix the issue of heterogeneous types
+-- TODO: Provide another definition without extended `do` notation sugar, then prove equivalence (to enhance the trustworthiness of the definition)
+def execution (spec : Spec) (prover : Prover spec) (verifier : Verifier spec) (stmt : spec.relIn.Statement) (wit : spec.relIn.Witness) : PMF (spec.relOut.Statement × spec.relOut.Witness) :=
+  sorry
+  -- do {
+  --   -- TODO: fix the issue of heterogeneous types
 
-    -- let mut newState := prover.fromWitnessIn wit ;
-    -- let mut oracles := HList.empty ;
-    -- let mut challenges := HList.empty ;
-    for h : i in [0:spec.numRounds] do {
-        let newRand ← prover.samplePrvRand i
-        let challenge ← spec.sampleChallenge i
-      -- let output := (prover.prove i) stmt newState newRand challenge
-      -- oracles.append (spec.oracle i msg);
-      -- challenges.append (challenge);
-      -- newState := state
-    }
-    -- let newStmt := verifier.verify stmt (fun j => (oracles.getD j [], challenges.getD j []))
-    -- let newWit := prover.toWitnessOut newState
-    -- return ⟨newStmt, newWit⟩
-  }
+  --   -- let mut newState := prover.fromWitnessIn wit ;
+  --   -- let mut oracles := HList.empty ;
+  --   -- let mut challenges := HList.empty ;
+  --   for h : i in [0:spec.numRounds] do {
+  --       let newRand ← prover.samplePrvRand i
+  --       let challenge ← spec.sampleChallenge i
+  --     -- let output := (prover.prove i) stmt newState newRand challenge
+  --     -- oracles.append (spec.oracle i msg);
+  --     -- challenges.append (challenge);
+  --     -- newState := state
+  --   }
+  --   -- let newStmt := verifier.verify stmt (fun j => (oracles.getD j [], challenges.getD j []))
+  --   -- let newWit := prover.toWitnessOut newState
+  --   -- return ⟨newStmt, newWit⟩
+  -- }
 
-
--- def PolyIop.complete (F : Type) [Field F] [Fintype F] {Stmt Wit : Type}
---     (Relation : Stmt → Wit → Prop)
---     (𝓟 : PolyIop F Stmt Wit) : Prop :=  -- For any statement and witness that satisfy the relation ...
---   ∀ stmt : Stmt, ∀ wit : Wit, Relation stmt wit →
---   -- The proof should verify with probability 1
---     (do -- This do block over the probability monad is interpreted as a function
---       let coins ← 𝓟.roundRandomness stmt
---       let oracles : ℕ → Polynomial' F := fun i =>
---         𝓟.prover stmt wit (coins.take i)
---       let oracle_queries : ℕ → List F := fun i => (𝓟.oracleQueries stmt coins).getD i []
---       let oracle_responses : ℕ → List F := fun i =>
---         (oracles i).eval <$> (oracle_queries i)
---       let query_response_pairs : ℕ → List (F × F) := fun i =>
---         List.zip (oracle_queries i) (oracle_responses i)
---       let verified := (𝓟.verification stmt coins query_response_pairs)
---       return verified
---     ).toFun true = 1
-
+#check execution
 
 open unitInterval
 
-/-- For all valid statement-witness pair, the honest prover will convince the verifier except with probability `completenessError` -/
-def completeness (spec : Spec) (protocol : Protocol spec) (RelIn : Relation spec.StatementIn WitnessIn) (RelOut : Relation spec.StatementOut WitnessOut) (completenessError : unitInterval) : Prop := sorry
--- ∀ stmt wit : R.isValid stmt wit = True,
--- PMF.run ((execution Iop Iop.honestProver Iop.honestVerifier stmt wit).1 = false) ≥ 1 - completenessError
+/- Unit interval embedded into `ENNReal` -/
+-- instance coe_unitInterval_ENNReal : Coe unitInterval ENNReal := fun x => x.toNNReal
 
+-- TODO: figure out the right coercion
+def unitInterval' : Set ENNReal := {x | x ≠ ⊤ ∧ x.toReal ∈ I}
+
+set_option pp.universes true
+
+/-- For all valid statement-witness pair for the input relation `relIn`, the execution between the honest prover and the honest verifier will result in a valid pair for the output relation `relOut`, except with probability `completenessError` -/
+def completeness (spec : Spec) (protocol : Protocol spec) (completenessError : ENNReal) : Prop :=
+    ∀ stmtIn : spec.relIn.Statement,
+    ∀ witIn : spec.relIn.Witness,
+    spec.relIn.isValid stmtIn witIn = true →
+        let output := execution spec protocol.toProver protocol.toVerifier stmtIn witIn
+        let prob := spec.relOut.isValidProp <$> output
+        prob true ≥ 1 - completenessError
+
+-- #check completeness
 
 /-- Perfect completeness when there is no completeness error -/
-def perfectCompleteness (spec : Spec) (protocol : Protocol spec) (RelIn : Relation spec.StatementIn WitnessIn) (RelOut : Relation spec.StatementOut WitnessOut) : Prop :=
-  completeness spec protocol RelIn RelOut 0
+def perfectCompleteness (spec : Spec) (protocol : Protocol spec) : Prop :=
+  completeness spec protocol 0
 
 
-/-- For all statement not in the language and all (malicious) provers, the honest verifier will accept the interaction with probability at most `soundnessBound` -/
-def soundness (Ior : IOR) (verifier : Verifier Ior) (prover : Prover Ior) (soundnessBound : unitInterval) : Prop :=
--- How to quantify over all possible provers? We could quantify over all `PrvState` and `PrvRand`?
+/--
+  For all initial statement `stmtIn` not in the language, all (malicious) provers with initial witness `witIn`, the execution will result in an invalid statement-witness pair for `relOut` except with probability `soundnessBound`.
+-/
+def soundness (spec : Spec) (verifier : Verifier spec) (soundnessBound : ENNReal) : Prop :=
+  -- sorry
+  ∀ stmtIn ∉ spec.relIn.language,
+  -- need to quantify over the witness because of the way we defined the type signature of the prover, which always takes in a witness
+  ∀ witIn : spec.relIn.Witness,
+  ∀ prover : Prover spec,
+    let output := execution spec prover verifier stmtIn witIn
+    let prob := spec.relOut.isValid' <$> output
+    prob true ≤ soundnessBound
+
+
+
+def roundByRoundSoundness (spec : Spec) (protocol : Protocol spec) (badFunction : ∀ i : Fin spec.numRounds, spec.Message i → spec.Challenge i → Prop) : Prop :=
   sorry
 
-
-def roundByRoundSoundness (Ior : IOR) (verifier : Verifier Ior) (prover : Prover Ior) (badFunction : ∀ i : Fin Ior.numRounds, Ior.Message i → Ior.Challenge i → Prop) : Prop :=
-  sorry
-
-def zeroKnowledge (Ior : IOR) (verifier : Verifier Ior) (prover : Prover Ior) : Prop :=
+def zeroKnowledge (spec : Spec) (protocol : Protocol spec) : Prop :=
   sorry
 
 end
@@ -166,4 +188,4 @@ end
 end IOR
 
 
--- TODO: IOP as a special case of IOR, where `StatementOut := Prop`
+-- TODO: IOP as a special case of IOR, where `relOut = boolRel`
