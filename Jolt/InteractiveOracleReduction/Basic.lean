@@ -1,7 +1,7 @@
 import Mathlib.Probability.ProbabilityMassFunction.Constructions
 import Mathlib.Probability.Distributions.Uniform
 import Mathlib.Topology.UnitInterval
-import Jolt.Data.DVec
+import Jolt.Data.HList
 import Jolt.Relation.Basic
 
 /-!
@@ -34,24 +34,42 @@ structure Spec where
   sampleChallenge : ∀ i, PMF (Challenge i) -- Sampling challenges for the honest verifier
   OQuery : Fin numRounds → Type _ -- Query type for each oracle
   OResponse : Fin numRounds → Type _ -- Response type for each oracle
-  OFunction : ∀ i, Message i → OQuery i → OResponse i -- Transforming messages to oracles that take queries and return responses
+  oracleFromMessage : ∀ i, Message i → OQuery i → OResponse i -- Transforming messages to oracles that take queries and return responses
 
 
-/-- The IOR transcript; also can be seen as the view of the IOR prover -/
+/-- A partial transcript of the IOR consists of all the messages and challenges up to a certain round `i ≤ spec.numRounds` -/
+structure PartialTranscript (spec : Spec) (i : Fin (spec.numRounds + 1)) where
+  messages : ∀ j : Fin i, spec.Message j
+  challenges : ∀ j : Fin i, spec.Challenge j
+
+/--
+  The final transcript of the IOR, including all messages and challenges
+-/
 structure Transcript (spec : Spec) where
-  messages : ∀ i : Fin spec.numRounds, spec.Message i
-  challenges : ∀ i : Fin spec.numRounds, spec.Challenge i
+  messages : ∀ i, spec.Message i
+  challenges : ∀ i, spec.Challenge i
+
+
+def Transcript.toPartial (transcript : Transcript spec) (i : Fin (spec.numRounds + 1)) : PartialTranscript spec i where
+  messages := fun j => transcript.messages j
+  challenges := fun j => transcript.challenges j
+
 
 /-- The output statement and witness pair of an IOR execution -/
-structure Output (spec : Spec) where
-  statementOut : spec.relOut.Statement
-  witnessOut : spec.relOut.Witness
+def Output (spec : Spec) := spec.relOut.Statement × spec.relOut.Witness
 
 
 /-- The verifier's view of an IOR (before returning the output statement) -/
 structure VerifierView (spec : Spec) where
   oracles : ∀ i : Fin spec.numRounds, spec.OQuery i → spec.OResponse i
   challenges : ∀ i : Fin spec.numRounds, spec.Challenge i
+
+/--
+  Convert the messages in a transcript to their oracle forms
+-/
+def Transcript.toOracles (transcript : Transcript spec) : VerifierView spec where
+  oracles := fun i => fun q => spec.oracleFromMessage i (transcript.messages i) q
+  challenges := transcript.challenges
 
 -- TODO: for HVZK, the verifier's view only consists of the responses to the queries by the verifier, not the whole oracle (which is hard to simulate).
 -- The problem right now is that we have no way of recording queries / counting the number of queries that the verifier makes to the oracles.
@@ -101,53 +119,61 @@ structure ProtocolFamily where
 -- Since we are using `PMF`, this section is marked as noncomputable
 noncomputable section
 
+
+
+/--
+  Running the IOR prover in the protocol; returns the transcript along with the final prover's state
+-/
+def runProver (spec : Spec) (prover : Prover spec) (stmtIn : spec.relIn.Statement) (witIn : spec.relIn.Witness) : PMF (Transcript spec × prover.PrvState spec.numRounds) := do
+  -- TODO: once we have `HList`, we go back and define this function
+  let mut state := prover.fromWitnessIn witIn
+  -- let mut oracles := HList.nil ;
+  -- let mut challenges := HList.nil ;
+  for h : i in [0:spec.numRounds] do {
+      let newRand ← prover.samplePrvRand i
+      let challenge ← spec.sampleChallenge i
+    -- let output := (prover.prove i) stmt newState newRand challenge
+    -- oracles.append (spec.oracle i msg);
+    -- challenges.append (challenge);
+    -- newState := state
+  }
+  sorry
+
+def runVerifier (spec : Spec) (verifier : Verifier spec) (stmtIn : spec.relIn.Statement) (view : VerifierView spec) : PMF (spec.relOut.Statement) := do
+  let stmtOut := verifier.verify stmtIn view
+  return stmtOut
+
 /--
   An IOR execution between an arbitrary prover and an arbitrary verifier, on a given initial statement and witness.
 
   Returns a probability distribution over the prover's end private state and a verifier's output statement.
 -/
-def execution (spec : Spec) (prover : Prover spec) (verifier : Verifier spec) (stmt : spec.relIn.Statement) (wit : spec.relIn.Witness) : PMF (spec.relOut.Statement × spec.relOut.Witness) :=
-  sorry
-  -- Really have to develop support for dependent vectors
-  -- Don't think I can do this with the standard `do` notation, has to do a recursive definition
-  -- do {
-  --   -- TODO: fix the issue of heterogeneous types
+def runWithTranscript (spec : Spec) (prover : Prover spec) (verifier : Verifier spec) (stmtIn : spec.relIn.Statement) (witIn : spec.relIn.Witness) : PMF (Output spec × Transcript spec) := do
+  let (transcript, state) ← runProver spec prover stmtIn witIn
+  let stmtOut ← runVerifier spec verifier stmtIn (transcript.toOracles)
+  return ⟨⟨stmtOut, prover.toWitnessOut state⟩, transcript⟩
 
-  --   -- let mut newState := prover.fromWitnessIn wit ;
-  --   -- let mut oracles := HList.empty ;
-  --   -- let mut challenges := HList.empty ;
-  --   for h : i in [0:spec.numRounds] do {
-  --       let newRand ← prover.samplePrvRand i
-  --       let challenge ← spec.sampleChallenge i
-  --     -- let output := (prover.prove i) stmt newState newRand challenge
-  --     -- oracles.append (spec.oracle i msg);
-  --     -- challenges.append (challenge);
-  --     -- newState := state
-  --   }
-  --   -- let newStmt := verifier.verify stmt (fun j => (oracles.getD j [], challenges.getD j []))
-  --   -- let newWit := prover.toWitnessOut newState
-  --   -- return ⟨newStmt, newWit⟩
-  -- }
 
--- TODO: Return the transcript of the execution as well
+def run (spec : Spec) (prover : Prover spec) (verifier : Verifier spec) (stmtIn : spec.relIn.Statement) (witIn : spec.relIn.Witness) : PMF (Output spec) := do
+  let result ← runWithTranscript spec prover verifier stmtIn witIn
+  return result.fst
+
+
 
 open unitInterval
 
-/- Unit interval embedded into `ENNReal` -/
--- instance coe_unitInterval_ENNReal : Coe unitInterval ENNReal := fun x => x.toNNReal
-
--- TODO: figure out the right coercion
-def unitInterval' : Set ENNReal := {x | x ≠ ⊤ ∧ x.toReal ∈ I}
-
+/- Unit interval embedded into `NNReal` -/
+instance unitInterval.toNNReal : Coe unitInterval NNReal where
+  coe := fun ⟨x, h⟩ => ⟨x, (Set.mem_Icc.mp h).left⟩
 
 section Completeness
 
 /-- For all valid statement-witness pair for the input relation `relIn`, the execution between the honest prover and the honest verifier will result in a valid pair for the output relation `relOut`, except with probability `completenessError` -/
-def completeness (spec : Spec) (protocol : Protocol spec) (completenessError : ENNReal) : Prop :=
+def completeness (spec : Spec) (protocol : Protocol spec) (completenessError : I) : Prop :=
     ∀ stmtIn : spec.relIn.Statement,
     ∀ witIn : spec.relIn.Witness,
     spec.relIn.isValid stmtIn witIn = true →
-        let output := execution spec protocol.toProver protocol.toVerifier stmtIn witIn
+        let output := run spec protocol.toProver protocol.toVerifier stmtIn witIn
         let prob := spec.relOut.isValidProp <$> output
         prob true ≥ 1 - completenessError
 
@@ -161,6 +187,19 @@ end Completeness
 
 section Soundness
 
+
+/- We have 6 variants of soundness:
+
+  1. (Regular) soundness
+  2. Knowledge soundness
+  3. State-restoration soundness
+  4. State-restoration knowledge soundness
+  5. Round-by-round soundness
+  6. Round-by-round knowledge soundness
+
+This does not cover other variants such as adaptive versions of the above (seems to have negligible difference compared to non-adaptive version in the interactive setting?), or special soundness.
+-/
+
 /--
   For all initial statement `stmtIn` not in the language, all (malicious) provers with initial witness `witIn`, the execution will result in an invalid statement-witness pair for `relOut` except with probability `soundnessBound`.
 -/
@@ -173,7 +212,7 @@ def soundness (spec : Spec) (verifier : Verifier spec) (soundnessBound : ENNReal
   -/
   ∀ witIn : spec.relIn.Witness,
   ∀ prover : Prover spec,
-    let output := execution spec prover verifier stmtIn witIn
+    let output := run spec prover verifier stmtIn witIn
     let prob := spec.relOut.isValid' <$> output
     prob true ≤ soundnessBound
 
@@ -189,7 +228,7 @@ structure AdaptiveProver (spec : Spec) extends Prover spec where
 
   TODO: when we generalize IOR to the ROM, how do we model the extractor's ability to observe the prover's queries?
 -/
-def Extractor (spec : Spec) := spec.relIn.Statement → Transcript spec → spec.relIn.Witness
+def Extractor (spec : Spec) := spec.relIn.Statement → Transcript spec → Output spec → spec.relIn.Witness
 
 /--
   There exists an extractor such that for all
@@ -199,17 +238,46 @@ def Extractor (spec : Spec) := spec.relIn.Statement → Transcript spec → spec
 def knowledgeSoundness (spec : Spec) (verifier : Verifier spec) (knowledgeBound : ENNReal) : Prop :=
   ∃ extractor : Extractor spec,
   ∀ stmtIn : spec.relIn.Statement,
-  sorry
+  ∀ witIn : spec.relIn.Witness,
+  ∀ prover : Prover spec,
+    let result := runWithTranscript spec prover verifier stmtIn witIn
+    let output := Prod.fst <$> result
+    let transcript := Prod.snd <$> result
+    let prob := spec.relOut.isValid' <$> output
+    -- TODO: fix this definition
+    if prob true > knowledgeBound then
+      let extractedWitIn := (fun tr out => extractor stmtIn tr out) <$> transcript <*> output
+      let prob' := spec.relIn.isValid stmtIn <$> extractedWitIn
+      prob' true ≥ 1 - knowledgeBound
+    else
+      True
 
+
+def BadFunction (spec : Spec) := (i : Fin spec.numRounds) → spec.relIn.Statement →  PartialTranscript spec i → Prop
+
+/--
+  Round-by-round soundness should be defined for each round
+-/
+def roundByRoundSoundness (spec : Spec) (verifier : Verifier spec) (badFunction : BadFunction spec) (rbrSoundnessBound : Fin spec.numRounds → ENNReal) : Prop :=
+  ∀ stmtIn ∉ spec.relIn.language,
+  ∀ witIn : spec.relIn.Witness,
+  ∀ prover : Prover spec,
+  ∀ i : Fin spec.numRounds,
+    let result := runWithTranscript spec prover verifier stmtIn witIn
+    let output := Prod.fst <$> result
+    let transcript := Prod.snd <$> result
+    let prob := spec.relOut.isValid' <$> output
+    let partialTranscript := (fun tr => tr.toPartial i) <$> transcript
+    -- prob true ≤ rbrSoundnessBound i
+    sorry
+    -- let partialTranscript : PartialTranscript spec i := ⟨transcript.messages, transcript.challenges⟩
+    -- prob true ≤ soundnessBound
 
 
 end Soundness
 
 
 section ZeroKnowledge
-
-def roundByRoundSoundness (spec : Spec) (protocol : Protocol spec) (badFunction : ∀ i : Fin spec.numRounds, spec.Message i → spec.Challenge i → Prop) : Prop :=
-  sorry
 
 
 def Simulator (spec : Spec) := spec.relIn.Statement → PMF (VerifierView spec)
@@ -223,9 +291,14 @@ def Simulator (spec : Spec) := spec.relIn.Statement → PMF (VerifierView spec)
 def zeroKnowledge (spec : Spec) (prover : Prover spec) : Prop :=
   ∃ simulator : Simulator spec,
   ∀ verifier : Verifier spec,
-    let output := execution spec prover verifier
-    let prob := spec.relOut.isValid' <$> output
-    prob true ≥ 1 - completenessError
+  ∀ stmtIn : spec.relIn.Statement,
+  ∀ witIn : spec.relIn.Witness,
+  spec.relIn.isValid stmtIn witIn = true →
+    let result := runWithTranscript spec prover verifier stmtIn witIn
+    let transcript := Prod.snd <$> result
+    let simTranscript := simulator stmtIn
+    -- let prob := spec.relOut.isValid' <$> output
+    sorry
 
 
 
