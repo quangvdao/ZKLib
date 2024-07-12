@@ -1,9 +1,5 @@
-import Mathlib.Algebra.MvPolynomial.Equiv
--- import Mathlib.Data.Fintype.Basic
--- import Mathlib.Algebra.Ring.Equiv
-import Mathlib.Algebra.BigOperators.RingEquiv
+import Jolt.Data.MvPolynomial.PartialSum
 import Jolt.Relation.Basic
-import Jolt.ToMathlib.MvPolynomial.Aux
 
 /-!
 # Sumcheck Relation
@@ -33,36 +29,43 @@ Extend the relation to capture sumcheck over modules. This will allow instantiat
 
 -/
 
-namespace AbstractSumcheck
-
-noncomputable section
-
-open MvPolynomial BigOperators
+namespace Sumcheck
 
 open Relation
 
-variable {R : Type _} [CommSemiring R]
+noncomputable section
 
-structure IndexType (R : Type _) [CommSemiring R] where
-  nVars : ℕ
-  degs : Fin nVars → ℕ
+namespace Abstract
+
+open MvPolynomial
+
+variable (R : Type _) [CommSemiring R]
+
+structure Index where
+  nVars : ℕ+
+  degrees : Fin nVars → ℕ
   domain : Finset R
 
-structure StmtType (R : Type _) [CommSemiring R] (index : IndexType R) where
+structure Statement (index : Index R) where
   poly : MvPolynomial (Fin index.nVars) R
   target : R
 
-def WitType (R : Type _) [CommSemiring R] (_ : IndexType R) : Type := Empty
+def Witness (_ : Index R) : Type := Empty
+
+def relation (index : Index R) : Relation where
+  Statement := Statement R index
+  Witness := Witness R index
+  isValid := fun stmt _ =>
+    sumFinsetAll index.nVars index.domain stmt.poly = stmt.target
+      ∧ ∀ i : Fin index.nVars, stmt.poly.degreeOf i ≤ index.degrees i
 
 /-- The sumcheck relation -/
-instance SumcheckRelation (R : Type _) [CommSemiring R] : Relation R where
-  Index := IndexType R
-  Stmt := StmtType R
-  Wit := WitType R
-  isValid := fun index stmt _ =>
-    sumFinset index.nVars index.domain stmt.poly = stmt.target
-        ∧ ∀ i : Fin index.nVars, stmt.poly.degreeOf i ≤ index.degs i
+def relationFamily : RelationFamily where
+  Index := Index R
+  Relation := relation R
+
+end Abstract
 
 end
 
-end AbstractSumcheck
+end Sumcheck
