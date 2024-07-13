@@ -28,25 +28,25 @@ inductive HList : List (Type u) → Type (u + 1) where
   | nil : HList []
   | cons {α : Type u} (x : α) {αs : List (Type u)} (xs : HList αs) : HList (α :: αs)
 
-syntax (name := hlist) "[" term,* "]" : term
+syntax (name := hlist) "[" term,* "]ₕ" : term
 macro_rules (kind := hlist)
-  | `([]) => `(HList.nil)
-  | `([$x]) => `(HList.cons $x HList.nil)
-  | `([$x, $xs,*]) => `(HList.cons $x [$xs,*])
+  | `([]ₕ) => `(HList.nil)
+  | `([$x]ₕ) => `(HList.cons $x HList.nil)
+  | `([$x, $xs,*]ₕ) => `(HList.cons $x [$xs,*]ₕ)
 
 /- HList.cons notation -/
-infixr:67 " :: " => HList.cons
+infixr:67 " ::ₕ " => HList.cons
 
 
 namespace HList
 
 /-- Returns the first element of a HList -/
 def head {α : Type u} {αs : List (Type u)} : HList (α :: αs) → α
-  | x :: _ => x
+  | x ::ₕ _ => x
 
 /-- Returns a HList of all the elements besides the first -/
 def tail {α : Type u} {αs : List (Type u)} : HList (α :: αs) → HList αs
-  | _ :: xs => xs
+  | _ ::ₕ xs => xs
 
 /-- Returns the length of a HList -/
 def length {αs : List (Type u)} (_ : HList αs) := αs.length

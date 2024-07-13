@@ -193,3 +193,27 @@ instance reacMonad : Monad (ReacM input output) where
 /- Reactive resumption monad transformer -/
 -- inductive ReacT (input : Type u) (output : Type u) (m : Type u → Type u) (α : Type u) : Type u where
 --   | deReacT : m (Sum α (ReacT input output m α)) → ReacT input output m α
+
+
+inductive BoundedRequestSystem (α : Type u) (β : Type v) : Nat → Type (max u v) where
+  | done {n : Nat} : α → BoundedRequestSystem α β n
+  | call {n : Nat} : (β → BoundedRequestSystem α β n) → BoundedRequestSystem α β (n + 1)
+
+def BoundedRequestSystem.run
+  {α : Type u} {β : Type v} {n : Nat}
+  (sys : BoundedRequestSystem α β n)
+  (env : Unit → β) : α :=
+  match sys with
+  | .done a => a
+  | .call next => BoundedRequestSystem.run (next (env ())) env
+
+def BoundedRequestSystem.map
+  {α : Type u} {β : Type v} {γ : Type w} {n : Nat}
+  (f : α → γ) (sys : BoundedRequestSystem α β n) : BoundedRequestSystem γ β n :=
+  match sys with
+  | .done a => .done (f a)
+  | .call next => .call (fun b => map f (next b))
+
+#check BoundedRequestSystem
+#check BoundedRequestSystem.run
+#check BoundedRequestSystem.map
