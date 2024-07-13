@@ -9,11 +9,40 @@ noncomputable section
 
 open BigOperators Finset Fintype
 
+
+/-- Equivalence that splits `Fin (m + n)` to `Fin m` and `Fin n`, then swaps the two -/
+def Fin.sumCommEquiv (m : ℕ) (n : ℕ) : Fin (m + n) ≃ Sum (Fin n) (Fin m) := (@finSumFinEquiv m n).symm.trans (Equiv.sumComm (Fin m) (Fin n))
+
+
+
+namespace Polynomial
+
+variable {R : Type u} {A : Type v} {B : Type w} [CommSemiring R] [Semiring A] [Semiring B] [Algebra R A] [Algebra R B]
+
+def mapAlgHom (f : A →ₐ[R] B) : Polynomial A →ₐ[R] Polynomial B where
+  toRingHom := mapRingHom f.toRingHom
+  commutes' := by simp
+
+@[simp]
+theorem coe_mapAlgHom (f : A →ₐ[R] B) : ⇑(mapAlgHom f) = map f :=
+  rfl
+
+@[simp]
+theorem mapAlgHom_id : mapAlgHom (AlgHom.id R A) = AlgHom.id R (Polynomial A) := AlgHom.ext fun _x => map_id
+
+@[simp]
+theorem mapAlgHom_comp (C : Type z) [Semiring C] [Algebra R C] (f : B →ₐ[R] C) (g : A →ₐ[R] B) : (mapAlgHom f).comp (mapAlgHom g) = mapAlgHom (f.comp g) := by
+  apply AlgHom.ext ; intro x ; simp [AlgHom.comp_algebraMap, map_map] ; congr
+
+def mapAlgEquiv (f : A ≃ₐ[R] B) : Polynomial A ≃ₐ[R] Polynomial B := AlgEquiv.ofAlgHom (mapAlgHom f.toAlgHom) (mapAlgHom f.symm.toAlgHom) (by simp) (by simp)
+
+end Polynomial
+
+
 namespace MvPolynomial
 
-universe u
 
-variable {R : Type u} [CommSemiring R] {σ : Type*} {m n : ℕ}
+variable {R : Type _} [CommSemiring R] {σ : Type*}
 
 
 def CEmbedding : R ↪ MvPolynomial (Fin m) R := ⟨C, C_injective (Fin m) R⟩
@@ -22,8 +51,6 @@ def CEmbedding : R ↪ MvPolynomial (Fin m) R := ⟨C, C_injective (Fin m) R⟩
 def productFinset (n : ℕ) (D : Finset R) : Finset (Fin n → R) := Fintype.piFinset (fun _ => D)
   -- @Fintype.piFinset (Fin n) _ _ (fun _ => R) (fun _ => D)
 
-/-- Equivalence that splits `Fin (m + n)` to `Fin m` and `Fin n`, then swaps the two -/
-def finSumCommEquiv (m : ℕ) (n : ℕ) : Fin (m + n) ≃ Sum (Fin n) (Fin m) := (@finSumFinEquiv m n).symm.trans (Equiv.sumComm (Fin m) (Fin n))
 
 /--
 An `R`-linear mapping that sends
@@ -34,7 +61,7 @@ An `R`-linear mapping that sends
 -/
 def sumFinsetPartial (m : ℕ) (n : ℕ) (D : Finset R) : MvPolynomial (Fin (m + n)) R →ₗ[R] MvPolynomial (Fin m) R where
   toFun := fun p =>
-    let q := rename (finSumCommEquiv m n) p
+    let q := rename (Fin.sumCommEquiv m n) p
     let q' := sumAlgEquiv R (Fin n) (Fin m) q
     let D' := Finset.map CEmbedding D
     let prod_D' := Fintype.piFinset (fun _ => D')
@@ -45,7 +72,7 @@ def sumFinsetPartial (m : ℕ) (n : ℕ) (D : Finset R) : MvPolynomial (Fin (m +
 /-- Special case of `sumPartialFinset` when `m = 0`. Directly returns `R` -/
 def sumFinsetAll (n : ℕ) (D : Finset R) : MvPolynomial (Fin n) R →ₗ[R] R := by
   rw [← Nat.zero_add n]
-  exact (@isEmptyAlgEquiv R (Fin 0) _ _).toLinearMap ∘ₗ (sumFinsetPartial 0 n D)
+  exact (@isEmptyAlgEquiv R (Fin 0) _ _).toLinearMap.comp (sumFinsetPartial 0 n D)
 
 /-- Special case of `sumPartialFinset` when `m = 1`. Directly returns `R[X]` -/
 def sumFinsetExceptFirst (n : ℕ) (D : Finset R) : MvPolynomial (Fin (n + 1)) R →ₗ[R] Polynomial R := by
@@ -53,13 +80,10 @@ def sumFinsetExceptFirst (n : ℕ) (D : Finset R) : MvPolynomial (Fin (n + 1)) R
   have f : MvPolynomial (Fin 1) R →ₗ[R] Polynomial R := by
     rw [← Nat.zero_add 1]
     let g := (finSuccEquiv R 0).toLinearMap
-    let g' := (@isEmptyAlgEquiv R (Fin 0) _ _).toRingEquiv
-    -- For some reason `Polynomial` does not have good `evalHom` support
-    -- Need to strengthen `Polynomial.map`
-    -- let h := Polynomial.map g'
-    -- exact h ∘ₗ g
-    sorry
-  exact f ∘ₗ (sumFinsetPartial 1 n D)
+    let g' := @isEmptyAlgEquiv R (Fin 0) _ _
+    let h := Polynomial.mapAlgEquiv g'
+    exact h.toLinearMap.comp g
+  exact f.comp (sumFinsetPartial 1 n D)
 
 end MvPolynomial
 

@@ -29,8 +29,9 @@ variable {R : Type _} [CommSemiring R] [Fintype R] [Nonempty R]
 /-- Evaluate the first variable of a multivariate polynomial -/
 def boundFirstVar (n : ℕ) (p : MvPolynomial (Fin (n + 1)) R) (r : R) : MvPolynomial (Fin n) R := (finSuccEquiv R n p).eval (C r)
 
+variable (index : Index R) (samplingSet : SamplingSet R)
 
-def spec (index : Index R) (samplingSet : SamplingSet R) : IOR.Spec where
+def spec : IOR.Spec where
   relIn := relation R index
   relOut := boolRel Empty
   numRounds := index.nVars
@@ -41,7 +42,7 @@ def spec (index : Index R) (samplingSet : SamplingSet R) : IOR.Spec where
   OResponse := fun _ => R
   oracleFromMessage := fun _ poly point => poly.eval point
 
-def proverRound (index : Index R) (sSet : SamplingSet R) : IOR.ProverRound (spec index sSet) where
+def proverRound : IOR.ProverRound (spec index samplingSet) where
   PrvState := fun i => MvPolynomial (Fin (index.nVars - i - 1)) R
   PrvRand := fun _ => PEmpty
   samplePrvRand := fun i => _
@@ -49,16 +50,21 @@ def proverRound (index : Index R) (sSet : SamplingSet R) : IOR.ProverRound (spec
   -- Consider not (ab)using dependent types
   prove := fun i stmt state _ ⟨chal, _⟩ => ⟨ sumFinsetExceptFirst state index.domain , boundFirstVar (index.nVars - i) state chal ⟩
 
-def prover (index : Index R) (sSet : SamplingSet R) : IOR.Prover (spec index sSet) where
-  toProverRound := proverRound index sSet
+def prover : IOR.Prover (spec index samplingSet) where
+  toProverRound := proverRound index samplingSet
   fromWitnessIn := fun _ => _
   toWitnessOut := fun _ => _
 
 
+def verifier : IOR.Verifier (spec index samplingSet) where
+  verify := fun i state _ ⟨chal, _⟩ => sorry
+
+
+def protocol : IOR.Protocol (spec index samplingSet) := IOR.mkProverProver (prover index samplingSet) verifier
 
 
 /- Completeness theorem for sumcheck-/
-theorem completeness' : true := sorry
+theorem perfect_completeness : true := sorry
 
 
 
