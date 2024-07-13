@@ -55,6 +55,11 @@ def Transcript.toPartial (transcript : Transcript spec) (i : Fin (spec.numRounds
   challenges := fun j => transcript.challenges j
 
 
+def PartialTranscript.toFull (spec : Spec) (partialTranscript : PartialTranscript spec spec.numRounds) : Transcript spec where
+  messages := fun i => partialTranscript.messages ⟨i, Nat.lt_succ_of_le (Nat.le_of_lt_succ i.2)⟩
+  challenges := fun i => partialTranscript.challenges ⟨i, Nat.lt_succ_of_le (Nat.le_of_lt_succ i.2)⟩
+
+
 /-- The output statement and witness pair of an IOR execution -/
 def Output (spec : Spec) := spec.relOut.Statement × spec.relOut.Witness
 
