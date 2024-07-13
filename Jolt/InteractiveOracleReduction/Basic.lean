@@ -102,18 +102,15 @@ structure Verifier (spec : Spec) where
 structure Protocol (spec : Spec) extends Prover spec, Verifier spec
 
 
-/-- Define family of IOR specifications, depending on public parameters `PParams` and index `Index` -/
+/-- Define family of IOR specifications parameterized by `Index` -/
 structure SpecFamily where
-  PParams : Type _
-  Index : PParams → Type _
-  Spec : (pp : PParams) → Index pp → Spec
+  Index : Type _
+  Spec : Index → Spec
 
-/-- Define family of IOR protocols depending on `PParams` and `Index` -/
+/-- Define family of IOR protocols parameterized by `Index` -/
 structure ProtocolFamily where
-  PParams : Type _
-  Index : PParams → Type _
-  Spec : (pp : PParams) → Index pp → Spec
-  Protocol : (pp : PParams) → (index : Index pp) → Protocol (Spec pp index)
+  SpecFamily : SpecFamily
+  Protocol : (index : SpecFamily.Index) → Protocol (SpecFamily.Spec index)
 
 
 -- Since we are using `PMF`, this section is marked as noncomputable
@@ -168,13 +165,17 @@ instance unitInterval.toNNReal : Coe unitInterval NNReal where
 
 section Completeness
 
-/-- For all valid statement-witness pair for the input relation `relIn`, the execution between the honest prover and the honest verifier will result in a valid pair for the output relation `relOut`, except with probability `completenessError` -/
+/--
+  For all valid statement-witness pair for the input relation `relIn`,
+  the execution between the honest prover and the honest verifier will result in a valid pair for the output relation `relOut`,
+  except with probability `completenessError`
+-/
 def completeness (spec : Spec) (protocol : Protocol spec) (completenessError : I) : Prop :=
     ∀ stmtIn : spec.relIn.Statement,
     ∀ witIn : spec.relIn.Witness,
     spec.relIn.isValid stmtIn witIn = true →
         let output := run spec protocol.toProver protocol.toVerifier stmtIn witIn
-        let prob := spec.relOut.isValidProp <$> output
+        let prob := spec.relOut.isValid' <$> output
         prob true ≥ 1 - completenessError
 
 
@@ -208,7 +209,7 @@ def soundness (spec : Spec) (verifier : Verifier spec) (soundnessBound : ENNReal
   /-
     Need to quantify over the witness because of the way we defined
     the type signature of the prover, which always takes in some witness.
-    Think of this as the initial state of the prover.
+    Think of this as the initializing the state of the prover.
   -/
   ∀ witIn : spec.relIn.Witness,
   ∀ prover : Prover spec,

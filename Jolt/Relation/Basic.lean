@@ -3,9 +3,9 @@ import Mathlib.Data.Set.Basic
 /-!
   # Relations
 
-  This file contains definitions related to NP (indexed) relations. An indexed relation $R$ consists of tuples $(i,x,w)$, where $i$ is called an index, $x$ is called a statement, and $w$ is called a witness. Relations can be parametrized by additional data (public parameters) such as the choice of a field.
+  This file contains definitions related to NP (indexed) relations. An indexed relation $R$ consists of tuples $(i,x,w)$, where $i$ is called an index, $x$ is called a statement, and $w$ is called a witness. Relations can be parametrized by additional data (public parameters) such as the choice of a field. We do not explicitly mention these public parameters in the definition of the relation; instead, they are assumed to be implicit variables in each instantiation.
 
-  We define the corresponding language $L_R$ to be the set of all $(i,x)$ such that there exists some $w$ with $(i,x,w) \in R$.
+  We define the corresponding language `L_R` to be the set of all `stmt`s such that there exists some `wit` with `(stmt, wit) ∈ R`.
 -/
 
 
@@ -13,18 +13,17 @@ import Mathlib.Data.Set.Basic
 structure Relation where
   Statement : Type _
   Witness : Type _
-  isValid : Statement → Witness → Bool
+  isValid : Statement → Witness → Prop
 
 /-- Alternate form where the statement and witness are in a tuple -/
-def Relation.isValid' (R : Relation) : R.Statement × R.Witness → Bool := fun ⟨stmt, wit⟩ => R.isValid stmt wit
+def Relation.isValid' (R : Relation) : R.Statement × R.Witness → Prop := fun ⟨stmt, wit⟩ => R.isValid stmt wit
 
-def Relation.isValidProp (R : Relation) : R.Statement × R.Witness → Prop := fun ⟨stmt, wit⟩ => R.isValid stmt wit = true
+-- def Relation.isValidBool (R : Relation) : R.Statement × R.Witness → Bool := fun ⟨stmt, wit⟩ => R.isValid stmt wit
 
-/-- A relation family indexed by public parameters `PParams` and index `Index` -/
+/-- A relation family indexed by `Index` -/
 structure RelationFamily where
-  PParams : Type _
-  Index : PParams → Type _
-  Relation : (pp : PParams) → Index pp → Relation
+  Index : Type _
+  Relation : Index → Relation
 
 /-- The trivial Boolean relation -/
 def boolRel (AnyWitness : Type _) : Relation where
