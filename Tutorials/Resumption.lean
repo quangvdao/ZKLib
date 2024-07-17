@@ -177,9 +177,9 @@ instance reacMonad : Monad (ReacM input output) where
 
 -- Generative Probabilistic Values (GPVs) are defined as `ReacT` applied to `SPMF`
 -- Not sure how to make it work for now?
--- inductive GPV (input : Type v) (output : Type w) (α : Type u) : Type (max u v w) where
---   | done : SPMF α → GPV input output α
---   | pause : SPMF (output → (input → GPV input output α)) → GPV input output α
+inductive GPV (input : Type v) (output : Type w) (α : Type u) : Type (max u v w) where
+  | done : SPMF α → GPV input output α
+  | pause : SPMF (output → (input → GPV input output α)) → GPV input output α
 
 
 
