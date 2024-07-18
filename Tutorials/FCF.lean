@@ -48,20 +48,12 @@ instance compDecidableEq {A : Type _} (x : Comp A) : DecidableEq A :=
 instance compBindDecidableEq {A B : Type _} (x : Comp B) (f : B → Comp A) : DecidableEq A :=
   compDecidableEq (Comp.bind x f)
 
-
-def test (s : Set A) (f : A → Set B) : Set B := { b | ∃ a ∈ s, b ∈ f a }
-
--- def test2 (s : Finset A) (f : A → Finset B) : Finset B := { b | ∃ a ∈ s, b ∈ f a }
-
-#check Finset.biUnion
-
 def getSupport {A : Type _} (x : Comp A) : Finset A :=
   match x with
     | Comp.pure y => {y}
-    | Comp.bind y f => @Finset.biUnion _ _ (compBindDecidableEq y f) (getSupport y) (getSupport ∘ f)
+    | Comp.bind y f => @Finset.biUnion _ _ (compBindDecidableEq y f) (getSupport y) (fun x => getSupport (f x))
     | Comp.rand => Finset.univ
     | Comp.repeat y _ => getSupport y
--- termination_by sizeOf x => sorry
 
 inductive wellFormedComp {A : Type _} : Comp A → Prop where
   | wfPure [DecidableEq A] : wellFormedComp (Comp.pure x)
