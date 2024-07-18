@@ -2,6 +2,7 @@
 -- import Mathlib.Control.Random
 import Mathlib.Data.Fintype.Basic
 import Mathlib.Data.Finset.Pi
+import Mathlib.Data.Finset.Card
 
 /-!
   # The Foundational Cryptographic Framework (FCF)
@@ -55,11 +56,22 @@ def getSupport {A : Type _} (x : Comp A) : Finset A :=
     | Comp.rand => Finset.univ
     | Comp.repeat y _ => getSupport y
 
+@[simp]
+theorem getSupport_pure [DecidableEq A] (x a : A) : x ∈ getSupport (Comp.pure a) ↔ x = a := by simp [getSupport]
+
+@[simp]
+theorem getSupport_bind (x : Comp B) (f : B → Comp A) (a : A) : a ∈ getSupport (Comp.bind x f) ↔ ∃ b ∈ getSupport x, a ∈ getSupport (f b) := by simp [getSupport]
+
+
 inductive wellFormedComp {A : Type _} : Comp A → Prop where
   | wfPure [DecidableEq A] : wellFormedComp (Comp.pure x)
   | wfBind : (x : Comp B) → (f : B → Comp A) → wellFormedComp (Comp.bind x f) -- add more conditions
   | wfRand [Fintype A] [Inhabited A] [DecidableEq A] : wellFormedComp Comp.rand
   | wfRepeat [DecidableEq A] : (x : Comp A) → (p : A → Bool) → (∀ b, wellFormedComp x → b ∈ Finset.filter p (getSupport x)) → wellFormedComp (Comp.repeat x p)
+
+@[simp]
+theorem getSupport_card_pos {A : Type _} (x : Comp A) (h : wellFormedComp x) : (getSupport x).card > 0 := sorry
+
 
 
 end Comp
