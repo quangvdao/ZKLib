@@ -56,11 +56,11 @@ def getSupport {A : Type _} (x : Comp A) : Finset A :=
     | Comp.rand => Finset.univ
     | Comp.repeat y _ => getSupport y
 
-@[simp]
-theorem getSupport_pure [DecidableEq A] (x a : A) : x ∈ getSupport (Comp.pure a) ↔ x = a := by simp [getSupport]
+-- @[simp]
+theorem getSupport_pure_iff [DecidableEq A] (x a : A) : x ∈ getSupport (Comp.pure a) ↔ x = a := by simp [getSupport]
 
-@[simp]
-theorem getSupport_bind (x : Comp B) (f : B → Comp A) (a : A) : a ∈ getSupport (Comp.bind x f) ↔ ∃ b ∈ getSupport x, a ∈ getSupport (f b) := by simp [getSupport]
+-- @[simp]
+theorem getSupport_bind_iff (x : Comp B) (f : B → Comp A) (a : A) : a ∈ getSupport (Comp.bind x f) ↔ ∃ b ∈ getSupport x, a ∈ getSupport (f b) := by simp [getSupport]
 
 
 inductive wellFormedComp {A : Type _} : Comp A → Prop where
@@ -69,10 +69,12 @@ inductive wellFormedComp {A : Type _} : Comp A → Prop where
   | wfRand [Fintype A] [Inhabited A] [DecidableEq A] : wellFormedComp Comp.rand
   | wfRepeat [DecidableEq A] : (x : Comp A) → (p : A → Bool) → (∀ b, wellFormedComp x → b ∈ Finset.filter p (getSupport x)) → wellFormedComp (Comp.repeat x p)
 
+
+@[simp]
+theorem wellFormedExists (x : Comp A) (h : wellFormedComp x) : ∃ a, a ∈ getSupport x := sorry
+
 @[simp]
 theorem getSupport_card_pos {A : Type _} (x : Comp A) (h : wellFormedComp x) : (getSupport x).card > 0 := sorry
-
-
 
 end Comp
 
@@ -99,27 +101,36 @@ theorem comp_eq_refl (x : Comp A) : CompEq x x := match x with
 end CompEq
 
 
-section OComp
+section OracleComp
 
 -- Probabilistic computation with access to a stateful oracle
-inductive OComp : Type _ → Type _ → Type _ → Type _ where
+inductive OracleComp : Type _ → Type _ → Type _ → Type _ where
   -- give oracle access to some probabilistic computation
-  | pure : Comp C → OComp A B C
+  | pure : Comp C → OracleComp A B C
   -- continue the oracle computation
-  | bind : OComp A B C → (C → OComp A B C') → OComp A B C'
+  | bind : OracleComp A B C → (C → OracleComp A B C') → OracleComp A B C'
   -- query the oracle with query of type `A`, and get the result of type `B`
-  | query : A → OComp A B B
+  | query : A → OracleComp A B B
   -- run the program under a different oracle that is allowed to access the current oracle
-  | run : OComp A B C → S → (S → A → OComp A' B' (B × S)) → OComp A' B' (C × S)
+  | run [DecidableEq A] [DecidableEq B] [DecidableEq S] : OracleComp A B C → S → (S → A → OracleComp A' B' (B × S)) → OracleComp A' B' (C × S)
 
+-- ehh, again due to `DecidableEq` getting in the way
 -- instance : Monad (OComp A B) where
 --   pure := OComp.pure ∘ Comp.pure
 --   bind := OComp.bind
 
+@[simp]
+def oracleCompExists {A : Type _} (x : OracleComp A B C) : (A → B) → C := fun f =>
+  match x with
+    | OracleComp.pure y => compExists y
+    | OracleComp.bind y g => oracleCompExists (g (compExists y))
+    | OracleComp.query a => f a
+    | OracleComp.run x s g => oracleCompExists (g s (oracleCompExists x))
+
+instance oracleCompDecidableEq (x : OracleComp A B C) (f : A → B) (g : A → DecidableEq B) : DecidableEq C := sorry
 
 
-
-end OComp
+end OracleComp
 
 end Crypto
 
