@@ -91,6 +91,14 @@ structure ProverRound (spec : Spec) where
   samplePrvRand : ∀ i, PMF (PrvRand i)
   prove : ∀ (i : Fin spec.numRounds), spec.relIn.Statement → PrvState i → PrvRand i → spec.Challenge i → spec.Message i × (PrvState (i + 1))
 
+-- zero-knowledge in EasyCrypt
+--  parametrize the game / program by a function that's an oracle
+--  how to encode this?
+--  oracle has type ??
+--  oracle needs state
+--  FCF: `OracleComp` monad
+--  CryptHOL:
+
 
 /-- The full prover, including the witness input and output -/
 structure Prover (spec : Spec) extends ProverRound spec where
