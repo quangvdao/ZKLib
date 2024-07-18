@@ -1,6 +1,7 @@
-import Mathlib.Tactic.Common
-import Mathlib.Control.Random
+-- import Mathlib.Tactic.Common
+-- import Mathlib.Control.Random
 import Mathlib.Data.Fintype.Basic
+import Mathlib.Data.Finset.Pi
 
 /-!
   # The Foundational Cryptographic Framework (FCF)
@@ -19,8 +20,8 @@ inductive Comp : Type _ → Type _ where
   | pure [DecidableEq A] : A → Comp A
   -- continue the computation
   | bind : Comp B → (B → Comp A) → Comp A
-  -- sample uniformly among some finite type
-  | rand [Fintype A] [DecidableEq A] : Comp A
+  -- sample uniformly among some non-empty finite type with decidable equality
+  | rand [Fintype A] [Inhabited A] [DecidableEq A] : Comp A
   -- repeat until some deciable predicate returns true
   | repeat : Comp A → (A → Bool) → Comp A
 
@@ -29,17 +30,45 @@ inductive Comp : Type _ → Type _ where
 --   pure := Comp.pure
 --   bind := Comp.bind
 
--- def compExists (A : Type _) : Comp A → A := fun x => match x with
---   | Comp.pure x => x
---   | Comp.bind x _ => compExists x
---   | Comp.rand _ => x
---   | Comp.repeat x _ => compExists x
+@[simp]
+def compExists {A : Type _} (x : Comp A) : A :=
+  match x with
+    | Comp.pure y => y
+    | Comp.bind y f => compExists (f (compExists y))
+    | Comp.rand => default
+    | Comp.repeat y _ => compExists y
 
--- def compDecidableEq (A : Type _) : Comp A → DecidableEq A := fun x => match x with
---   | Comp.pure _ => x
---   | Comp.bind x _ => compDecidableEq A x
---   | Comp.rand _ => x
---   | Comp.repeat x _ => compDecidableEq A x
+instance compDecidableEq {A : Type _} (x : Comp A) : DecidableEq A :=
+  match x with
+    | Comp.pure _ => inferInstance
+    | Comp.bind y f => compDecidableEq (f (compExists y))
+    | Comp.rand => inferInstance
+    | Comp.repeat y _ => compDecidableEq y
+
+instance compBindDecidableEq {A B : Type _} (x : Comp B) (f : B → Comp A) : DecidableEq A :=
+  compDecidableEq (Comp.bind x f)
+
+
+def test (s : Set A) (f : A → Set B) : Set B := { b | ∃ a ∈ s, b ∈ f a }
+
+-- def test2 (s : Finset A) (f : A → Finset B) : Finset B := { b | ∃ a ∈ s, b ∈ f a }
+
+#check Finset.biUnion
+
+def getSupport {A : Type _} (x : Comp A) : Finset A :=
+  match x with
+    | Comp.pure y => {y}
+    | Comp.bind y f => @Finset.biUnion _ _ (compBindDecidableEq y f) (getSupport y) (getSupport ∘ f)
+    | Comp.rand => Finset.univ
+    | Comp.repeat y _ => getSupport y
+-- termination_by sizeOf x => sorry
+
+inductive wellFormedComp {A : Type _} : Comp A → Prop where
+  | wfPure [DecidableEq A] : wellFormedComp (Comp.pure x)
+  | wfBind : (x : Comp B) → (f : B → Comp A) → wellFormedComp (Comp.bind x f) -- add more conditions
+  | wfRand [Fintype A] [Inhabited A] [DecidableEq A] : wellFormedComp Comp.rand
+  | wfRepeat [DecidableEq A] : (x : Comp A) → (p : A → Bool) → (∀ b, wellFormedComp x → b ∈ Finset.filter p (getSupport x)) → wellFormedComp (Comp.repeat x p)
+
 
 end Comp
 
@@ -50,7 +79,7 @@ section CompEq
 inductive CompEq : Comp A → Comp A → Prop where
   | eqPure [DecidableEq A] : CompEq (@Comp.pure A _ x) (@Comp.pure A _ x)
   | eqBind : CompEq x y → (∀ b, CompEq (f b) (g b)) → CompEq (Comp.bind x f) (Comp.bind y g)
-  | eqRand [Fintype A] [DecidableEq A] : CompEq (@Comp.rand A _ _) (@Comp.rand A _ _)
+  | eqRand [Fintype A] [Inhabited A] [DecidableEq A] : CompEq (@Comp.rand A _ _ _) (@Comp.rand A _ _ _)
   | eqRepeat : CompEq x y → (∀ a, p a = q a) → CompEq (Comp.repeat x p) (Comp.repeat y q)
 
 @[simp]
