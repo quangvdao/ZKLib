@@ -122,6 +122,11 @@ structure ProtocolFamily where
 noncomputable section
 
 
+def runProverAux (spec : Spec) (prover : Prover spec) (stmtIn : spec.relIn.Statement) (witIn : spec.relIn.Witness) (i : Fin spec.numRounds) : PMF (PartialTranscript spec i × prover.PrvState i) := do
+  let newRand ← prover.samplePrvRand i
+  let challenge ← spec.sampleChallenge i
+  let (msg, newState) ← prover.prove i stmtIn (prover.fromWitnessIn witIn) newRand challenge
+  return ⟨⟨msg, newState⟩, newState⟩
 
 /--
   Running the IOR prover in the protocol; returns the transcript along with the final prover's state

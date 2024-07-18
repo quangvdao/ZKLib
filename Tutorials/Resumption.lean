@@ -116,19 +116,6 @@ inductive GroupF (α : Type u) : Type u where
 
 end Free
 
-
-/-- Subprobability distribution (SPMF) as PMF of Option type -/
-abbrev SPMF (α : Type u) := OptionT PMF α
-
-noncomputable section
-
-/-- SPMF of a single element -/
-def SPMF.pure (a : α) : SPMF α := OptionT.pure a
-
-def SPMF.bind (r : SPMF α) (f : α → SPMF β) : SPMF β := OptionT.bind r f
-
-end
-
 inductive ResM (α : Type u) : Type u where
   | done : α → ResM α
   | pause : ResM α → ResM α
@@ -160,27 +147,63 @@ def StateResM (σ α : Type u) := StateT σ ResM α
 --   | pause : SPMFResM α → SPMFResM α
 
 /-- Reactive resumption monad -/
-inductive ReacM (input : Type v) (output : Type w) (α : Type u) : Type (max u v w) where
-  | done : α → ReacM input output α
-  | pause : output → (input → ReacM input output α) → ReacM input output α
+inductive ReacM (Input : Type v) (Output : Type w) (α : Type u) : Type (max u v w) where
+  | done : α → ReacM Input Output α
+  | pause : Output → (Input → ReacM Input Output α) → ReacM Input Output α
 
 /-- Helper function for bind of `ReacM` -/
-def ReacM.bindAux {α β : Type u} (f : α → ReacM input output β) : ReacM input output α → ReacM input output β
+def ReacM.bindAux {α β : Type u} (f : α → ReacM Input Output β) : ReacM Input Output α → ReacM Input Output β
   | done a => f a
   | pause q r => pause q (fun i => bindAux f (r i))
 
-instance reacMonad : Monad (ReacM input output) where
+instance reacMonad : Monad (ReacM Input Output) where
   pure := ReacM.done
   bind := fun r f => ReacM.bindAux f r
 
+instance reacLawfulMonad : LawfulMonad (ReacM Input Output) := sorry
+-- LawfulMonad.mk' _ _ _ _
+  -- id_bind := sorry
+  -- bind_assoc := sorry
+  -- pure_bind := sorry
+  -- bind_pure_comp_eq := sorry
 
+noncomputable section
+
+/-- Subprobability distribution (SPMF) as PMF of Option type -/
+abbrev SPMF (α : Type u) := OptionT PMF α
+
+/-- SPMF of a single element -/
+def SPMF.pure (a : α) : SPMF α := OptionT.pure a
+
+def SPMF.bind (r : SPMF α) (f : α → SPMF β) : SPMF β := OptionT.bind r f
+
+instance : LawfulMonad SPMF := sorry
+
+-- #instances LawfulMonad SPMF
+
+def GPV' (Input : Type v) (Output : Type w) (α : Type u) := SPMF (ReacM Input Output α)
+
+-- def RPV (Input : Type v) (Output : Type w) (α : Type u) := Input → GPV Input Output α
+
+-- instance : Monad GPV where
+--   pure := GPV.pure
+--   bind := GPV.bind
+
+end
 
 -- Generative Probabilistic Values (GPVs) are defined as `ReacT` applied to `SPMF`
 -- Not sure how to make it work for now?
--- inductive GPV (input : Type v) (output : Type w) (α : Type u) : Type (max u v w) where
---   | done : SPMF α → GPV input output α
---   | pause : SPMF (output → (input → GPV input output α)) → GPV input output α
 
+-- mutual
+
+-- inductive GPV (Input : Type v) (Output : Type w) (α : Type u) : Type (max u v w) where
+--   | done : SPMF α → GPV Input Output α
+--   | pause : SPMF (Output × RPV Input Output α) → GPV Input Output α
+
+-- inductive RPV (Input : Type v) (Output : Type w) (α : Type u) : Type (max u v w) where
+--   | resume : (Input → GPV Input Output α) → RPV Input Output α
+
+-- end
 
 
 
@@ -191,8 +214,13 @@ instance reacMonad : Monad (ReacM input output) where
 --   | deResT : m (Sum α (ResT m α)) → ResT m α
 
 /- Reactive resumption monad transformer -/
--- inductive ReacT (input : Type u) (output : Type u) (m : Type u → Type u) (α : Type u) : Type u where
---   | deReacT : m (Sum α (ReacT input output m α)) → ReacT input output m α
+-- inductive ReacT (Input : Type u) (Output : Type u) (m : Type u → Type u) [Monad m] [LawfulMonad m] (α : Type u) : Type u where
+--   | done : m α → ReacT Input Output m α
+--   | pause : m (Output × (Input → ReacT Input Output m α)) → ReacT Input Output m α
+/-
+(kernel) arg #7 of 'ReacT.pause' contains a non valid occurrence of the datatypes being declared
+-/
+
 
 
 inductive BoundedRequestSystem (α : Type u) (β : Type v) : Nat → Type (max u v) where
@@ -213,7 +241,3 @@ def BoundedRequestSystem.map
   match sys with
   | .done a => .done (f a)
   | .call next => .call (fun b => map f (next b))
-
-#check BoundedRequestSystem
-#check BoundedRequestSystem.run
-#check BoundedRequestSystem.map

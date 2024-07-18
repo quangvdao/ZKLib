@@ -1,15 +1,10 @@
-import Mathlib.Algebra.MvPolynomial.CommRing
-import Mathlib.LinearAlgebra.Lagrange
-import Mathlib.Tactic.Common
-import Jolt.Data.MvPolynomial.Degrees
+import Jolt.Data.MvPolynomial.Interpolation
 
 
 /-!
-  # Interpolation of `MvPolynomial`
+  # Multilinear Polynomials
 
-  TODO: theory of interpolation for `MvPolynomial` with individual bounds on `degreeOf`. Follows from a combination of the univariate case (see `Lagrange.lean`) and the tensor structure of `MvPolynomial`.
-
-  As a special case, we obtain the multilinear extension of a function defined on a hypercube `{0 , 1}^n`.
+  This is the special case of polynomial interpolation, when we consider multilinear polynomials and evaluation on the hypercube `{0, 1}^n`.
 -/
 
 -- TODO: define custom Fin tactic for `Fin 2`
