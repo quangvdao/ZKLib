@@ -39,20 +39,20 @@ def compExists {A : Type _} (x : Comp A) : A :=
     | Comp.rand => default
     | Comp.repeat y _ => compExists y
 
-instance compDecidableEq {A : Type _} (x : Comp A) : DecidableEq A :=
+instance instCompDecidableEq {A : Type _} (x : Comp A) : DecidableEq A :=
   match x with
     | Comp.pure _ => inferInstance
-    | Comp.bind y f => compDecidableEq (f (compExists y))
+    | Comp.bind y f => instCompDecidableEq (f (compExists y))
     | Comp.rand => inferInstance
-    | Comp.repeat y _ => compDecidableEq y
+    | Comp.repeat y _ => instCompDecidableEq y
 
-instance compBindDecidableEq {A B : Type _} (x : Comp B) (f : B → Comp A) : DecidableEq A :=
-  compDecidableEq (Comp.bind x f)
+instance instCompBindDecidableEq {A B : Type _} (x : Comp B) (f : B → Comp A) : DecidableEq A :=
+  instCompDecidableEq (Comp.bind x f)
 
 def getSupport {A : Type _} (x : Comp A) : Finset A :=
   match x with
     | Comp.pure y => {y}
-    | Comp.bind y f => @Finset.biUnion _ _ (compBindDecidableEq y f) (getSupport y) (fun x => getSupport (f x))
+    | Comp.bind y f => @Finset.biUnion _ _ (instCompBindDecidableEq y f) (getSupport y) (fun x => getSupport (f x))
     | Comp.rand => Finset.univ
     | Comp.repeat y _ => getSupport y
 
@@ -108,7 +108,7 @@ inductive OracleComp : Type _ → Type _ → Type _ → Type _ where
   -- give oracle access to some probabilistic computation
   | pure : Comp C → OracleComp A B C
   -- continue the oracle computation
-  | bind : OracleComp A B C → (C → OracleComp A B C') → OracleComp A B C'
+  | bind : OracleComp A B C' → (C' → OracleComp A B C) → OracleComp A B C
   -- query the oracle with query of type `A`, and get the result of type `B`
   | query : A → OracleComp A B B
   -- run the program under a different oracle that is allowed to access the current oracle
@@ -120,17 +120,40 @@ inductive OracleComp : Type _ → Type _ → Type _ → Type _ where
 --   bind := OComp.bind
 
 @[simp]
-def oracleCompExists {A : Type _} (x : OracleComp A B C) : (A → B) → C := fun f =>
+def oracleCompToComp (x : OracleComp A B C) : (A → B) → C := fun f =>
   match x with
     | OracleComp.pure y => compExists y
-    | OracleComp.bind y g => oracleCompExists (g (compExists y))
+    | OracleComp.bind y g => oracleCompToComp (g (oracleCompToComp y f)) f
     | OracleComp.query a => f a
-    | OracleComp.run x s g => oracleCompExists (g s (oracleCompExists x))
+    | @OracleComp.run A' B' S C' _ _ _ _ _ x s o =>
+      let IHX := oracleCompToComp x
+      let H := fun s a g => oracleCompToComp (o s a) g
+      let X0 := o s
+      let H1 := H s
+      let H2 :=
+        let H2 :=
+        (fun (H2 : B' -> C') (H3 : A') =>
+          let X1 := X0 H3
+          let H4 := H1 H3
+          let H5 := H4 f
+          Prod.recOn (motive := fun _ : B' × S => B') H5
+            (fun (a : B') (_ : S) => let H6 := H2 a ; a))
+        (fun y : B' => IHX (fun _ : A' => y))
+        IHX H2 (fun H3 : C => H3)
+      ⟨H2, s⟩
 
 instance oracleCompDecidableEq (x : OracleComp A B C) (f : A → B) (g : A → DecidableEq B) : DecidableEq C := sorry
 
 
 end OracleComp
+
+section Map
+
+
+
+end Map
+
+
 
 end Crypto
 
@@ -147,38 +170,3 @@ inductive ITree (E : Type _ → Type _) (R : Type _) : Type _ where
   | ret : R → ITree E R
   | tau : ITree E R → ITree E R
   | event : (E A) → (A → ITree E R) → ITree E R
-
--- can we simplify this to a single monadic computation
--- return / flip random coin / query oracles
-
--- query (O : Oracle) (O.Input : Type) → (O.Output : Type)
-
--- interaction trees in Coq:
--- computations are indexed by effects / oracles
-
--- how to argue that model is reasonable?
--- already have an implementation somewhere else, write another impl in Lean, then check they're the same on random inputs (include lots of test vectors)
-
--- write a model of the proof system that's parametrized by an oracle
--- prove that when it's the random oracle, then it's secure
--- then test for equivalence when it's instantiated with a concrete hash function
-
--- Use good support for Monad Transformer : StateT PMF α
-
--- EasyCrypt: program logic for proving equivalence of crypto programs
--- Need something similar here (Hoare logic), see what FCF does
--- If p is true before running the program, then q is true after running the program. Show this is true for probabilistic programs.
-
--- `PMF` is the denotation but not the semantics
--- Need a concrete execution model
--- A simple model: define it as a tre
-
--- basically an interaction tree, except that oracle is fixed to flipping a random coin
-
--- Gen: PTree F  randomly sample a field element
---
-
--- General library for crypto reasoning in Lean?
--- Coq is way more mature, proof automation is better than Lean right now
--- Lean has `Mathlib`,
--- Doing things fully foundationally is nice, but it makes it more difficult to use
