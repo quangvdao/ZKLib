@@ -221,6 +221,9 @@ end
 (kernel) arg #7 of 'ReacT.pause' contains a non valid occurrence of the datatypes being declared
 -/
 
+inductive ReacT (Query : Type u) (Response : Type u) (m : Type u → Type u) (α : Type u) : Type u where
+  | done : m α → ReacT Query Response m α
+  | pause : Query → (Response → m (ReacT Query Response m α)) → ReacT Query Response m α
 
 
 inductive BoundedRequestSystem (α : Type u) (β : Type v) : Nat → Type (max u v) where

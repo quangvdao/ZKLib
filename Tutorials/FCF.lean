@@ -39,42 +39,55 @@ def compExists {A : Type _} (x : Comp A) : A :=
     | Comp.rand => default
     | Comp.repeat y _ => compExists y
 
-instance instCompDecidableEq {A : Type _} (x : Comp A) : DecidableEq A :=
+instance instCompDecEq {A : Type _} (x : Comp A) : DecidableEq A :=
   match x with
     | Comp.pure _ => inferInstance
-    | Comp.bind y f => instCompDecidableEq (f (compExists y))
+    | Comp.bind y f => instCompDecEq (f (compExists y))
     | Comp.rand => inferInstance
-    | Comp.repeat y _ => instCompDecidableEq y
+    | Comp.repeat y _ => instCompDecEq y
 
-instance instCompBindDecidableEq {A B : Type _} (x : Comp B) (f : B → Comp A) : DecidableEq A :=
-  instCompDecidableEq (Comp.bind x f)
+instance instCompBindDecEq {A B : Type _} (x : Comp B) (f : B → Comp A) : DecidableEq A :=
+  instCompDecEq (Comp.bind x f)
 
 def getSupport {A : Type _} (x : Comp A) : Finset A :=
   match x with
     | Comp.pure y => {y}
-    | Comp.bind y f => @Finset.biUnion _ _ (instCompBindDecidableEq y f) (getSupport y) (fun x => getSupport (f x))
+    | Comp.bind y f => @Finset.biUnion _ _ (instCompBindDecEq y f) (getSupport y) (fun x => getSupport (f x))
     | Comp.rand => Finset.univ
     | Comp.repeat y _ => getSupport y
 
--- @[simp]
+@[simp]
 theorem getSupport_pure_iff [DecidableEq A] (x a : A) : x ∈ getSupport (Comp.pure a) ↔ x = a := by simp [getSupport]
 
--- @[simp]
+@[simp]
 theorem getSupport_bind_iff (x : Comp B) (f : B → Comp A) (a : A) : a ∈ getSupport (Comp.bind x f) ↔ ∃ b ∈ getSupport x, a ∈ getSupport (f b) := by simp [getSupport]
 
 
-inductive wellFormedComp {A : Type _} : Comp A → Prop where
-  | wfPure [DecidableEq A] : wellFormedComp (Comp.pure x)
-  | wfBind : (x : Comp B) → (f : B → Comp A) → wellFormedComp (Comp.bind x f) -- add more conditions
-  | wfRand [Fintype A] [Inhabited A] [DecidableEq A] : wellFormedComp Comp.rand
-  | wfRepeat [DecidableEq A] : (x : Comp A) → (p : A → Bool) → (∀ b, wellFormedComp x → b ∈ Finset.filter p (getSupport x)) → wellFormedComp (Comp.repeat x p)
-
-
-@[simp]
-theorem wellFormedExists (x : Comp A) (h : wellFormedComp x) : ∃ a, a ∈ getSupport x := sorry
+inductive wellFormed : ∀ A, Comp A → Prop where
+  | pure [DecidableEq A] : wellFormed A (Comp.pure x)
+  | bind : (x : Comp B) → (f : B → Comp A) → wellFormed B x → (∀ b, b ∈ getSupport x → wellFormed A (f b)) → wellFormed A (Comp.bind x f)
+  | rand [Fintype A] [Inhabited A] [DecidableEq A] : wellFormed A Comp.rand
+  | repeat [DecidableEq A] : (x : Comp A) → wellFormed A x → (p : A → Bool)
+    → ∀ b : A, b ∈ Finset.filter (fun x => p x = true) (getSupport x)
+      → wellFormed A (Comp.repeat x p)
 
 @[simp]
-theorem getSupport_card_pos {A : Type _} (x : Comp A) (h : wellFormedComp x) : (getSupport x).card > 0 := sorry
+theorem wellFormedExists (x : Comp A) (h : wellFormed A x) : ∃ a, a ∈ getSupport x := match x with
+  | Comp.pure y => ⟨y, Finset.mem_singleton_self y⟩
+  | Comp.bind y f => match h with
+    | wellFormed.bind _ _ hy hf =>
+      let ⟨b, hb⟩ := wellFormedExists y hy
+      let ⟨a, ha⟩ := wellFormedExists (f b) (hf b hb)
+      ⟨a, getSupport_bind_iff y f a |>.mpr ⟨b, hb, ha⟩⟩
+  | Comp.rand => ⟨default, Finset.mem_univ _⟩
+  | Comp.repeat y p => match h with
+    | wellFormed.repeat _ _ _ b hp =>
+      ⟨b, getSupport y |>.filter_subset (fun x => p x = true) hp⟩
+
+@[simp]
+theorem getSupport_card_pos {A : Type _} (x : Comp A) (h : wellFormed A x) : (getSupport x).card > 0 := by
+  obtain ⟨a, ha⟩ := wellFormedExists x h
+  exact Finset.card_pos.mpr ⟨a, ha⟩
 
 end Comp
 
@@ -83,17 +96,17 @@ section CompEq
 
 -- Syntactic equality for `Comp`
 inductive CompEq : Comp A → Comp A → Prop where
-  | eqPure [DecidableEq A] : CompEq (@Comp.pure A _ x) (@Comp.pure A _ x)
-  | eqBind : CompEq x y → (∀ b, CompEq (f b) (g b)) → CompEq (Comp.bind x f) (Comp.bind y g)
-  | eqRand [Fintype A] [Inhabited A] [DecidableEq A] : CompEq (@Comp.rand A _ _ _) (@Comp.rand A _ _ _)
-  | eqRepeat : CompEq x y → (∀ a, p a = q a) → CompEq (Comp.repeat x p) (Comp.repeat y q)
+  | pure [DecidableEq A] : CompEq (@Comp.pure A _ x) (@Comp.pure A _ x)
+  | bind : CompEq x y → (∀ b, CompEq (f b) (g b)) → CompEq (Comp.bind x f) (Comp.bind y g)
+  | rand [Fintype A] [Inhabited A] [DecidableEq A] : CompEq (@Comp.rand A _ _ _) (@Comp.rand A _ _ _)
+  | repeat : CompEq x y → (∀ a, p a = q a) → CompEq (Comp.repeat x p) (Comp.repeat y q)
 
 @[simp]
 theorem comp_eq_refl (x : Comp A) : CompEq x x := match x with
-  | Comp.pure _ => CompEq.eqPure
-  | Comp.bind x f => CompEq.eqBind (comp_eq_refl x) (λ b => comp_eq_refl (f b))
-  | Comp.rand => CompEq.eqRand
-  | Comp.repeat x _ => CompEq.eqRepeat (comp_eq_refl x) (λ _ => rfl)
+  | Comp.pure _ => CompEq.pure
+  | Comp.bind x f => CompEq.bind (comp_eq_refl x) (λ b => comp_eq_refl (f b))
+  | Comp.rand => CompEq.rand
+  | Comp.repeat x _ => CompEq.repeat (comp_eq_refl x) (λ _ => rfl)
 
 
 
@@ -120,29 +133,23 @@ inductive OracleComp : Type _ → Type _ → Type _ → Type _ where
 --   bind := OComp.bind
 
 @[simp]
-def oracleCompToComp (x : OracleComp A B C) : (A → B) → C := fun f =>
+def oracleCompExists (x : OracleComp A B C) : (A → B) → C := fun f =>
   match x with
     | OracleComp.pure y => compExists y
-    | OracleComp.bind y g => oracleCompToComp (g (oracleCompToComp y f)) f
+    | OracleComp.bind y g => oracleCompExists (g (oracleCompExists y f)) f
     | OracleComp.query a => f a
-    | @OracleComp.run A' B' S C' _ _ _ _ _ x s o =>
-      let IHX := oracleCompToComp x
-      let H := fun s a g => oracleCompToComp (o s a) g
-      let X0 := o s
-      let H1 := H s
-      let H2 :=
-        let H2 :=
-        (fun (H2 : B' -> C') (H3 : A') =>
-          let X1 := X0 H3
-          let H4 := H1 H3
-          let H5 := H4 f
-          Prod.recOn (motive := fun _ : B' × S => B') H5
-            (fun (a : B') (_ : S) => let H6 := H2 a ; a))
-        (fun y : B' => IHX (fun _ : A' => y))
-        IHX H2 (fun H3 : C => H3)
-      ⟨H2, s⟩
+    | OracleComp.run y s o =>
+      let g := fun x => Prod.fst (oracleCompExists (o s x) f)
+      ⟨ oracleCompExists y g, s ⟩
 
-instance oracleCompDecidableEq (x : OracleComp A B C) (f : A → B) (g : A → DecidableEq B) : DecidableEq C := sorry
+instance oracleCompDecEq (x : OracleComp A B C) (f : A → B) (g : A → DecidableEq B) : DecidableEq C := match x with
+  | OracleComp.pure y => instCompDecEq y
+  | OracleComp.bind y h => oracleCompDecEq (h (oracleCompExists y f)) f g
+  | OracleComp.query a => g a
+  | OracleComp.run y s o =>
+    let h := fun x => Prod.fst (oracleCompExists (o s x) f)
+    let _ := oracleCompDecEq y h (fun _ => inferInstance)
+    instDecidableEqProd
 
 
 end OracleComp
