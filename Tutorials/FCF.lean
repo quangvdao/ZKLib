@@ -1,5 +1,3 @@
--- import Mathlib.Tactic.Common
--- import Mathlib.Control.Random
 import Mathlib.Data.Fintype.Basic
 import Mathlib.Data.Finset.Pi
 import Mathlib.Data.Finset.Card
@@ -12,6 +10,11 @@ import Mathlib.Data.Finset.Card
 
 
 namespace Crypto
+
+/-
+'DecidableEq' is not a structure
+-/
+-- class Sampleable (A : Type _) extends Fintype A, Inhabited A, DecidableEq A
 
 section Comp
 
@@ -154,11 +157,31 @@ instance oracleCompDecEq (x : OracleComp A B C) (f : A → B) (g : A → Decidab
 
 end OracleComp
 
-section Map
+section Fold
 
+def compFold [DecidableEq B] (f : B → A → Comp B) (init : B) (ls : List A) : Comp B :=
+  match ls with
+    | [] => Comp.pure init
+    | a :: ls' => Comp.bind (f init a) (fun x => compFold f x ls')
 
+-- (* Fold a computation over a list *)
+-- Fixpoint compFold(A : Type)(B : Set)(eqd : EqDec B)(f : B -> A -> Comp B)(init : B)(ls : list A) :=
+--   match ls with
+--       | nil => ret init
+--       | a :: ls' =>
+--         init' <-$ f init a;
+--           compFold  _ f init' ls'
+--   end.
 
-end Map
+-- (* foldBody_option is an adapter that allows you to fold a computation with signature B -> A -> Comp (option B) over a list of A, accumulating an option B. *)
+-- Definition foldBody_option(A : Type)(B : Set)(eqd : EqDec B)(f : B -> A -> Comp (option B))(b_opt : option B)(a : A) :=
+--   match b_opt with
+--       | None => ret None
+--       | Some b =>
+--         f b a
+--   end.
+
+end Fold
 
 
 
