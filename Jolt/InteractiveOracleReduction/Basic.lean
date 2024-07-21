@@ -1,6 +1,7 @@
 import Mathlib.Probability.ProbabilityMassFunction.Constructions
 import Mathlib.Probability.Distributions.Uniform
 import Mathlib.Topology.UnitInterval
+import VCVio
 import Jolt.Data.HList
 import Jolt.Relation.Basic
 
@@ -22,7 +23,7 @@ Note: the definition of IORs as defined above generalizes those found in the lit
 
 namespace IOR
 
--- TODO: IORs where both parties have access to some oracle?
+-- TODO: IORs where both parties have access to some oracle? commit-and-prove IOR;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;Z
 
 /-- Define the format of an Interactive Oracle Reduction -/
 structure Spec where
@@ -90,14 +91,6 @@ structure ProverRound (spec : Spec) where
   PrvRand : Fin spec.numRounds → Type
   samplePrvRand : ∀ i, PMF (PrvRand i)
   prove : ∀ (i : Fin spec.numRounds), spec.relIn.Statement → PrvState i → PrvRand i → spec.Challenge i → spec.Message i × (PrvState (i + 1))
-
--- zero-knowledge in EasyCrypt
---  parametrize the game / program by a function that's an oracle
---  how to encode this?
---  oracle has type ??
---  oracle needs state
---  FCF: `OracleComp` monad
---  CryptHOL:
 
 
 /-- The full prover, including the witness input and output -/
