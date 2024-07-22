@@ -20,10 +20,50 @@ Note: the definition of IORs as defined above generalizes those found in the lit
 
 -/
 
+namespace IOR_new
+
+
+-- What should a relation be? Dependent on a commitment scheme?
+structure OracleRelation [DecidableEq ι] (spec : OracleSpec ι) where
+  Statement : Type
+  Witness : Type
+  isValid : Statement → Witness → OracleComp spec Bool
+
+-- A commitment scheme that may have access to some oracle (say the random oracle)
+-- Potentially separate out the data types from the algorithms
+structure CommitmentScheme [DecidableEq ι] (spec : OracleSpec ι) where
+  Message : Type
+  Commitment : Type
+  Opening : Type
+  -- commitments may query the oracle
+  commit : Message → OracleComp spec Commitment
+  -- opening proofs must be non-interactive (but may be randomized?)
+  prove : Commitment → Message → OracleComp spec Opening
+  -- checking an opening may query the oracle
+  verify : Commitment → Message → Opening → OracleComp spec Bool
+
+-- Non-interactive arguments in some oracle model
+structure NonInteractiveArgument [DecidableEq ι] (spec : OracleSpec ι) where
+  Message : Type
+  Commitment : Type
+  Opening : Type
+  commit : Message → OracleComp spec Commitment
+  prove : Commitment → Message → OracleComp spec Opening
+  verify : Commitment → Message → Opening → OracleComp spec Bool
+
+
+end IOR_new
+
+
+
+
+
+
+
 
 namespace IOR
 
--- TODO: IORs where both parties have access to some oracle? commit-and-prove IOR;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;Z
+-- TODO: IORs where both parties have access to some oracle? commit-and-prove IOR?
 
 /-- Define the format of an Interactive Oracle Reduction -/
 structure Spec where
