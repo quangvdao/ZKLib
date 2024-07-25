@@ -197,6 +197,25 @@ def UInt64.lo (x: UInt64): UInt32
 def UInt64.hi (x: UInt64): UInt32
   := (x >>> 32).toNat.toUInt32
 
+def UInt64.nextPowerOfTwo (n : UInt64) : UInt64 :=
+  if n == 0 then
+    1
+  else
+    let n' := n - 1
+    let n' := n' ||| (n' >>> 1)
+    let n' := n' ||| (n' >>> 2)
+    let n' := n' ||| (n' >>> 4)
+    let n' := n' ||| (n' >>> 8)
+    let n' := n' ||| (n' >>> 16)
+    let n' := n' ||| (n' >>> 32)
+    n' + 1
+
+#eval UInt64.nextPowerOfTwo 0 == 1
+#eval UInt64.nextPowerOfTwo 1 == 1
+#eval UInt64.nextPowerOfTwo 3 == 4
+#eval UInt64.nextPowerOfTwo 6 == 8
+#eval UInt64.nextPowerOfTwo 31 == 32
+
 end UInt64
 
 section ByteArray
