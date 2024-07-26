@@ -1,4 +1,5 @@
 import Mathlib.FieldTheory.Finite.Basic
+import Batteries.Data.UInt
 import Jolt.Relation.Basic
 import Jolt.RiscV.ISA
 
@@ -33,8 +34,7 @@ structure ELFInstruction where
   rs2 : Option UInt64
   rd : Option UInt64
   imm : Option UInt32
-  -- Technically the below is `usize` in Rust
-  virtualSequenceIndex : Option UInt64
+  virtualSequenceIndex : Option USize
 
 structure RegisterState where
   rs1Value : Option UInt64
@@ -82,8 +82,7 @@ structure RVTraceRow where
   adviceValue : Option UInt64
 
 structure BytecodeRow where
-  -- Technically `usize` in Rust
-  address : UInt64
+  address : USize
   bitflags : UInt64
   rs1 : UInt64
   rs2 : UInt64
@@ -145,7 +144,8 @@ structure InstructionWitness where
 
 -- TODO: add instruction flags (it's just an array / vector of `UInt64`?)
 
-structure JoltWitness extends BytecodeWitness F, ReadWriteMemoryWitness F, RangeCheckWitness F, InstructionWitness F
+structure JoltWitness extends BytecodeWitness F, ReadWriteMemoryWitness F, RangeCheckWitness F, InstructionWitness F where
+  circuitFlags : Array F
 
 end Witness
 
@@ -206,6 +206,20 @@ structure R1CSWitness where
   lookupOutputs : Array F
   circuitFlagsBits : Array F
   instructionFlagsBits : Array F
+
+def R1CSWitness.isValid (w : R1CSWitness F) : Bool :=
+  w.programCounter.size % w.paddedTraceLength.toNat = 0 &&
+  w.bytecodeAddress.size % w.paddedTraceLength.toNat = 0 &&
+  w.bytecodeValue.size % w.paddedTraceLength.toNat = 0 &&
+  w.memoryAddressReadWrite.size % w.paddedTraceLength.toNat = 0 &&
+  w.memoryValueReads.size % w.paddedTraceLength.toNat = 0 &&
+  w.memoryValueWrites.size % w.paddedTraceLength.toNat = 0 &&
+  w.chunksX.size % w.paddedTraceLength.toNat = 0 &&
+  w.chunksY.size % w.paddedTraceLength.toNat = 0 &&
+  w.chunksQuery.size % w.paddedTraceLength.toNat = 0 &&
+  w.lookupOutputs.size % w.paddedTraceLength.toNat = 0 &&
+  w.circuitFlagsBits.size % w.paddedTraceLength.toNat = 0 &&
+  w.instructionFlagsBits.size % w.paddedTraceLength.toNat = 0
 
 
 end R1CS
