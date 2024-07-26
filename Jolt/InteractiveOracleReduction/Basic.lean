@@ -97,8 +97,8 @@ def Transcript.toPartial (transcript : Transcript spec) (i : Fin (spec.numRounds
 
 
 def PartialTranscript.toFull (spec : Spec) (partialTranscript : PartialTranscript spec spec.numRounds) : Transcript spec where
-  messages := fun i => partialTranscript.messages ⟨i, Nat.lt_succ_of_le (Nat.le_of_lt_succ i.2)⟩
-  challenges := fun i => partialTranscript.challenges ⟨i, Nat.lt_succ_of_le (Nat.le_of_lt_succ i.2)⟩
+  messages := fun i => partialTranscript.messages ⟨i, by simp_all only [Fin.natCast_eq_last, Fin.val_last, Fin.is_lt]⟩
+  challenges := fun i => partialTranscript.challenges ⟨i, by simp_all only [Fin.natCast_eq_last, Fin.val_last, Fin.is_lt]⟩
 
 
 /-- The output statement and witness pair of an IOR execution -/
