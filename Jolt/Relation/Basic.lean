@@ -11,8 +11,8 @@ import Mathlib.Data.Set.Basic
 
 /-- A binary relation on an instance -/
 structure Relation where
-  Statement : Type _
-  Witness : Type _
+  Statement : Type
+  Witness : Type
   isValid : Statement → Witness → Prop
 
 /-- Alternate form where the statement and witness are in a tuple -/
@@ -22,11 +22,11 @@ def Relation.isValid' (R : Relation) : R.Statement × R.Witness → Prop := fun 
 
 /-- A relation family indexed by `Index` -/
 structure RelationFamily where
-  Index : Type _
+  Index : Type
   Relation : Index → Relation
 
 /-- The trivial Boolean relation -/
-def boolRel (AnyWitness : Type _) : Relation where
+def boolRel (AnyWitness : Type) : Relation where
   Statement := Bool
   Witness := AnyWitness
   isValid := fun stmt _ => stmt

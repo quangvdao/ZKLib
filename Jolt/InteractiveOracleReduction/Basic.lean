@@ -82,11 +82,11 @@ structure Spec where
   relIn : Relation
   relOut : Relation
   numRounds : ℕ+
-  Message : Fin numRounds → Type _ -- Message type for each round
-  Challenge : Fin numRounds → Type _ -- Challenge type for each round
+  Message : Fin numRounds → Type -- Message type for each round
+  Challenge : Fin numRounds → Type -- Challenge type for each round
   sampleChallenge : ∀ i, PMF (Challenge i) -- Sampling challenges for the honest verifier
-  OQuery : Fin numRounds → Type _ -- Query type for each oracle
-  OResponse : Fin numRounds → Type _ -- Response type for each oracle
+  OQuery : Fin numRounds → Type -- Query type for each oracle
+  OResponse : Fin numRounds → Type -- Response type for each oracle
   oracleFromMessage : ∀ i, Message i → OQuery i → OResponse i
   -- Transforming messages to oracles that take queries and return responses
 
@@ -429,27 +429,3 @@ end ZeroKnowledge
 end
 
 end IOR
-
-
--- TODO: IOP as a special case of IOR, where `relOut = boolRel PEmpty` (i.e. the output statement is
--- `Bool`, and the output witness is empty)
-namespace IOP
-
-structure Spec extends IOR.Spec where
-  relOut := boolRel PEmpty
-
--- Need to look more into structure inheritance
-
--- structure Prover (spec : Spec) extends IOR.Prover spec
-
--- structure Verifier (spec : Spec) extends IOR.Verifier spec
-
--- structure Protocol (spec : Spec) extends Prover spec, Verifier spec
-
--- structure Transcript (spec : Spec) extends IOR.Transcript spec
-
--- structure VerifierView (spec : Spec) extends IOR.VerifierView spec
-
-
-
-end IOP
