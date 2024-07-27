@@ -1,6 +1,44 @@
 -- Minimum working example (MWE) to post on Zulip
 
-import Mathlib.Algebra.MvPolynomial.Equiv
+-- import Mathlib.Algebra.MvPolynomial.Equiv
+
+import Mathlib.Data.PNat.Basic
+import Mathlib.Data.Fin.Basic
+
+variable (n : ℕ+)
+
+structure PartialLog (i : Fin (n + 1)) where
+  Messages : Fin i → Type
+  messages : ∀ j : Fin i, Messages j
+
+structure Log where
+  Messages : Fin n → Type
+  messages : ∀ j : Fin n, Messages j
+
+def Log.toPartial (log : Log n) (i : Fin (n + 1)) :
+    PartialLog n i where
+  Messages := fun j => log.Messages j
+  messages := fun j => log.messages j
+
+def PartialLog.toFull (pLog : PartialLog n n) : Log n where
+  /-
+  application type mismatch
+    pLog.Messages j
+  argument
+    j
+  has type
+    Fin ↑n : Type
+  but is expected to have type
+    Fin ↑↑↑n : Type
+  -/
+  /-
+  ↑n := (PNat.val n)
+  ↑↑n := @Nat.cast (Fin (↑n + 1)) Fin.instNatCast ↑n : Fin (↑n + 1)
+  ↑↑↑n := @Fin.val (↑n + 1) ↑↑n : ℕ
+  -/
+  Messages := fun j => pLog.Messages ⟨j, by simp⟩
+  messages := fun j => pLog.messages ⟨j, by simp⟩
+
 
 noncomputable section
 
@@ -25,8 +63,8 @@ def testPoly2 : Polynomial (MvPolynomial (Fin 1) ℕ) := finSuccEquiv ℕ 1 test
 theorem testPoly2_eval : testPoly2.eval 2 = 4 + X 0 := by
   simp [testPoly2, testPoly]
   congr
-  . norm_num
-  . have : (1 : Fin 2) = Fin.succ 0 := by rfl
+  · norm_num
+  · have : (1 : Fin 2) = Fin.succ 0 := by rfl
     rw [this]
     rw [Fin.cases_succ]
     simp
