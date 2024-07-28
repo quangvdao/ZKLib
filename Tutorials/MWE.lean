@@ -1,43 +1,44 @@
 -- Minimum working example (MWE) to post on Zulip
 
--- import Mathlib.Algebra.MvPolynomial.Equiv
+import Mathlib.Algebra.MvPolynomial.Equiv
 
-import Mathlib.Data.PNat.Basic
-import Mathlib.Data.Fin.Basic
+-- The key lemma of quorum intersection:
+-- Fix f. Let n=3f+1. Let L, L' be two subsets of {1,...,n} such that |L| ≥ 2f+1 and |L'| ≥ 2f+1.
+-- Then |L ∩ L'| ≥ 1f+1.
+theorem quorum_intersection
+ (f n : Nat)
+ (L L' : Finset Nat)
+ (h1 : n = 3 * f + 1)
+ (h2 : L.card ≥ 2 * f + 1)
+ (h3 : L'.card ≥ 2 * f + 1)
+ (h4 : L ⊆ Finset.range n)
+ (h5 : L' ⊆ Finset.range n)
+ : (L ∩ L').card ≥ f + 1
+ := by
+  calc (L ∩ L').card = L.card + L'.card - (L ∪ L').card := Finset.card_inter L L'
+  _ ≥ (2 * f + 1) + (2 * f + 1) - (L ∪ L').card := by gcongr
+  _ ≥ (2 * f + 1) + (2 * f + 1) - (3 * f + 1) := by
+    gcongr
+    rw [←h1, ←Finset.card_range n]
+    exact Finset.card_le_card (Finset.union_subset h4 h5)
+  _ ≥ f + 1 := by omega
 
-variable (n : ℕ+)
+  -- first, we show that L ∪ L' ⊆ {0,...,n-1}
+  --  have h_union : L ∪ L' ⊆ Finset.range n := Finset.union_subset h4 h5
+  --  -- as a result of h_union, |L ∪ L'| ≤ n
+  --  have h_union_card : (L ∪ L').card ≤ n := by
+  --    rw [←Finset.card_range n]
+  --    exact Finset.card_le_card h_union
+  --  -- then we use that |L ∩ L'| = |L| + |L'| - |L ∪ L'|
+  --  have h_inter : (L ∩ L').card = L.card + L'.card - (L ∪ L').card := Finset.card_inter L L'
+  --  -- and then we use our hyptheses about |L|, |L'| and the knowledge that
+  --  -- |L ∪ L'| ≤ n to conclude the proof
+  --  have h_card : f + 1 ≤ (L ∩ L').card := by
+  --    rw [h_inter]
+  --    simp at *
+  --    omega
+  --  exact h_card
 
-structure PartialLog (i : Fin (n + 1)) where
-  Messages : Fin i → Type
-  messages : ∀ j : Fin i, Messages j
-
-structure Log where
-  Messages : Fin n → Type
-  messages : ∀ j : Fin n, Messages j
-
-def Log.toPartial (log : Log n) (i : Fin (n + 1)) :
-    PartialLog n i where
-  Messages := fun j => log.Messages j
-  messages := fun j => log.messages j
-
-def PartialLog.toFull (pLog : PartialLog n n) : Log n where
-  /-
-  application type mismatch
-    pLog.Messages j
-  argument
-    j
-  has type
-    Fin ↑n : Type
-  but is expected to have type
-    Fin ↑↑↑n : Type
-  -/
-  /-
-  ↑n := (PNat.val n)
-  ↑↑n := @Nat.cast (Fin (↑n + 1)) Fin.instNatCast ↑n : Fin (↑n + 1)
-  ↑↑↑n := @Fin.val (↑n + 1) ↑↑n : ℕ
-  -/
-  Messages := fun j => pLog.Messages ⟨j, by simp⟩
-  messages := fun j => pLog.messages ⟨j, by simp⟩
 
 
 noncomputable section
@@ -68,19 +69,6 @@ theorem testPoly2_eval : testPoly2.eval 2 = 4 + X 0 := by
     rw [this]
     rw [Fin.cases_succ]
     simp
-
-
-def double_fin (n : Nat) : Fin (n + n) → Nat
-  | ⟨k, _⟩ => (Fin.cases 0 (fun k' : Fin (n + 1) => 2 * k') k)
-
-#eval double_fin 5 ⟨5, by decide⟩
-
-example : double_fin 5 ⟨5, by decide⟩ = 8 := by
-  simp [double_fin]
-  have : (5 : Fin 7) = Fin.succ 4 := by rfl
-  rw [this]
-  simp [Fin.cases_succ]
-  rfl
 
 end
 

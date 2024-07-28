@@ -54,7 +54,6 @@ structure CommitmentScheme [DecidableEq ι] (spec : OracleSpec ι) where
   -- checking an opening may query the oracle
   verify : Commitment → Message → Opening → OracleComp spec Bool
 
--- Non-interactive arguments in some oracle model
 structure NonInteractiveArgument [DecidableEq ι] (spec : OracleSpec ι) where
   Message : Type
   Commitment : Type
@@ -77,30 +76,89 @@ namespace IOR
 
 -- TODO: IORs where both parties have access to some oracle? commit-and-prove IOR?
 
-/-- Define the format of an Interactive Oracle Reduction -/
-structure Spec where
+/- These relations don't need to be bundled with the protocol specification; this separation is
+  helpful when defining composition.
   relIn : Relation
   relOut : Relation
+-/
+
+section Format
+
+/-- Define the format of an Interactive Oracle Reduction -/
+structure ProtocolSpec where
   numRounds : ℕ+
   Message : Fin numRounds → Type -- Message type for each round
   Challenge : Fin numRounds → Type -- Challenge type for each round
-  sampleChallenge : ∀ i, PMF (Challenge i) -- Sampling challenges for the honest verifier
-  OQuery : Fin numRounds → Type -- Query type for each oracle
-  OResponse : Fin numRounds → Type -- Response type for each oracle
-  oracleFromMessage : ∀ i, Message i → OQuery i → OResponse i
+  OracleQuery : Fin numRounds → Type -- Query type for each oracle
+  OracleResponse : Fin numRounds → Type -- Response type for each oracle
   -- Transforming messages to oracles that take queries and return responses
+  oracleFromMessage : ∀ i, Message i → OracleQuery i → OracleResponse i
 
+
+-- TODO: re-org this structure
+structure ProverSpec (spec : ProtocolSpec)
+
+/--
+  The prover function for each round of the IOR, disregarding the witness input and output.
+-/
+structure ProverRound (spec : ProtocolSpec) (relIn : Relation) where
+  PrvState : Fin (spec.numRounds + 1) → Type
+  PrvRand : Fin spec.numRounds → Type
+  samplePrvRand : ∀ i, PMF (PrvRand i)
+  prove : ∀ (i : Fin spec.numRounds), relIn.Statement → PrvState i → PrvRand i
+    → spec.Challenge i → spec.Message i × (PrvState (i + 1))
+
+-- TODO: re-org this structure
+structure ProverWithOracle (spec : ProtocolSpec) (oSpec : OracleSpec ι) (relIn : Relation) where
+  PrvState : Fin (spec.numRounds + 1) → Type
+  PrvRand : Fin spec.numRounds → Type
+  samplePrvRand : ∀ i, PMF (PrvRand i)
+  prove : ∀ (i : Fin spec.numRounds), relIn.Statement → PrvState i → PrvRand i
+    → spec.Challenge i → OracleComp oSpec (spec.Message i × (PrvState (i + 1)))
+
+
+/-- The full prover, including the witness input and output -/
+structure Prover (spec : ProtocolSpec) (relIn : Relation) extends ProverRound spec relIn where
+  fromWitnessIn : relIn.Witness → PrvState 0
+  toWitnessOut : PrvState spec.numRounds → relIn.Witness
+
+
+/-- The public-coin verifier of an IOR -/
+structure Verifier (spec : ProtocolSpec) where
+  sampleChallenge : ∀ i, PMF (spec.Challenge i) -- This should be outside
+  verify : spec.relIn.Statement → VerifierView spec → spec.relOut.Statement
+
+
+/-- An IOR protocol consists of an honest prover and an honest verifier, to reduce a relation
+  `RelIn` to relation `RelOut` -/
+structure Protocol (spec : ProtocolSpec) extends Prover spec, Verifier spec
+
+
+/-- Define family of IOR specifications parameterized by `Index` -/
+structure SpecFamily where
+  Index : Type _
+  Spec : Index → ProtocolSpec
+
+/-- Define family of IOR protocols parameterized by `Index` -/
+structure ProtocolFamily where
+  SpecFamily : SpecFamily
+  Protocol : (index : SpecFamily.Index) → Protocol (SpecFamily.Spec index)
+
+
+end Format
+
+section Transcript
 
 /-- A partial transcript of the IOR consists of all the messages and challenges up to a certain
   round `i ≤ spec.numRounds` -/
-structure PartialTranscript (spec : Spec) (i : Fin (spec.numRounds + 1)) where
+structure PartialTranscript (spec : ProtocolSpec) (i : Fin (spec.numRounds + 1)) where
   messages : ∀ j : Fin i, spec.Message j
   challenges : ∀ j : Fin i, spec.Challenge j
 
 /--
   The final transcript of the IOR, including all messages and challenges
 -/
-structure Transcript (spec : Spec) where
+structure Transcript (spec : ProtocolSpec) where
   messages : ∀ i, spec.Message i
   challenges : ∀ i, spec.Challenge i
 
@@ -111,7 +169,7 @@ def Transcript.toPartial (transcript : Transcript spec) (i : Fin (spec.numRounds
   challenges := fun j => transcript.challenges j
 
 -- TODO: rewrite this god-awful proof
-def PartialTranscript.toFull (spec : Spec)
+def PartialTranscript.toFull (spec : ProtocolSpec)
     (partialTranscript : PartialTranscript spec spec.numRounds) : Transcript spec where
   messages := by
     let f := fun j => partialTranscript.messages j
@@ -131,77 +189,34 @@ def PartialTranscript.toFull (spec : Spec)
     exact m
 
 
-/-- The output statement and witness pair of an IOR execution -/
-def Output (spec : Spec) := spec.relOut.Statement × spec.relOut.Witness
+/- The output statement and witness pair of an IOR execution -/
+-- def Output (spec : ProtocolSpec) := spec.relOut.Statement × spec.relOut.Witness
 
 
 /-- The verifier's view of an IOR (before returning the output statement) -/
-structure VerifierView (spec : Spec) where
-  oracles : ∀ i : Fin spec.numRounds, spec.OQuery i → spec.OResponse i
+structure VerifierView (spec : ProtocolSpec) where
+  oracles : ∀ i : Fin spec.numRounds, spec.OracleQuery i → spec.OracleResponse i
   challenges : ∀ i : Fin spec.numRounds, spec.Challenge i
 
 /--
-  Convert the messages in a transcript to their oracle forms
+  Convert the messages in a transcript to their oracle forms.
+
+  TODO: replace this with the `OracleComp` definitions
 -/
 def Transcript.toOracles (transcript : Transcript spec) : VerifierView spec where
   oracles := fun i => fun q => spec.oracleFromMessage i (transcript.messages i) q
   challenges := transcript.challenges
 
--- TODO: for HVZK, the verifier's view only consists of the responses to the queries by the
--- verifier, not the whole oracle (which is hard to simulate). The problem right now is that we have
--- no way of recording queries / counting the number of queries that the verifier makes to the
--- oracles.
-
-
-/--
-  The prover function for each round of the IOR, disregarding the witness input and output.
-
-  Note: we let `PrvState` and `PrvRand` to be `Type` instead of a general `Type u` to avoid universe
-  issues when defining soundness (it can be fixed, but with a more verbose definition involving
-  explicit universes). This does not affect downstream protocols since all objects we care about are
-  finite anyway.
--/
-structure ProverRound (spec : Spec) where
-  PrvState : Fin (spec.numRounds + 1) → Type
-  PrvRand : Fin spec.numRounds → Type
-  samplePrvRand : ∀ i, PMF (PrvRand i)
-  prove : ∀ (i : Fin spec.numRounds), spec.relIn.Statement → PrvState i → PrvRand i
-    → spec.Challenge i → spec.Message i × (PrvState (i + 1))
-
-
-/-- The full prover, including the witness input and output -/
-structure Prover (spec : Spec) extends ProverRound spec where
-  fromWitnessIn : spec.relIn.Witness → PrvState 0
-  toWitnessOut : PrvState spec.numRounds → spec.relOut.Witness
-
-
-/-- The public-coin verifier of an IOR -/
-structure Verifier (spec : Spec) where
-  verify : spec.relIn.Statement → VerifierView spec → spec.relOut.Statement
-
-
-/-- An IOR protocol consists of an honest prover and an honest verifier, to reduce a relation
-  `RelIn` to relation `RelOut` -/
-structure Protocol (spec : Spec) extends Prover spec, Verifier spec
-
-
-/-- Define family of IOR specifications parameterized by `Index` -/
-structure SpecFamily where
-  Index : Type _
-  Spec : Index → Spec
-
-/-- Define family of IOR protocols parameterized by `Index` -/
-structure ProtocolFamily where
-  SpecFamily : SpecFamily
-  Protocol : (index : SpecFamily.Index) → Protocol (SpecFamily.Spec index)
+end Transcript
 
 
 -- Since we are using `PMF`, this section is marked as noncomputable
 noncomputable section
 
+section Execution
 
-def runProverAux (spec : Spec) (prover : Prover spec)
-    (stmtIn : spec.relIn.Statement) (witIn : spec.relIn.Witness) (i : Fin spec.numRounds) :
+def runProverAux (spec : ProtocolSpec) (prover : Prover spec) (relIn : Relation)
+    (stmtIn : relIn.Statement) (witIn : relIn.Witness) (i : Fin spec.numRounds) :
     PMF (PartialTranscript spec i × prover.PrvState i) := sorry
   -- do
   -- let newRand ← prover.samplePrvRand i
@@ -212,8 +227,8 @@ def runProverAux (spec : Spec) (prover : Prover spec)
 /--
   Running the IOR prover in the protocol; returns the transcript along with the final prover's state
 -/
-def runProver (spec : Spec) (prover : Prover spec)
-    (stmtIn : spec.relIn.Statement) (witIn : spec.relIn.Witness) :
+def runProver (spec : ProtocolSpec) (prover : Prover spec) (relIn : Relation)
+    (stmtIn : relIn.Statement) (witIn : relIn.Witness) :
     PMF (Transcript spec × prover.PrvState spec.numRounds) := do
   -- TODO: once we have `HList`, we go back and define this function
   let mut state := prover.fromWitnessIn witIn
@@ -229,9 +244,9 @@ def runProver (spec : Spec) (prover : Prover spec)
   }
   sorry
 
-def runVerifier (spec : Spec) (verifier : Verifier spec)
-    (stmtIn : spec.relIn.Statement) (view : VerifierView spec) :
-    PMF (spec.relOut.Statement) := do
+def runVerifier (spec : ProtocolSpec) (verifier : Verifier spec) (relIn : Relation)
+    (stmtIn : relIn.Statement) (view : VerifierView spec) :
+    PMF (relIn.Statement) := do
   let stmtOut := verifier.verify stmtIn view
   return stmtOut
 
@@ -242,7 +257,7 @@ def runVerifier (spec : Spec) (verifier : Verifier spec)
   Returns a probability distribution over the prover's end private state and a verifier's output
   statement.
 -/
-def runWithTranscript (spec : Spec) (prover : Prover spec) (verifier : Verifier spec)
+def runWithTranscript (spec : ProtocolSpec) (prover : Prover spec) (verifier : Verifier spec)
     (stmtIn : spec.relIn.Statement) (witIn : spec.relIn.Witness) :
     PMF (Output spec × Transcript spec) := do
   let (transcript, state) ← runProver spec prover stmtIn witIn
@@ -250,12 +265,14 @@ def runWithTranscript (spec : Spec) (prover : Prover spec) (verifier : Verifier 
   return ⟨⟨stmtOut, prover.toWitnessOut state⟩, transcript⟩
 
 
-def run (spec : Spec) (prover : Prover spec) (verifier : Verifier spec)
+def run (spec : ProtocolSpec) (prover : Prover spec) (verifier : Verifier spec)
     (stmtIn : spec.relIn.Statement) (witIn : spec.relIn.Witness) : PMF (Output spec) := do
   let result ← runWithTranscript spec prover verifier stmtIn witIn
   return result.fst
 
+end Execution
 
+section SecurityDefinitions
 
 open unitInterval
 
@@ -271,7 +288,7 @@ section Completeness
   the output relation `relOut`,
   except with probability `completenessError`
 -/
-def completeness (spec : Spec) (protocol : Protocol spec) (completenessError : I) : Prop :=
+def completeness (spec : ProtocolSpec) (protocol : Protocol spec) (completenessError : I) : Prop :=
     ∀ stmtIn : spec.relIn.Statement,
     ∀ witIn : spec.relIn.Witness,
     spec.relIn.isValid stmtIn witIn = true →
@@ -281,7 +298,7 @@ def completeness (spec : Spec) (protocol : Protocol spec) (completenessError : I
 
 
 /-- Perfect completeness when there is no completeness error -/
-def perfectCompleteness (spec : Spec) (protocol : Protocol spec) : Prop :=
+def perfectCompleteness (spec : ProtocolSpec) (protocol : Protocol spec) : Prop :=
   completeness spec protocol 0
 
 end Completeness
@@ -308,7 +325,7 @@ difference compared to non-adaptive version in the interactive setting?), or spe
   witness `witIn`, the execution will result in an invalid statement-witness pair for `relOut`
   except with probability `soundnessBound`.
 -/
-def soundness (spec : Spec) (verifier : Verifier spec) (soundnessBound : ENNReal) : Prop :=
+def soundness (spec : ProtocolSpec) (verifier : Verifier spec) (soundnessBound : ENNReal) : Prop :=
   ∀ stmtIn ∉ spec.relIn.language,
   /-
     Need to quantify over the witness because of the way we defined
@@ -327,7 +344,7 @@ def soundness (spec : Spec) (verifier : Verifier spec) (soundnessBound : ENNReal
 -- more important question is that is this property necessary for proving adaptive soundness after
 -- (strong) Fiat-Shamir?
 
-structure AdaptiveProver (spec : Spec) extends Prover spec where
+structure AdaptiveProver (spec : ProtocolSpec) extends Prover spec where
   chooseStatementIn : PrvState 0 × PrvRand 0 → spec.relIn.Statement
 
 /--
@@ -337,7 +354,7 @@ structure AdaptiveProver (spec : Spec) extends Prover spec where
   TODO: when we generalize IOR to the ROM, how do we model the extractor's ability to observe the
   prover's queries?
 -/
-def Extractor (spec : Spec) :=
+def Extractor (spec : ProtocolSpec) :=
   spec.relIn.Statement → Transcript spec → Output spec → spec.relIn.Witness
 
 /--
@@ -345,7 +362,7 @@ def Extractor (spec : Spec) :=
 
   This is the black-box, deterministic, straightline version of knowledge soundness.
 -/
-def knowledgeSoundness (spec : Spec) (verifier : Verifier spec) (knowledgeBound : ENNReal) : Prop :=
+def knowledgeSoundness (spec : ProtocolSpec) (verifier : Verifier spec) (knowledgeBound : ENNReal) : Prop :=
   ∃ extractor : Extractor spec,
   ∀ stmtIn : spec.relIn.Statement,
   ∀ witIn : spec.relIn.Witness,
@@ -363,13 +380,13 @@ def knowledgeSoundness (spec : Spec) (verifier : Verifier spec) (knowledgeBound 
       True
 
 
-def BadFunction (spec : Spec) :=
+def BadFunction (spec : ProtocolSpec) :=
   (i : Fin spec.numRounds) → spec.relIn.Statement →  PartialTranscript spec i → Prop
 
 /--
   Round-by-round soundness should be defined for each round
 -/
-def roundByRoundSoundness (spec : Spec) (verifier : Verifier spec)
+def roundByRoundSoundness (spec : ProtocolSpec) (verifier : Verifier spec)
     (badFunction : BadFunction spec) (rbrSoundnessBound : Fin spec.numRounds → I) : Prop :=
   ∀ stmtIn ∉ spec.relIn.language,
   ∀ witIn : spec.relIn.Witness,
@@ -393,7 +410,7 @@ end Soundness
 section ZeroKnowledge
 
 
-def Simulator (spec : Spec) := spec.relIn.Statement → PMF (VerifierView spec)
+def Simulator (spec : ProtocolSpec) := spec.relIn.Statement → PMF (VerifierView spec)
 
 
 /--
@@ -403,7 +420,7 @@ def Simulator (spec : Spec) := spec.relIn.Statement → PMF (VerifierView spec)
 
   Since we are in the public-coin case anyway, the verifier can't do anything...
 -/
-def zeroKnowledge (spec : Spec) (prover : Prover spec) : Prop :=
+def zeroKnowledge (spec : ProtocolSpec) (prover : Prover spec) : Prop :=
   ∃ simulator : Simulator spec,
   ∀ verifier : Verifier spec,
   ∀ stmtIn : spec.relIn.Statement,
@@ -421,10 +438,12 @@ def zeroKnowledge (spec : Spec) (prover : Prover spec) : Prop :=
 /--
   Zero-knowledge with respect to the honest verifier
 -/
-def honestVerifierZeroKnowledge (spec : Spec) (protocol : Protocol spec) : Prop :=
+def honestVerifierZeroKnowledge (spec : ProtocolSpec) (protocol : Protocol spec) : Prop :=
   sorry
 
 end ZeroKnowledge
+
+end SecurityDefinitions
 
 end
 

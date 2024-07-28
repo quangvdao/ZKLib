@@ -1,24 +1,87 @@
--- import Mathlib.Algebra.Ring.Defs
--- import Mathlib.Data.Finset.Basic
--- import Mathlib.Algebra.Ring.InjSurj
-
-import Jolt.Data.MathOperations
 import Mathlib.Algebra.MvPolynomial.Basic
 import Mathlib.Data.ZMod.Defs
+import Mathlib.Data.Nat.Log
+import Batteries.Data.Array.Lemmas
+import Mathlib.Data.Matrix.Basic
+import Mathlib.Data.Fin.VecNotation
 
--- We define multilinear polynomials over rings by their evaluation on the hypercube {0,1}^n (i.e. the Lagrange basis)
--- We put the number of variables directly into the type for efficiency
+-- We define multilinear polynomials over rings by their evaluation on the hypercube {0,1}^n (i.e.
+-- the Lagrange basis).
 structure MlPoly (R : Type) [DecidableEq R] [Inhabited R] [Ring R] where
   evals : Array R
   nVars : ℕ
-
-namespace MlPoly
-
+  isValid : evals.size = 2 ^ nVars
 
 variable {R : Type} [DecidableEq R] [Inhabited R] [Ring R]
 
+section Math
 
-instance inhabited : Inhabited (MlPoly R) := ⟨{ evals := #[Inhabited.default], nVars := 1 }⟩
+/- Just need [Mul R] and [AddCommMonoid R] -/
+def Array.dotProduct (a b : Array R) : R :=
+  a.zip b |>.map (λ (a, b) => a * b) |>.foldl (· + ·) 0
+
+@[simp]
+lemma Array.dotProduct_eq_matrix_dotProduct (a b : Array R) (h : a.size = b.size) :
+    Array.dotProduct a b = Matrix.dotProduct a.get (h ▸ b.get) := sorry
+
+end Math
+namespace MlPoly
+
+-- This function converts multilinear representation in the evaluation basis to the monomial basis
+-- This is also called the Walsh-Hadamard transform (either that or the inverse)
+def evalToMonomial (a : Array R) : Array R :=
+  let n := Nat.clog 2 a.size
+  if a.size ≠ 2 ^ n then
+    panic! "Array size is not a power of two!"
+  else
+    let rec loop (a : Array R) (h : ℕ) : Array R :=
+      if h = 0 then a
+      else if h < 2 ^ n then
+        let a := (List.range (2 ^ n)).foldl (fun a i =>
+          if i &&& h == 0 then
+            let u := a.get! i
+            let v := a.get! (i + h)
+            (a.set! i (u + v)).set! (i + h) (v - u)
+          else
+            a
+        ) a
+        loop a (h * 2)
+      else
+        a
+  termination_by (2 ^ n - h)
+  loop a 1
+
+
+def monomialToEval (a : Array R) (n : ℕ) : Array R :=
+  if a.size ≠ 2 ^ n then
+    panic! "Array size must match number of variables"
+  else
+    let rec loop (a : Array R) (h : ℕ) : Array R :=
+      if h = 0 then a
+      else if h < 2 ^ n then
+        let a := (List.range (2 ^ n)).foldl (fun a i =>
+          if i &&& h == 0 then
+            let u := a.get! i
+            let v := a.get! (i + h)
+            (a.set! i (u + v)).set! (i + h) (v - u)
+          else
+            a
+        ) a
+        loop a (h * 2)
+      else
+        a
+  termination_by (2 ^ n - h)
+  loop a 1
+
+#eval evalToMonomial #[(5 : ℤ), (7 : ℤ), (8 : ℤ), (9 : ℤ)]
+
+def unitArray {R : Type} [Inhabited R] [Ring R] (n k : ℕ) : Array R :=
+  let initialArray : Array R := Array.mkArray n 0
+  initialArray.set! k 1
+
+
+instance inhabited : Inhabited (MlPoly R) :=
+  ⟨{ evals := #[Inhabited.default], nVars := 0, isValid := by simp }⟩
 
 -- maybe this can be done way better
 instance : DecidableEq (MlPoly R) :=
@@ -35,17 +98,14 @@ instance : DecidableEq (MlPoly R) :=
 -- Automatically pad to the next power of two
 def new (evals : Array R) : MlPoly R :=
   let n : ℕ := Nat.clog 2 evals.size -- upper log base 2
-  let padEvals : Array R := (Array.range (2 ^ n)).map (λ i => if i < evals.size then evals.get! i else 0)
-  { evals := padEvals, nVars := n }
+  let padEvals : Array R := (Array.range (2 ^ n)).map
+    (λ i => if i < evals.size then evals.get! i else 0)
+  { evals := padEvals, nVars := n, isValid := by simp [padEvals] }
 
 
 -- Create a zero polynomial over n variables
 def newZero (n : ℕ) : MlPoly R :=
-{ evals := Array.mkArray (2 ^ n) 0, nVars := n }
-
-
--- Check if the polynomial is valid
-def isValid (p : MlPoly R) : Prop := p.evals.size = 2 ^ (Nat.log 2 p.nVars)
+  { evals := Array.mkArray (2 ^ n) 0, nVars := n, isValid := by simp }
 
 
 -- Generate the Lagrange basis for evaluation point r
@@ -74,28 +134,25 @@ def lagrangeBasis (r : Array R) : Array R :=
   lagrangeBasisAux r evals ell 0 1
 
 
-def add (p q : MlPoly R) : MlPoly R :=
-  if p.nVars ≠ q.nVars then
-    panic! "Polynomials must have same number of variables"
-  else
-    { evals := p.evals.zip q.evals |>.map (λ (a, b) => a + b), nVars := p.nVars }
+def add (p q : MlPoly R) (h : p.nVars = q.nVars) : MlPoly R :=
+  { evals := p.evals.zip q.evals |>.map (λ (a, b) => a + b),
+    nVars := p.nVars,
+    isValid := by simp [h, p.isValid, q.isValid, Array.size_zip] }
 
 
-def scalarMul (r : R) (p : MlPoly R) : MlPoly R := { evals := p.evals.map (λ a => r * a), nVars := p.nVars }
+def scalarMul (r : R) (p : MlPoly R) : MlPoly R :=
+  { evals := p.evals.map (λ a => r * a), nVars := p.nVars, isValid := by simp [p.isValid] }
 
--- Technically this is not the product of two multilinear polynomials, since the result of that would no longer be multilinear. This is only defining the product of the evaluations.
-def mul (p q : MlPoly R) : MlPoly R :=
-  if p.nVars ≠ q.nVars then
-    panic! "Polynomials must have same number of variables"
-  else
-    { evals := p.evals.zip q.evals |>.map (λ (a, b) => a * b), nVars := p.nVars }
+-- Technically this is not the product of two multilinear polynomials, since the result of that
+-- would no longer be multilinear. This is only defining the product of the evaluations.
+def mul (p q : MlPoly R) (h : p.nVars = q.nVars) : MlPoly R :=
+  { evals := p.evals.zip q.evals |>.map (λ (a, b) => a * b),
+    nVars := p.nVars,
+    isValid := by simp [h, p.isValid, q.isValid, Array.size_zip] }
 
 
-def eval (p : MlPoly R) (x : Array R) : R :=
-  if p.nVars ≠ x.size then
-    panic! "Number of variables must match"
-  else
-  dotProduct p.evals (lagrangeBasis x)
+def eval (p : MlPoly R) (x : Array R) (h : x.size = p.nVars) : R :=
+  Array.dotProduct p.evals (lagrangeBasis x)
 
 -- Partially evaluate the polynomial at some variables
 -- def bound_top_vars (p : MlPoly R) (x : Array R) : MlPoly R :=
@@ -109,8 +166,6 @@ theorem eval_eq_eval_array (p : MlPoly R) (x : Array R) (h : x.size = p.nVars) (
   unfold dotProduct
   simp [↓reduceIte, h]
   sorry
-
-#eval eval (new (Array.mk [(1 : ℤ), (2 : ℤ), (3 : ℤ), (4 : ℤ)])) (Array.mk [(1 : ℤ), (1 : ℤ)])
 
 example (a b c : Prop) [Decidable a] (h : a) : (if a then b else c) = b := by
   simp_all only [↓reduceIte]
