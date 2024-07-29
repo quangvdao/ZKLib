@@ -82,6 +82,7 @@ inductive Instr where
   | SH    | SW    | ADDI  | SLTI  | SLTIU | XORI  | ORI   | ANDI
   | SLLI  | SRLI  | SRAI  | ADD   | SUB   | SLL   | SLT   | SLTU
   | XOR   | SRL   | SRA   | OR    | AND   | FENCE | ECALL | EBREAK
+deriving Repr, Inhabited
 
 def ISA: ISA where
   Mnemonic := Instr

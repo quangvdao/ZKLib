@@ -41,6 +41,7 @@ funct7    rs2   rs1   funct3  rd    opcode    R-type
 
 inductive Instr where
   | MUL | MULH | MULHSU | MULHU | DIV | DIVU | REM | REMU
+deriving Repr, Inhabited
 
 def ISA: ISA where
   Mnemonic := Instr

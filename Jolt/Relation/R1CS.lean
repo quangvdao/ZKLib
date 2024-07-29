@@ -12,35 +12,38 @@ namespace R1CS
 
 open Matrix
 
--- Bundle R and its CommSemiring instance
-structure PParams where
-  R : Type _
-  [commSemiring : CommSemiring R]
+-- Note: we can define separately instances of `R`
 
--- Make the CommSemiring instance accessible
-attribute [instance] PParams.commSemiring
+variable (R : Type) [CommSemiring R]
 
-structure Index (pp : PParams) where
+structure Index where
   m : ℕ -- number of columns
   inputSize : ℕ
   witnessSize : ℕ
-  A : Matrix (Fin m) (Fin (1 + inputSize + witnessSize)) pp.R
-  B : Matrix (Fin m) (Fin (1 + inputSize + witnessSize)) pp.R
-  C : Matrix (Fin m) (Fin (1 + inputSize + witnessSize)) pp.R
+  A : Matrix (Fin m) (Fin (1 + inputSize + witnessSize)) R
+  B : Matrix (Fin m) (Fin (1 + inputSize + witnessSize)) R
+  C : Matrix (Fin m) (Fin (1 + inputSize + witnessSize)) R
 
-abbrev Index.n (index : Index pp) : ℕ := 1 + index.inputSize + index.witnessSize
+abbrev Index.n (index : Index R) : ℕ := 1 + index.inputSize + index.witnessSize
 
-structure Statement (pp : PParams) (index : Index pp) where
-  x : Fin index.inputSize → pp.R
+structure Statement (index : Index R) where
+  x : Fin index.inputSize → R
 
-structure Witness (pp : PParams) (index : Index pp) where
-  w : Fin index.witnessSize → pp.R
+structure Witness (index : Index R) where
+  w : Fin index.witnessSize → R
 
--- Relation instance for R1CS
-instance relation (pp : PParams) (index : Index pp) : Relation (Statement pp index) (Witness pp index) where
+-- Relation structure for R1CS
+def relation (index : Index R) : Relation where
+  Statement := Statement R index
+  Witness := Witness R index
   isValid := fun stmt wit =>
-    let z : Fin index.n → pp.R := Fin.append (Fin.append (λ _ => 1) stmt.x) wit.w
+    let z : Fin index.n → R := Fin.append (Fin.append (λ _ => 1) stmt.x) wit.w
     (index.A *ᵥ z) * (index.B *ᵥ z) = (index.C *ᵥ z)
+
+-- instance relation (index : Index R) : Relation (Statement index) (Witness index) where
+--   isValid := fun stmt wit =>
+--     let z : Fin index.n → R := Fin.append (Fin.append (λ _ => 1) stmt.x) wit.w
+--     (index.A *ᵥ z) * (index.B *ᵥ z) = (index.C *ᵥ z)
   -- Statement := fun pp index => Statement pp index
   -- Witness := fun pp index => Witness pp index
 

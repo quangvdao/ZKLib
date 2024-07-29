@@ -10,3 +10,5 @@ def padPowerOfTwo {α : Type} [Inhabited α] (arr : Array α) : Array α × ℕ 
   let n := Nat.clog 2 arr.size -- upper log base 2
   let padArr := (Array.range (2 ^ n)).map (λ i => dite (i < arr.size) (λ h => arr[i]'h) (λ _ => default))
   (padArr, n)
+
+#check Nat.nextPowerOfTwo

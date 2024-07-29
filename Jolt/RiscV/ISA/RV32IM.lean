@@ -23,6 +23,7 @@ namespace RV32IM
   inductive Instr where
     | I (instr: RV32I.Instr)
     | M (instr: RV32M.Instr)
+  deriving Repr, Inhabited
 
   @[always_inline, inline]
   def ISA: ISA where

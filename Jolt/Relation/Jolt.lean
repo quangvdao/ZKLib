@@ -37,25 +37,30 @@ structure ELFInstruction where
   rd : Option UInt64
   imm : Option UInt32
   virtualSequenceIndex : Option USize
+deriving Repr, Inhabited
 
 structure RegisterState where
   rs1Value : Option UInt64
   rs2Value : Option UInt64
   rdValue : Option UInt64
+deriving Repr, Inhabited
 
 section Memory
 
 inductive MemoryState where
   | Read (address : UInt64) (value : UInt64)
   | Write (address : UInt64) (value : UInt64)
+deriving Repr, Inhabited
 
 inductive MemoryOp where
   | Read (address : UInt64)
   | Write (address : UInt64) (value : UInt64)
+deriving Repr, Inhabited
 
 structure MemoryLayout where
   maxInputSize : UInt64
   maxOutputSize : UInt64
+deriving Repr, Inhabited
 
 def MemoryLayout.ramWitnessOffset (m : MemoryLayout) : UInt64 :=
   (REGISTER_COUNT + m.maxInputSize + m.maxOutputSize + 1).nextPowerOfTwo
@@ -82,6 +87,7 @@ structure RVTraceRow where
   registerState : RegisterState
   memoryState : Option MemoryState
   adviceValue : Option UInt64
+deriving Repr, Inhabited
 
 structure BytecodeRow where
   address : USize
@@ -90,6 +96,7 @@ structure BytecodeRow where
   rs2 : UInt64
   rd : UInt64
   imm : UInt64
+deriving Repr, Inhabited
 
 -- TODO: Define `InstructionSet` and `SubtableSet`
 
@@ -97,12 +104,14 @@ structure JoltTraceStep (InstructionSet : Type) where
   instructionLookup : Option InstructionSet
   bytecodeRow : BytecodeRow
   memoryOps : Fin MEMORY_OPS_PER_INSTRUCTION → MemoryOp
+deriving Repr, Inhabited
 
 structure JoltDevice where
   inputs : Array UInt8
   outputs : Array UInt8
   panic : Bool
   memoryLayout : MemoryLayout
+deriving Repr, Inhabited
 
 end Model
 
@@ -120,6 +129,7 @@ structure BytecodeWitness where
   readWriteValue : Fin NUM_INSTR_FIELDS → Array F
   readTimestamp : Array F
   finalTimestamp : Array F
+deriving Repr, Inhabited
 
 structure ReadWriteMemoryWitness where
   memorySize : UInt64
@@ -132,6 +142,7 @@ structure ReadWriteMemoryWitness where
   readMemTimestamps : Fin MEMORY_OPS_PER_INSTRUCTION → Array F
   writeTimestamps : Fin NUM_BYTES_IN_WORD → Array F
   finalTimestamp : Array F
+deriving Repr, Inhabited
 
 structure RangeCheckWitness where
   readTimestamps : Fin MEMORY_OPS_PER_INSTRUCTION → Array UInt64
@@ -139,6 +150,7 @@ structure RangeCheckWitness where
   readCtsGlobalMinusRead : Fin MEMORY_OPS_PER_INSTRUCTION → Array F
   finalCtsReadTimestamp : Fin MEMORY_OPS_PER_INSTRUCTION → Array F
   finalCtsGlobalMinusRead : Fin MEMORY_OPS_PER_INSTRUCTION → Array F
+deriving Repr, Inhabited
 
 structure InstructionLookupsWitness where
   dim : Array (Array F)
@@ -148,6 +160,7 @@ structure InstructionLookupsWitness where
   instructionFlagPolys : Array (Array F)
   instructionFlagBitvectors : Array (Array UInt64)
   lookupOutputs : Array F
+deriving Repr, Inhabited
 
 -- TODO: rename variables in different witness types to have no overlap
 -- TODO: add instruction flags (it's just an array / vector of `UInt64`?)
@@ -161,17 +174,20 @@ end Witness
 
 section Preprocessing
 
--- Is `HashMap` the right type?
+-- TODO: derive `Repr` for `HashMap`?
+-- We can prove that the keys are distinct, assuming we do preprocessing on a valid `ELF` file
 open Lean in
 structure BytecodePreprocessing where
   codeSize : UInt64
   vInitFinal : Fin NUM_INSTR_FIELDS → Array F
   virtualAddressMap : HashMap UInt64 UInt64
+deriving Inhabited
 
 structure ReadWriteMemoryPreprocessing where
   minBytecodeAddress : UInt64
   bytecodeBytes : Array UInt8
   programIo : Option JoltDevice
+deriving Repr, Inhabited
 
 structure InstructionLookupsPreprocessing where
   subtableToMemoryIndices : Array (Array UInt64)
@@ -180,11 +196,13 @@ structure InstructionLookupsPreprocessing where
   memoryToDimensionIndex : Array UInt64
   materializedSubtables : Array (Array F)
   numMemories : UInt64
+deriving Repr, Inhabited
 
 structure JoltPreprocessing extends
   BytecodePreprocessing F,
   ReadWriteMemoryPreprocessing,
   InstructionLookupsPreprocessing F
+deriving Inhabited
 
 
 -- TODO: will need to add R1CS constraints as part of `JoltPreprocessing`.
@@ -196,7 +214,13 @@ section Generation
 
 -- Generate preprocessing data from `Array ELFInstruction` and `Array (UInt64 × UInt8)`
 
-def BytecodePreprocessing.new (bytecode : Array BytecodeRow) : BytecodePreprocessing F := sorry
+open Lean in
+def BytecodePreprocessing.new (bytecode : Array BytecodeRow) : BytecodePreprocessing F := Id.run do
+  assert! bytecode.size > 0
+  let codeSize := bytecode.size
+  let vInitFinal := Array.range NUM_INSTR_FIELDS |> Array.map (fun _ => Array.range codeSize |> Array.map (fun _ => 0 : F))
+  let virtualAddressMap := HashMap.empty
+  { codeSize := codeSize, vInitFinal := vInitFinal, virtualAddressMap := virtualAddressMap }
 
 def ReadWriteMemoryPreprocessing.new (memoryInit : Array (UInt64 × UInt8)) :
     ReadWriteMemoryPreprocessing :=
