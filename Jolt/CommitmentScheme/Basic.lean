@@ -1,4 +1,5 @@
 -- import Jolt.InteractiveOracleReduction.Basic
+import VCVio
 
 /-!
   # (Oracle) Commitment Schemes
@@ -11,6 +12,11 @@
     for the relation that `Oracle {D} (input) = output`. Here the underlying data `D` is the
     witness, and `input`, `output` are the statement.
 -/
+
+
+-- For now, define commitment schemes without oracles
+-- For commitment schemes with oracles, we will need to define `commit`, `prove`, and `verify`
+-- as `OracleComp` types
 
 structure CommitmentSpec (R : Type) where
   Data : Type
