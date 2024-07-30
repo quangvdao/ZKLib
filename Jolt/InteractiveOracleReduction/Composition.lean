@@ -1,4 +1,4 @@
-import Jolt.InteractiveOracleReduction.IOP
+import Jolt.InteractiveOracleReduction.Basic
 
 /-!
   # Composition of IORs

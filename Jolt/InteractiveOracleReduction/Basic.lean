@@ -41,28 +41,6 @@ structure OracleRelation [DecidableEq ι] (spec : OracleSpec ι) where
   Witness : Type
   isValid : Statement → Witness → OracleComp spec Bool
 
--- A commitment scheme that may have access to some oracle (say the random oracle)
--- Potentially separate out the data types from the algorithms
-structure CommitmentScheme [DecidableEq ι] (spec : OracleSpec ι) where
-  Message : Type
-  Commitment : Type
-  Opening : Type
-  -- commitments may query the oracle
-  commit : Message → OracleComp spec Commitment
-  -- opening proofs must be non-interactive (but may be randomized?)
-  prove : Commitment → Message → OracleComp spec Opening
-  -- checking an opening may query the oracle
-  verify : Commitment → Message → Opening → OracleComp spec Bool
-
-structure NonInteractiveArgument [DecidableEq ι] (spec : OracleSpec ι) where
-  Message : Type
-  Commitment : Type
-  Opening : Type
-  commit : Message → OracleComp spec Commitment
-  prove : Commitment → Message → OracleComp spec Opening
-  verify : Commitment → Message → Opening → OracleComp spec Bool
-
-
 end IOR_new
 
 
@@ -89,11 +67,10 @@ structure ProtocolSpec where
   numRounds : ℕ+
   Message : Fin numRounds → Type -- Message type for each round
   Challenge : Fin numRounds → Type -- Challenge type for each round
-  OracleQuery : Fin numRounds → Type -- Query type for each oracle
-  OracleResponse : Fin numRounds → Type -- Response type for each oracle
+  OracleQuery : Fin numRounds → Type -- Query type for oracle in each round
+  OracleResponse : Fin numRounds → Type -- Response type for oracle in each round
   -- Transforming messages to oracles that take queries and return responses
   oracleFromMessage : ∀ i, Message i → OracleQuery i → OracleResponse i
-
 
 -- TODO: re-org this structure
 structure ProverSpec (spec : ProtocolSpec)
@@ -444,6 +421,28 @@ def honestVerifierZeroKnowledge (spec : ProtocolSpec) (protocol : Protocol spec)
 end ZeroKnowledge
 
 end SecurityDefinitions
+
+
+
+section Composition
+
+def ProtocolSpec.composeSequential (spec1 spec2 : ProtocolSpec) : ProtocolSpec where
+  numRounds := spec1.numRounds + spec2.numRounds
+  Message := fun i => if i < spec1.numRounds then spec1.Message i else spec2.Message (i - spec1.numRounds)
+  Challenge := fun i => if i < spec1.numRounds then spec1.Challenge i else spec2.Challenge (i - spec1.numRounds)
+  OracleQuery := fun i => if i < spec1.numRounds then spec1.OracleQuery i else spec2.OracleQuery (i - spec1.numRounds)
+  OracleResponse := fun i => if i < spec1.numRounds then spec1.OracleResponse i else spec2.OracleResponse (i - spec1.numRounds)
+  oracleFromMessage := fun i msg q => if i < spec1.numRounds then spec1.oracleFromMessage i msg q else spec2.oracleFromMessage (i - spec1.numRounds) msg q
+
+def ProtocolSpec.composeParallel (spec1 spec2 : ProtocolSpec) (hEqual : spec1.numRounds = spec2.numRounds) : ProtocolSpec where
+  numRounds := spec1.numRounds
+  Message := fun i => spec1.Message i × spec2.Message i
+  Challenge := fun i => spec1.Challenge i × spec2.Challenge i
+  OracleQuery := fun i => spec1.OracleQuery i × spec2.OracleQuery i
+  OracleResponse := fun i => spec1.OracleResponse i × spec2.OracleResponse i
+  oracleFromMessage := fun i msg q => (spec1.oracleFromMessage i msg q, spec2.oracleFromMessage i msg q)
+
+end Composition
 
 end
 

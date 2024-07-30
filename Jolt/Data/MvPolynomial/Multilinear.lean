@@ -9,9 +9,7 @@ import Jolt.Data.MvPolynomial.Interpolation
 
 -- TODO: define custom Fin tactic for `Fin 2`
 @[elab_as_elim] def Fin.two_cases {motive : Fin 2 → Sort _} (zero : motive 0) (one : motive 1) (i : Fin 2) : motive i := by
-  refine' Fin.cases _ _ i
-  . exact zero
-  . intro i ; simp [Fin.succ] ; exact one
+  refine Fin.cases zero (fun i => (by simp [Fin.succ] ; exact one)) i
 
 @[simp]
 theorem Fin.two_cases_eq_ite (x : Fin 2) (u : Type _) (v : Type _) :

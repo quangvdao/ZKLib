@@ -17,10 +17,14 @@ def DVec (m : Type v) (α : m → Type u) : Type (max u v) := ∀ i, α i
 
 def DVec' (m : Type v) (α : m → Unit → Type u) : Type (max u v) := DMatrix m Unit α
 
--- inductive HList {α : Type v} (β : α → Type u) : List α → Type (max u v)
---   | nil  : HList β []
---   | cons : β i → HList β is → HList β (i::is)
+inductive HList' {α : Type v} (β : α → Type u) : List α → Type (max u v)
+  | nil  : HList' β []
+  | cons : β i → HList' β is → HList' β (i::is)
 
+def test : HList' (fun _ => Nat) [Nat, Nat, Nat] :=
+  HList'.cons 1 (HList'.cons 2 (HList'.cons 3 HList'.nil))
+
+#print test
 
 -- TODO: port over stuff from [Soup](https://github.com/crabbo-rave/Soup/tree/master)
 

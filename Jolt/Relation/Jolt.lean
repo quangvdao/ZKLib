@@ -175,6 +175,7 @@ end Witness
 section Preprocessing
 
 -- TODO: derive `Repr` for `HashMap`?
+-- TODO: replace `HashMap` with just `AssocList`? We don't care too much about performance here
 -- We can prove that the keys are distinct, assuming we do preprocessing on a valid `ELF` file
 open Lean in
 structure BytecodePreprocessing where
