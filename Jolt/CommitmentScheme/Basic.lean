@@ -32,7 +32,19 @@ structure CommitmentScheme (R : Type) extends CommitmentSpec R where
   prove : Data → Randomness → Commitment → Query → Response → Proof
   verify : Commitment → Query → Response → Proof → Bool
 
-variable {R : Type} [Mul R]
+
+structure ListCommitmentSpec (R : Type) extends CommitmentSpec R where
+  Datum : Type
+  Data := List Datum
+
+structure ListCommitmentScheme (R : Type) extends ListCommitmentSpec R, CommitmentScheme R
+
+-- @[simp]
+-- lemma ListCommitmentSpec.hData_eq (cs : ListCommitmentSpec R) : cs.Data = List cs.Datum := cs.hData
+
+
+
+variable {R : Type} [Mul R] [Inhabited R]
 
 def test : CommitmentSpec R where
   Data := R
@@ -42,3 +54,48 @@ def test : CommitmentSpec R where
   OpeningFunction := fun data query => data * query
   Commitment := R
   Proof := R
+
+def testListCom : ListCommitmentSpec R where
+  Datum := R
+  Data := List R
+  Randomness := R
+  Query := R
+  Response := R
+  OpeningFunction := fun data query => List.foldl (fun x y => x * y) query data
+  Commitment := R
+  Proof := R
+  -- hData := rfl
+
+-- Lean only reduces definitional equality, not propositional equality
+def MyNat := Nat
+
+def exampleFunction (n : Nat) : MyNat := n
+
+#check exampleFunction 5
+
+
+namespace test
+
+structure CommitmentSpec where
+  Data : Type
+  Randomness : Type
+  Commitment : Type
+
+structure ListCommitmentSpec where
+  Datum : Type
+  Randomness : Type
+  Commitment : Type
+
+def ListCommitmentSpec.Data (cs : ListCommitmentSpec) : Type := List cs.Datum
+
+def ListCommitmentSpec.toCommitmentSpec (cs : ListCommitmentSpec) : CommitmentSpec :=
+  {
+    Data := cs.Data
+    Randomness := cs.Randomness
+    Commitment := cs.Commitment
+  }
+
+instance : Coe ListCommitmentSpec CommitmentSpec where
+  coe := ListCommitmentSpec.toCommitmentSpec
+
+end test

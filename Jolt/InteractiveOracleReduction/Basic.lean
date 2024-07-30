@@ -72,6 +72,21 @@ structure ProtocolSpec where
   -- Transforming messages to oracles that take queries and return responses
   oracleFromMessage : ∀ i, Message i → OracleQuery i → OracleResponse i
 
+
+/--
+  The transcript of the IOR, including all messages and challenges
+-/
+structure Transcript (spec : ProtocolSpec) where
+  messages : ∀ i, spec.Message i
+  challenges : ∀ i, spec.Challenge i
+
+
+
+
+
+
+
+
 -- TODO: re-org this structure
 structure ProverSpec (spec : ProtocolSpec)
 
@@ -95,15 +110,23 @@ structure ProverWithOracle (spec : ProtocolSpec) (oSpec : OracleSpec ι) (relIn 
 
 
 /-- The full prover, including the witness input and output -/
-structure Prover (spec : ProtocolSpec) (relIn : Relation) extends ProverRound spec relIn where
+structure Prover (spec : ProtocolSpec) (relIn : Relation) (relOut : Relation) extends ProverRound spec relIn where
   fromWitnessIn : relIn.Witness → PrvState 0
-  toWitnessOut : PrvState spec.numRounds → relIn.Witness
+  toWitnessOut : PrvState spec.numRounds → Transcript spec → relOut.Witness
 
+-- TODO: define `OraclePreSpec` or something that has no instances
+def verifierView (spec : ProtocolSpec) : OracleSpec (Fin spec.numRounds) where
+  domain := fun i => spec.OracleQuery i
+  range := fun i => spec.OracleResponse i
+  domain_decidableEq' := fun i => inferInstance
+  range_decidableEq' := fun i => inferInstance
+  range_inhabited' := fun i => inferInstance
+  range_fintype' := fun i => inferInstance
 
 /-- The public-coin verifier of an IOR -/
-structure Verifier (spec : ProtocolSpec) where
+structure Verifier (spec : ProtocolSpec) (relIn : Relation) (relOut : Relation) where
   sampleChallenge : ∀ i, PMF (spec.Challenge i) -- This should be outside
-  verify : spec.relIn.Statement → VerifierView spec → spec.relOut.Statement
+  verify : relIn.Statement → OracleComp (verifierView spec) relOut.Statement
 
 
 /-- An IOR protocol consists of an honest prover and an honest verifier, to reduce a relation
@@ -126,18 +149,13 @@ end Format
 
 section Transcript
 
+-- More stuff about transcript
+
 /-- A partial transcript of the IOR consists of all the messages and challenges up to a certain
   round `i ≤ spec.numRounds` -/
 structure PartialTranscript (spec : ProtocolSpec) (i : Fin (spec.numRounds + 1)) where
   messages : ∀ j : Fin i, spec.Message j
   challenges : ∀ j : Fin i, spec.Challenge j
-
-/--
-  The final transcript of the IOR, including all messages and challenges
--/
-structure Transcript (spec : ProtocolSpec) where
-  messages : ∀ i, spec.Message i
-  challenges : ∀ i, spec.Challenge i
 
 
 def Transcript.toPartial (transcript : Transcript spec) (i : Fin (spec.numRounds + 1)) :
