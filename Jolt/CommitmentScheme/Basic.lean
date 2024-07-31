@@ -35,7 +35,7 @@ structure CommitmentScheme (R : Type) extends CommitmentSpec R where
 
 structure ListCommitmentSpec (R : Type) extends CommitmentSpec R where
   Datum : Type
-  Data := List Datum
+  hData : Data = List Datum
 
 structure ListCommitmentScheme (R : Type) extends ListCommitmentSpec R, CommitmentScheme R
 
@@ -64,7 +64,7 @@ def testListCom : ListCommitmentSpec R where
   OpeningFunction := fun data query => List.foldl (fun x y => x * y) query data
   Commitment := R
   Proof := R
-  -- hData := rfl
+  hData := rfl
 
 -- Lean only reduces definitional equality, not propositional equality
 def MyNat := Nat
