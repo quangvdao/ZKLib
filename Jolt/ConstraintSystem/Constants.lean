@@ -17,3 +17,7 @@ notation "NUM_BYTES_IN_WORD" => (4 : Nat)
 notation "BYTES_PER_INSTRUCTION" => (4 : UInt64)
 notation "NUM_CIRCUIT_FLAGS" => (11 : Nat)
 notation "NUM_INSTRUCTION_FLAGS" => (28 : Nat)
+notation "LOG_M" => (16 : Nat)
+
+example : 0x80000000 = RAM_START_ADDRESS := rfl
+example : 0xffffffff = 4294967295 := rfl

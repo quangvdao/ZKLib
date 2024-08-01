@@ -1,7 +1,21 @@
 import Jolt.Relation.R1CS
 import Jolt.ConstraintSystem.Constants
 import Jolt.ConstraintSystem.Field
+-- import Mathlib.Data.FinEnum
 
+
+-- namespace FinEnum
+
+-- TODO: add `FinEnum` supporting lemmas, then derive `FinEnum` instances for the `enum` types below
+
+-- variable {α : Type u}
+
+-- @[simp]
+-- lemma finset_card [FinEnum α] : Finset.card (univ : Finset α) = card α := by simp
+
+
+
+-- end FinEnum
 
 
 namespace Jolt
@@ -36,7 +50,14 @@ instance : Equiv MemoryOpRead (Fin MEMORY_OPS_PER_INSTRUCTION) where
   left_inv := by intro x ; rcases x <;> decide
   right_inv := by decide
 
-instance : Fintype MemoryOpRead := Fintype.ofEquiv (Fin MEMORY_OPS_PER_INSTRUCTION) instEquivMemoryOpReadFinOfNatNat.symm
+-- instance : FinEnum MemoryOpRead := ⟨MEMORY_OPS_PER_INSTRUCTION, instEquivMemoryOpReadFinOfNatNat⟩
+
+instance : Fintype MemoryOpRead :=
+  Fintype.ofEquiv (Fin MEMORY_OPS_PER_INSTRUCTION) instEquivMemoryOpReadFinOfNatNat.symm
+
+@[simp]
+lemma MemoryOpRead_card : Fintype.card MemoryOpRead = MEMORY_OPS_PER_INSTRUCTION :=
+  by simp [Fintype.ofEquiv_card]
 
 
 inductive MemoryOpWrite where
@@ -63,7 +84,14 @@ instance : Equiv MemoryOpWrite (Fin NUM_MEM_WRITES) where
   left_inv := by intro x ; rcases x <;> decide
   right_inv := by decide
 
-instance : Fintype MemoryOpWrite := Fintype.ofEquiv (Fin NUM_MEM_WRITES) instEquivMemoryOpWriteFinOfNatNat.symm
+-- instance : FinEnum MemoryOpWrite := ⟨NUM_MEM_WRITES, instEquivMemoryOpWriteFinOfNatNat⟩
+
+instance : Fintype MemoryOpWrite :=
+  Fintype.ofEquiv (Fin NUM_MEM_WRITES) instEquivMemoryOpWriteFinOfNatNat.symm
+
+@[simp]
+lemma MemoryOpWrite_card : Fintype.card MemoryOpWrite = NUM_MEM_WRITES := by
+  simp [Fintype.ofEquiv_card]
 
 end Memory
 
@@ -95,10 +123,16 @@ instance : Equiv BytecodeValues (Fin NUM_BYTECODE_VALUE_FIELDS) where
   left_inv := by intro x ; rcases x <;> decide
   right_inv := by decide
 
-instance : Fintype BytecodeValues := Fintype.ofEquiv (Fin NUM_BYTECODE_VALUE_FIELDS) instEquivBytecodeValuesFinOfNatNat.symm
+-- instance : FinEnum BytecodeValues := ⟨NUM_BYTECODE_VALUE_FIELDS, instEquivBytecodeValuesFinOfNatNat⟩
+
+instance : Fintype BytecodeValues :=
+  Fintype.ofEquiv (Fin NUM_BYTECODE_VALUE_FIELDS) instEquivBytecodeValuesFinOfNatNat.symm
+
+@[simp]
+lemma BytecodeValues_card : Fintype.card BytecodeValues = NUM_BYTECODE_VALUE_FIELDS := by
+  simp [Fintype.ofEquiv_card]
 
 end Bytecode
-
 
 section Flags
 
@@ -138,7 +172,14 @@ instance : Equiv CircuitFlags (Fin NUM_CIRCUIT_FLAGS) where
   left_inv := by intro x ; rcases x <;> decide
   right_inv := by decide
 
-instance : Fintype CircuitFlags := Fintype.ofEquiv (Fin NUM_CIRCUIT_FLAGS) instEquivCircuitFlagsFinOfNatNat.symm
+-- instance : FinEnum CircuitFlags := ⟨NUM_CIRCUIT_FLAGS, instEquivCircuitFlagsFinOfNatNat⟩
+
+instance : Fintype CircuitFlags :=
+  Fintype.ofEquiv (Fin NUM_CIRCUIT_FLAGS) instEquivCircuitFlagsFinOfNatNat.symm
+
+@[simp]
+lemma CircuitFlags_card : Fintype.card CircuitFlags = NUM_CIRCUIT_FLAGS := by
+  simp [Fintype.ofEquiv_card]
 
 inductive InstructionFlags where
   | IF_Add
@@ -210,23 +251,33 @@ instance : Equiv InstructionFlags (Fin NUM_INSTRUCTION_FLAGS) where
   left_inv := by intro x ; rcases x <;> decide
   right_inv := by decide
 
-instance : Fintype InstructionFlags := Fintype.ofEquiv (Fin NUM_INSTRUCTION_FLAGS) instEquivInstructionFlagsFinOfNatNat.symm
+-- instance : FinEnum InstructionFlags := ⟨NUM_INSTRUCTION_FLAGS, instEquivInstructionFlagsFinOfNatNat⟩
+
+instance : Fintype InstructionFlags :=
+  Fintype.ofEquiv (Fin NUM_INSTRUCTION_FLAGS) instEquivInstructionFlagsFinOfNatNat.symm
+
+@[simp]
+lemma InstructionFlags_card : Fintype.card InstructionFlags = NUM_INSTRUCTION_FLAGS := by
+  simp [Fintype.ofEquiv_card]
 
 end Flags
 
+namespace R1CS
+
 variable (F : Type) [Field F] [Fintype F] [DecidableEq F] [Inhabited F] [FromUInt64 F]
 
--- TODO: figure out how `JoltWitness` is transformed into `R1CSWitness`
+-- TODO: figure out how `Jolt.Witness` is transformed into `Jolt.R1CS.WitnessMain`
 
--- TODO: describe `inductive` types that enumerate / give names to each of the multiple vectors
-
-structure R1CSWitness where
+structure WitnessMain where
+  -- TODO: pull these `UInt64` out into an `Index` structure
   paddedTraceLength : UInt64
+  memoryStart : UInt64
   -- `PcIn`
   programCounter : Fin paddedTraceLength.toNat → F
   -- `Bytecode_A`
   bytecodeAddress : Fin paddedTraceLength.toNat → F
-  -- `Bytecode_ELFAddress`, `Bytecode_Bitflags`, `Bytecode_RS1`, `Bytecode_RS2`, `Bytecode_RD`, `Bytecode_Imm`
+  -- `Bytecode_ELFAddress`, `Bytecode_Bitflags`, `Bytecode_RS1`,
+  -- `Bytecode_RS2`, `Bytecode_RD`, `Bytecode_Imm`
   bytecodeValue : BytecodeValues → Fin paddedTraceLength.toNat → F
   -- `RAM_A`
   readWriteMemoryAddress : Fin paddedTraceLength.toNat → F
@@ -247,109 +298,280 @@ structure R1CSWitness where
   -- `InstructionFlags`
   instructionFlags : InstructionFlags → Fin paddedTraceLength.toNat → F
 
+structure Witness extends WitnessMain F where
+  x : Fin paddedTraceLength.toNat → F
+  y : Fin paddedTraceLength.toNat → F
+  immSigned : Fin paddedTraceLength.toNat → F
+  relevantChunkY : Fin 4 → Fin paddedTraceLength.toNat → F
+  RdNonzeroAndLookupToRd : Fin paddedTraceLength.toNat → F
+  RdNonzeroAndJump : Fin paddedTraceLength.toNat → F
+  branchAndLookupOutput : Fin paddedTraceLength.toNat → F
+  nextPcJump : Fin paddedTraceLength.toNat → F
+  nextPcJumpBranch : Fin paddedTraceLength.toNat → F
 
 -- Copying the constraints being enforced from the Jolt codebase
 -- TODO: converting these constraints into R1CS matrices and cross-validating with Jolt's
 
-def R1CSWitness.isBinaryFlags (wit : R1CSWitness F) :=
-  ∀ cFlag : CircuitFlags, ∀ iFlag : InstructionFlags, ∀ i : Fin wit.paddedTraceLength.toNat,
-    (wit.circuitFlags cFlag i = 0 ∨ wit.circuitFlags cFlag i = 1) ∧
-    (wit.instructionFlags iFlag i = 0 ∨ wit.instructionFlags iFlag i = 1)
+/- ### These are auxiliary values derived from the witness -/
 
+-- TODO: make `packBE` and `packLE` be separate functions, instead of deriving them ad-hoc
 
-def R1CSWitness.isEqual (wit : R1CSWitness F) :=
-  ∀ i : Fin wit.paddedTraceLength.toNat,
-    wit.programCounter i = wit.bytecodeAddress i
+-- TODO: for some of these, we actually create an auxiliary variable for the R1CS witness
+-- that holds the value of the function. I've manually tagged them for now, will make sure
+-- to model this in the future
 
--- TODO: check if this is big-endian
-def R1CSWitness.packFlagsBE (wit : R1CSWitness F) : Fin wit.paddedTraceLength.toNat → F :=
-  fun i => ∑ cFlag : CircuitFlags, (wit.circuitFlags cFlag i) * (2 ^ cFlag.toFin.val)
-    + (2 ^ NUM_CIRCUIT_FLAGS) *
-      ∑ iFlag : InstructionFlags, (wit.instructionFlags iFlag i) * (2 ^ iFlag.toFin.val)
+/-- Pack all flag witness values into a single field element, big-endian format -/
+def Witness.packFlagsBE (wit : Witness F) : Fin wit.paddedTraceLength.toNat → F :=
+  fun i => ∑ iFlag : InstructionFlags, (wit.instructionFlags iFlag i) * (2 ^ (NUM_INSTRUCTION_FLAGS - 1 - iFlag.toFin.val))
+    + (2 ^ NUM_INSTRUCTION_FLAGS) *
+      ∑ cFlag : CircuitFlags, (wit.circuitFlags cFlag i) * (2 ^ (NUM_CIRCUIT_FLAGS - 1 - cFlag.toFin.val))
 
-
-def R1CSWitness.isEqualPacked (wit : R1CSWitness F) :=
-  ∀ i : Fin wit.paddedTraceLength.toNat,
-    wit.packFlagsBE F i = wit.bytecodeValue BytecodeValues.Bitflags i
-
-
-def R1CSWitness.realPc (wit : R1CSWitness F) : Fin wit.paddedTraceLength.toNat → F :=
+/-- The true value of the program counter -/
+def Witness.realPc (wit : Witness F) : Fin wit.paddedTraceLength.toNat → F :=
   fun i => 4 * wit.programCounter i + (FromUInt64.embedding PC_START_ADDRESS - FromUInt64.embedding PC_NOOP_SHIFT)
 
-
-def R1CSWitness.x (wit : R1CSWitness F) : Fin wit.paddedTraceLength.toNat → F :=
-  fun i => if (wit.circuitFlags CircuitFlags.OpFlags_IsRs1Rs2 i = 1)
-    then wit.realPc F i else wit.readMemoryValues MemoryOpRead.RS1_Read i
-
-
-def R1CSWitness.y (wit : R1CSWitness F) : Fin wit.paddedTraceLength.toNat → F :=
-  fun i => if (wit.circuitFlags CircuitFlags.OpFlags_IsImm i = 1)
-    then wit.bytecodeValue BytecodeValues.Imm i else wit.readMemoryValues MemoryOpRead.RS2_Read i
-
-
-def R1CSWitness.signedOutput (wit : R1CSWitness F) : Fin wit.paddedTraceLength.toNat → F :=
+/-- The signed value of the immediate operand -/
+def Witness.signedOutput (wit : Witness F) : Fin wit.paddedTraceLength.toNat → F :=
   fun i => wit.bytecodeValue BytecodeValues.Imm i - (4294967295 + 1)
 
-
-def R1CSWitness.immSigned (wit : R1CSWitness F) : Fin wit.paddedTraceLength.toNat → F :=
-  fun i => if (wit.circuitFlags CircuitFlags.OpFlags_SignImm i = 1)
-    then wit.signedOutput F i else wit.bytecodeValue BytecodeValues.Imm i
-
-
-def R1CSWitness.isLoadOrStore (wit : R1CSWitness F) : Fin wit.paddedTraceLength.toNat → F :=
+/-- Whether the instruction is a load or store -/
+def Witness.isLoadOrStore (wit : Witness F) : Fin wit.paddedTraceLength.toNat → F :=
   fun i => wit.circuitFlags CircuitFlags.OpFlags_IsLoad i + wit.circuitFlags CircuitFlags.OpFlags_IsStore i
 
-
-def R1CSWitness.isEqualConditionalIsLoadOrStore (wit : R1CSWitness F) (memoryStart : UInt64) : Prop :=
-  ∀ i : Fin wit.paddedTraceLength.toNat, if (wit.isLoadOrStore F i ≠ 0)
-    then (wit.readMemoryValues MemoryOpRead.RS1_Read i + wit.immSigned F i
-      = wit.readWriteMemoryAddress i + FromUInt64.embedding memoryStart)
-    else True
-
-
-def R1CSWitness.isEqualConditionalIsLoad (wit : R1CSWitness F) : Prop :=
-  ∀ i : Fin wit.paddedTraceLength.toNat, if (wit.circuitFlags CircuitFlags.OpFlags_IsLoad i = 1)
-    then
-      (wit.readMemoryValues MemoryOpRead.RAM_Read_Byte0 i = wit.writeMemoryValue MemoryOpWrite.RAM_Write_Byte0 i) &&
-      (wit.readMemoryValues MemoryOpRead.RAM_Read_Byte1 i = wit.writeMemoryValue MemoryOpWrite.RAM_Write_Byte1 i) &&
-      (wit.readMemoryValues MemoryOpRead.RAM_Read_Byte2 i = wit.writeMemoryValue MemoryOpWrite.RAM_Write_Byte2 i) &&
-      (wit.readMemoryValues MemoryOpRead.RAM_Read_Byte3 i = wit.writeMemoryValue MemoryOpWrite.RAM_Write_Byte3 i)
-    else True
-
-
-def R1CSWitness.packedLoadStoreLE (wit : R1CSWitness F) : Fin wit.paddedTraceLength.toNat → F :=
+/-- The little-endian value of the RAM memory value that is read -/
+-- TODO: make this an `allocate` operation (is it needed?)
+def Witness.packedLoadStoreLE (wit : Witness F) : Fin wit.paddedTraceLength.toNat → F :=
   fun i => wit.readMemoryValues MemoryOpRead.RAM_Read_Byte0 i +
     (wit.readMemoryValues MemoryOpRead.RAM_Read_Byte1 i) * (2 ^ 8) +
     (wit.readMemoryValues MemoryOpRead.RAM_Read_Byte2 i) * (2 ^ 16) +
     (wit.readMemoryValues MemoryOpRead.RAM_Read_Byte3 i) * (2 ^ 24)
 
+/-- The big-endian value of the packed lookup query -/
+-- TODO: make this an `allocate` operation
+def Witness.packedQueryBE (wit : Witness F) : Fin wit.paddedTraceLength.toNat → F :=
+  fun i => wit.chunksQuery 0 i * (2 ^ (3 * LOG_M)) + wit.chunksQuery 1 i * (2 ^ (2 * LOG_M))
+    + wit.chunksQuery 2 i * (2 ^ LOG_M) + wit.chunksQuery 3 i
 
 
-/-
-  Missing checks:
+/-- The big-endian value of the packed `X` chunk -/
+-- TODO: make this an `allocate` operation. However, we may not actually have to allocate this...
+def Witness.chunksXBE (wit : Witness F) : Fin wit.paddedTraceLength.toNat → F :=
+  fun i => wit.chunksX 0 i * (2 ^ (3 * LOG_M)) + wit.chunksX 1 i * (2 ^ (2 * LOG_M))
+    + wit.chunksX 2 i * (2 ^ LOG_M) + wit.chunksX 3 i
 
-  - If `IsStore`, then `packedLoadStore = LookupOutput`
+/-- The big-endian value of the packed `Y` chunk -/
+-- TODO: make this an `allocate` operation. However, we may not actually have to allocate this...
+def Witness.chunksYBE (wit : Witness F) : Fin wit.paddedTraceLength.toNat → F :=
+  fun i => wit.chunksY 0 i * (2 ^ (3 * LOG_M)) + wit.chunksY 1 i * (2 ^ (2 * LOG_M))
+    + wit.chunksY 2 i * (2 ^ LOG_M) + wit.chunksY 3 i
 
-  - If `IfAdd`, then `packedQuery = x + y`
+/-- Whether the instruction is a shift operation -/
+def Witness.isShift (wit : Witness F) : Fin wit.paddedTraceLength.toNat → F :=
+  fun i => wit.instructionFlags InstructionFlags.IF_Sll i
+    + wit.instructionFlags InstructionFlags.IF_Srl i
+    + wit.instructionFlags InstructionFlags.IF_Sra i
 
-  - If `IfSub`, then `packedQuery = x - y + (4294967295 + 1)`
+-- TODO: do `relevant_chunk_y` and `allocate_if_else` for `OpFlags_IsConcat`
 
-  - If `IsLoad`, then `packedQuery = packedLoadStore`
+/- ### These are the constraints being enforced -/
 
-  - If `IsStore`, then `packedQuery = RS2_Read`
+/-- Flags are binary -/
+def Witness.eqBinaryFlags (wit : Witness F) : Prop :=
+  ∀ cFlag : CircuitFlags, ∀ iFlag : InstructionFlags, ∀ i : Fin wit.paddedTraceLength.toNat,
+    (wit.circuitFlags cFlag i = 0 ∨ wit.circuitFlags cFlag i = 1) ∧
+    (wit.instructionFlags iFlag i = 0 ∨ wit.instructionFlags iFlag i = 1)
 
-  etc.
+/-- The program counter is equal to the bytecode address -/
+def Witness.eqPcBytecodeAddress (wit : Witness F) : Prop :=
+  ∀ i : Fin wit.paddedTraceLength.toNat,
+    wit.programCounter i = wit.bytecodeAddress i
 
--/
+/-- Packed flags (big-endian) are equal to bytecode `bitflags` field -/
+def Witness.eqPackedFlags (wit : Witness F) : Prop :=
+  ∀ i : Fin wit.paddedTraceLength.toNat,
+    wit.packFlagsBE F i = wit.bytecodeValue BytecodeValues.Bitflags i
 
+/-- The first operand of the instruction is equal to the program counter or the value read from `RS1_Read`, depending on `OpFlags_IsRs1Rs2` -/
+def Witness.eqIfElseX (wit : Witness F) : Prop :=
+  ∀ i : Fin wit.paddedTraceLength.toNat,
+    if (wit.circuitFlags CircuitFlags.OpFlags_IsRs1Rs2 i = 1)
+      then (wit.x i = wit.realPc F i)
+      else (wit.x i = wit.readMemoryValues MemoryOpRead.RS1_Read i)
+
+/-- The second operand of the instruction is equal to the value of the immediate operand or the value read from `RS2_Read`, depending on `OpFlags_IsImm` -/
+def Witness.eqIfElseY (wit : Witness F) : Prop :=
+  ∀ i : Fin wit.paddedTraceLength.toNat,
+    if (wit.circuitFlags CircuitFlags.OpFlags_IsImm i = 1)
+      then (wit.y i = wit.bytecodeValue BytecodeValues.Imm i)
+      else (wit.y i = wit.readMemoryValues MemoryOpRead.RS2_Read i)
+
+/-- The immediate operand is set to be `signedOutput` if the `SignImm` flag is set, else it is equal to the existing bytecode immediate's value -/
+def Witness.eqIfElseImmSigned (wit : Witness F) : Prop :=
+  ∀ i : Fin wit.paddedTraceLength.toNat,
+    if (wit.circuitFlags CircuitFlags.OpFlags_SignImm i = 1)
+      then (wit.immSigned i = wit.signedOutput F i)
+      else (wit.immSigned i = wit.bytecodeValue BytecodeValues.Imm i)
+
+
+/-- If the instruction is a load or store, then the value read from `RS1_Read` plus the immediate operand is equal to the value written to memory -/
+def Witness.eqConditionalIsLoadOrStore (wit : Witness F) : Prop :=
+  ∀ i : Fin wit.paddedTraceLength.toNat,
+    if (wit.isLoadOrStore F i = 1)
+      then (wit.readMemoryValues MemoryOpRead.RS1_Read i + wit.immSigned i
+        = wit.readWriteMemoryAddress i + FromUInt64.embedding wit.memoryStart)
+      else True
+
+/-- If the instruction is a load, then the value read from memory is equal to the value written to memory -/
+def Witness.eqConditionalIsLoadMemory (wit : Witness F) : Prop :=
+  ∀ i : Fin wit.paddedTraceLength.toNat,
+    if (wit.circuitFlags CircuitFlags.OpFlags_IsLoad i = 1)
+      then
+        (wit.readMemoryValues MemoryOpRead.RAM_Read_Byte0 i = wit.writeMemoryValue MemoryOpWrite.RAM_Write_Byte0 i) &&
+        (wit.readMemoryValues MemoryOpRead.RAM_Read_Byte1 i = wit.writeMemoryValue MemoryOpWrite.RAM_Write_Byte1 i) &&
+        (wit.readMemoryValues MemoryOpRead.RAM_Read_Byte2 i = wit.writeMemoryValue MemoryOpWrite.RAM_Write_Byte2 i) &&
+        (wit.readMemoryValues MemoryOpRead.RAM_Read_Byte3 i = wit.writeMemoryValue MemoryOpWrite.RAM_Write_Byte3 i)
+      else True
+
+/-- If the instruction is a `Store`, then the packed load-store value is equal to the lookup output -/
+def Witness.eqConditionalIsStore (wit : Witness F) : Prop :=
+  ∀ i : Fin wit.paddedTraceLength.toNat,
+    if (wit.circuitFlags CircuitFlags.OpFlags_IsStore i = 1)
+      then (wit.packedLoadStoreLE F i = wit.lookupOutput i)
+      else True
+
+/-- If the instruction is an `Add`, then the packed query is equal to the sum of the operands -/
+def Witness.eqConditionalIsAdd (wit : Witness F) : Prop :=
+  ∀ i : Fin wit.paddedTraceLength.toNat,
+    if (wit.instructionFlags InstructionFlags.IF_Add i = 1)
+      then (wit.packedQueryBE F i = wit.x i + wit.y i)
+      else True
+
+/-- If the instruction is a `Sub`, then the packed query is equal to the difference of the operands -/
+def Witness.eqConditionalIsSub (wit : Witness F) : Prop :=
+  ∀ i : Fin wit.paddedTraceLength.toNat,
+    if (wit.instructionFlags InstructionFlags.IF_Sub i = 1)
+      then (wit.packedQueryBE F i = wit.x i - wit.y i + (0xffffffff + 1))
+      else True
+
+/-- If the instruction is a `Load`, then the packed query is equal to the packed load-store value -/
+def Witness.eqConditionalIsLoadQuery (wit : Witness F) : Prop :=
+  ∀ i : Fin wit.paddedTraceLength.toNat,
+    if (wit.circuitFlags CircuitFlags.OpFlags_IsLoad i = 1)
+      then (wit.packedQueryBE F i = wit.packedLoadStoreLE F i)
+      else True
+
+/-- If the instruction is a `Store`, then the packed query is equal to the value read from `RS2_Read` -/
+def Witness.eqConditionalIsStoreQuery (wit : Witness F) : Prop :=
+  ∀ i : Fin wit.paddedTraceLength.toNat,
+    if (wit.circuitFlags CircuitFlags.OpFlags_IsStore i = 1)
+      then (wit.packedQueryBE F i = wit.readMemoryValues MemoryOpRead.RS2_Read i)
+      else True
+
+/-- If the instruction is a `Concat`, then the packed `X` chunk is equal to the value of `RS1` and the packed `Y` chunk is equal to the value of `RS2` -/
+def Witness.eqConditionalIsConcat (wit : Witness F) : Prop :=
+  ∀ i : Fin wit.paddedTraceLength.toNat,
+    if (wit.circuitFlags CircuitFlags.OpFlags_IsConcat i = 1)
+      then (wit.chunksXBE F i = wit.x i) ∧ (wit.chunksYBE F i = wit.y i)
+      else True
+
+
+def Witness.eqIfElseIsShiftChunksY (j : Fin 4) (wit : Witness F) : Prop :=
+  ∀ i : Fin wit.paddedTraceLength.toNat,
+    if (wit.isShift F i = 1)
+      then (wit.relevantChunkY j i = wit.chunksY 3 i)
+      else (wit.relevantChunkY j i = wit.chunksY 0 i)
+
+
+def Witness.eqConditionalIsConcatChunksQuery (j : Fin 4) (wit : Witness F) : Prop :=
+  ∀ i : Fin wit.paddedTraceLength.toNat,
+    if (wit.circuitFlags CircuitFlags.OpFlags_IsConcat i = 1)
+      then (wit.chunksQuery j i = (1 <<< 8) * wit.chunksXBE F i + wit.relevantChunkY j i)
+      else True
+
+
+def Witness.eqProdRdNonzeroAndLookupToRd (wit : Witness F) : Prop :=
+  ∀ i : Fin wit.paddedTraceLength.toNat,
+    wit.RdNonzeroAndLookupToRd i = wit.bytecodeValue BytecodeValues.RD i * wit.circuitFlags CircuitFlags.OpFlags_LookupOutToRd i
+
+
+def Witness.eqConditionalRdNonzeroAndLookupToRd (wit : Witness F) : Prop :=
+  ∀ i : Fin wit.paddedTraceLength.toNat,
+    if (wit.RdNonzeroAndLookupToRd i = 1)
+      then (wit.writeMemoryValue MemoryOpWrite.RD_Write i = wit.lookupOutput i)
+      else True
+
+
+def Witness.eqProdRdNonzeroAndJmp (wit : Witness F) : Prop :=
+  ∀ i : Fin wit.paddedTraceLength.toNat,
+    wit.RdNonzeroAndJump i = wit.bytecodeValue BytecodeValues.RD i * wit.circuitFlags CircuitFlags.OpFlags_IsJmp i
+
+-- TODO: double-check if this is the correct representation of the constraint
+def Witness.eqConditionalRdNonzeroAndJmp (wit : Witness F) : Prop :=
+  ∀ i : Fin wit.paddedTraceLength.toNat,
+    if (wit.RdNonzeroAndJump i = 1)
+      then (wit.writeMemoryValue MemoryOpWrite.RD_Write i = wit.programCounter i + ( FromUInt64.embedding PC_START_ADDRESS - FromUInt64.embedding PC_NOOP_SHIFT))
+      else True
+
+
+def Witness.eqProdBranchAndLookupOutput (wit : Witness F) : Prop :=
+  ∀ i : Fin wit.paddedTraceLength.toNat,
+    wit.branchAndLookupOutput i = wit.circuitFlags CircuitFlags.OpFlags_IsBranch i * wit.lookupOutput i
+
+
+def Witness.eqIfElseNextPcJump (wit : Witness F) : Prop :=
+  ∀ i : Fin wit.paddedTraceLength.toNat,
+    if (wit.circuitFlags CircuitFlags.OpFlags_IsJmp i = 1)
+      then (wit.lookupOutput i + 4 = 4 * wit.programCounter i + FromUInt64.embedding PC_START_ADDRESS + 4)
+      else True
+
+
+def Witness.eqIfElseNextPcJumpBranch (wit : Witness F) : Prop :=
+  ∀ i : Fin wit.paddedTraceLength.toNat,
+    if (wit.branchAndLookupOutput i = 1)
+      then (4 * wit.programCounter i + FromUInt64.embedding PC_START_ADDRESS + wit.immSigned i = wit.nextPcJump i)
+      else True
+
+-- TODO: figure out what this is
+-- assert_static_aux_index!(next_pc_jump_branch, PC_BRANCH_AUX_INDEX);
+
+-- TODO: double-check if we miss any constraint
 
 
 
 -- Do all of the checks above
-def R1CSWitness.isValid (witness : R1CSWitness F) : Prop := sorry
+def Witness.isValid (witness : Witness F) : Prop :=
+  witness.eqBinaryFlags F ∧
+  witness.eqPcBytecodeAddress F ∧
+  witness.eqPackedFlags F ∧
+  witness.eqIfElseX F ∧
+  witness.eqIfElseY F ∧
+  witness.eqIfElseImmSigned F ∧
+  witness.eqConditionalIsLoadOrStore F ∧
+  witness.eqConditionalIsLoadMemory F ∧
+  witness.eqConditionalIsStore F ∧
+  witness.eqConditionalIsAdd F ∧
+  witness.eqConditionalIsSub F ∧
+  witness.eqConditionalIsLoadQuery F ∧
+  witness.eqConditionalIsStoreQuery F ∧
+  witness.eqConditionalIsConcat F ∧
+  witness.eqIfElseIsShiftChunksY F 0 ∧
+  witness.eqIfElseIsShiftChunksY F 1 ∧
+  witness.eqIfElseIsShiftChunksY F 2 ∧
+  witness.eqIfElseIsShiftChunksY F 3 ∧
+  witness.eqConditionalIsConcatChunksQuery F 0 ∧
+  witness.eqConditionalIsConcatChunksQuery F 1 ∧
+  witness.eqConditionalIsConcatChunksQuery F 2 ∧
+  witness.eqConditionalIsConcatChunksQuery F 3 ∧
+  witness.eqProdRdNonzeroAndLookupToRd F ∧
+  witness.eqConditionalRdNonzeroAndLookupToRd F ∧
+  witness.eqProdRdNonzeroAndJmp F ∧
+  witness.eqConditionalRdNonzeroAndJmp F ∧
+  witness.eqProdBranchAndLookupOutput F ∧
+  witness.eqIfElseNextPcJump F ∧
+  witness.eqIfElseNextPcJumpBranch F
 
 
 
-
+end R1CS
 
 end Jolt
