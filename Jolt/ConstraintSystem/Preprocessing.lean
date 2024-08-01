@@ -1,12 +1,14 @@
 import Jolt.ConstraintSystem.Constants
 import Jolt.ConstraintSystem.Field
 import Jolt.ConstraintSystem.Trace
+import Jolt.ConstraintSystem.InstructionLookup
+import Jolt.ConstraintSystem.MemoryChecking
 
 
 
 namespace Jolt
 
-variable (F : Type) [Field F] [Fintype F] [Inhabited F] [FromUInt64 F]
+variable (F : Type) [JoltField F]
 
 -- TODO: derive `Repr` for `HashMap`?
 -- TODO: replace `HashMap` with just `AssocList`? We don't care too much about performance here
@@ -15,7 +17,7 @@ open Lean in
 structure BytecodePreprocessing where
   codeSize : UInt64
   vInitFinal : Fin NUM_BYTECODE_VALUE_FIELDS → Array F
-  virtualAddressMap : HashMap UInt64 UInt64
+  virtualAddressMap : AssocList UInt64 UInt64
 deriving Inhabited
 
 structure ReadWriteMemoryPreprocessing where

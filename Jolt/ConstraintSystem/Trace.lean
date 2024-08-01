@@ -1,17 +1,14 @@
 import Batteries.Data.UInt
 import Jolt.ConstraintSystem.Constants
-import Jolt.ConstraintSystem.Field
 import Jolt.RiscV.ISA
 
 /-!
   # Trace model for Jolt
 -/
 
-
 namespace Jolt
 
 open RiscV
-
 
 structure ELFInstruction where
   address : UInt64
@@ -88,7 +85,7 @@ structure JoltTraceStep (InstructionSet : Type) where
   instructionLookup : Option InstructionSet
   bytecodeRow : BytecodeRow
   memoryOps : Fin MEMORY_OPS_PER_INSTRUCTION → MemoryOp
-deriving Repr, Inhabited
+deriving Inhabited
 
 structure JoltDevice where
   inputs : Array UInt8

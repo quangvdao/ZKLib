@@ -1,21 +1,6 @@
 import Jolt.Relation.R1CS
 import Jolt.ConstraintSystem.Constants
 import Jolt.ConstraintSystem.Field
--- import Mathlib.Data.FinEnum
-
-
--- namespace FinEnum
-
--- TODO: add `FinEnum` supporting lemmas, then derive `FinEnum` instances for the `enum` types below
-
--- variable {α : Type u}
-
--- @[simp]
--- lemma finset_card [FinEnum α] : Finset.card (univ : Finset α) = card α := by simp
-
-
-
--- end FinEnum
 
 
 namespace Jolt
@@ -84,8 +69,6 @@ instance : Equiv MemoryOpWrite (Fin NUM_MEM_WRITES) where
   left_inv := by intro x ; rcases x <;> decide
   right_inv := by decide
 
--- instance : FinEnum MemoryOpWrite := ⟨NUM_MEM_WRITES, instEquivMemoryOpWriteFinOfNatNat⟩
-
 instance : Fintype MemoryOpWrite :=
   Fintype.ofEquiv (Fin NUM_MEM_WRITES) instEquivMemoryOpWriteFinOfNatNat.symm
 
@@ -122,8 +105,6 @@ instance : Equiv BytecodeValues (Fin NUM_BYTECODE_VALUE_FIELDS) where
   invFun := fun n => BytecodeValues.ofNat (n : Nat)
   left_inv := by intro x ; rcases x <;> decide
   right_inv := by decide
-
--- instance : FinEnum BytecodeValues := ⟨NUM_BYTECODE_VALUE_FIELDS, instEquivBytecodeValuesFinOfNatNat⟩
 
 instance : Fintype BytecodeValues :=
   Fintype.ofEquiv (Fin NUM_BYTECODE_VALUE_FIELDS) instEquivBytecodeValuesFinOfNatNat.symm
@@ -171,8 +152,6 @@ instance : Equiv CircuitFlags (Fin NUM_CIRCUIT_FLAGS) where
   invFun := fun n => CircuitFlags.ofNat (n : Nat)
   left_inv := by intro x ; rcases x <;> decide
   right_inv := by decide
-
--- instance : FinEnum CircuitFlags := ⟨NUM_CIRCUIT_FLAGS, instEquivCircuitFlagsFinOfNatNat⟩
 
 instance : Fintype CircuitFlags :=
   Fintype.ofEquiv (Fin NUM_CIRCUIT_FLAGS) instEquivCircuitFlagsFinOfNatNat.symm
@@ -251,8 +230,6 @@ instance : Equiv InstructionFlags (Fin NUM_INSTRUCTION_FLAGS) where
   left_inv := by intro x ; rcases x <;> decide
   right_inv := by decide
 
--- instance : FinEnum InstructionFlags := ⟨NUM_INSTRUCTION_FLAGS, instEquivInstructionFlagsFinOfNatNat⟩
-
 instance : Fintype InstructionFlags :=
   Fintype.ofEquiv (Fin NUM_INSTRUCTION_FLAGS) instEquivInstructionFlagsFinOfNatNat.symm
 
@@ -264,14 +241,15 @@ end Flags
 
 namespace R1CS
 
-variable (F : Type) [Field F] [Fintype F] [DecidableEq F] [Inhabited F] [FromUInt64 F]
+variable (F : Type) [JoltField F]
 
 -- TODO: figure out how `Jolt.Witness` is transformed into `Jolt.R1CS.WitnessMain`
 
-structure WitnessMain where
-  -- TODO: pull these `UInt64` out into an `Index` structure
+structure Index where
   paddedTraceLength : UInt64
   memoryStart : UInt64
+
+structure WitnessMain extends Index where
   -- `PcIn`
   programCounter : Fin paddedTraceLength.toNat → F
   -- `Bytecode_A`
@@ -328,7 +306,7 @@ def Witness.packFlagsBE (wit : Witness F) : Fin wit.paddedTraceLength.toNat → 
 
 /-- The true value of the program counter -/
 def Witness.realPc (wit : Witness F) : Fin wit.paddedTraceLength.toNat → F :=
-  fun i => 4 * wit.programCounter i + (FromUInt64.embedding PC_START_ADDRESS - FromUInt64.embedding PC_NOOP_SHIFT)
+  fun i => 4 * wit.programCounter i + (FromUInt64.embed PC_START_ADDRESS - FromUInt64.embed PC_NOOP_SHIFT)
 
 /-- The signed value of the immediate operand -/
 def Witness.signedOutput (wit : Witness F) : Fin wit.paddedTraceLength.toNat → F :=
@@ -418,7 +396,7 @@ def Witness.eqConditionalIsLoadOrStore (wit : Witness F) : Prop :=
   ∀ i : Fin wit.paddedTraceLength.toNat,
     if (wit.isLoadOrStore F i = 1)
       then (wit.readMemoryValues MemoryOpRead.RS1_Read i + wit.immSigned i
-        = wit.readWriteMemoryAddress i + FromUInt64.embedding wit.memoryStart)
+        = wit.readWriteMemoryAddress i + FromUInt64.embed wit.memoryStart)
       else True
 
 /-- If the instruction is a load, then the value read from memory is equal to the value written to memory -/
@@ -509,7 +487,7 @@ def Witness.eqProdRdNonzeroAndJmp (wit : Witness F) : Prop :=
 def Witness.eqConditionalRdNonzeroAndJmp (wit : Witness F) : Prop :=
   ∀ i : Fin wit.paddedTraceLength.toNat,
     if (wit.RdNonzeroAndJump i = 1)
-      then (wit.writeMemoryValue MemoryOpWrite.RD_Write i = wit.programCounter i + ( FromUInt64.embedding PC_START_ADDRESS - FromUInt64.embedding PC_NOOP_SHIFT))
+      then (wit.writeMemoryValue MemoryOpWrite.RD_Write i = wit.programCounter i + ( FromUInt64.embed PC_START_ADDRESS - FromUInt64.embed PC_NOOP_SHIFT))
       else True
 
 
@@ -521,14 +499,14 @@ def Witness.eqProdBranchAndLookupOutput (wit : Witness F) : Prop :=
 def Witness.eqIfElseNextPcJump (wit : Witness F) : Prop :=
   ∀ i : Fin wit.paddedTraceLength.toNat,
     if (wit.circuitFlags CircuitFlags.OpFlags_IsJmp i = 1)
-      then (wit.lookupOutput i + 4 = 4 * wit.programCounter i + FromUInt64.embedding PC_START_ADDRESS + 4)
+      then (wit.lookupOutput i + 4 = 4 * wit.programCounter i + FromUInt64.embed PC_START_ADDRESS + 4)
       else True
 
 
 def Witness.eqIfElseNextPcJumpBranch (wit : Witness F) : Prop :=
   ∀ i : Fin wit.paddedTraceLength.toNat,
     if (wit.branchAndLookupOutput i = 1)
-      then (4 * wit.programCounter i + FromUInt64.embedding PC_START_ADDRESS + wit.immSigned i = wit.nextPcJump i)
+      then (4 * wit.programCounter i + FromUInt64.embed PC_START_ADDRESS + wit.immSigned i = wit.nextPcJump i)
       else True
 
 -- TODO: figure out what this is

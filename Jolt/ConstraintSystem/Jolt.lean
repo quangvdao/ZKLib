@@ -15,12 +15,17 @@ import Jolt.ConstraintSystem.MemoryChecking
   We will show that the Jolt relation is exactly equal to the execution of RISC-V programs.
 
   Many of our specification draws directly from the main [Rust codebase](https://github.com/a16z/jolt).
+
+  TODO: establish a workflow for updating the spec & proof here when the Rust code changes.
+  Maybe let's first build the architecture here to be able to state the desired theorem
+  (i.e. Jolt's constraint system correctly constrains execution of RISC-V programs).
+  Then we leave this theorem unproved until we have a relatively stable Rust version.
 -/
 
 
 namespace Jolt
 
-variable (F : Type) [Field F] [Fintype F] [Inhabited F] [FromUInt64 F]
+variable (F : Type) [JoltField F]
 
 section Witness
 
@@ -111,6 +116,23 @@ def JoltWitness.new (programIo : JoltDevice)
 
 
 end Witness
+
+
+/-
+  ## Theorem statement that Jolt proves correct execution of RISC-V programs
+
+  This is an `if and only if` statement.
+
+  Jolt Preprocessing is deterministically obtained from an `ELF` file,
+  which contains a list of RISC-V instructions.
+
+  Jolt Relation is satisfied (i.e. the Jolt verifier accepts), with respect to an `ELF` file and
+  a public input-ouput pair of the program...
+
+  `if and only if` there exists a unique Jolt witness that corresponds to an execution trace
+  of the same program, producing the same input-output pair.
+-/
+
 
 
 end Jolt
