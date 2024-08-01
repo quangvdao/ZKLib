@@ -21,6 +21,8 @@ theorem test_length : test.length = 3 := rfl
 
 #eval (test.getD 5 default).a
 
+def BundledList.toFin (l : List Bundled) : ∀ (i : Fin l.length), (l.get i).α := fun i => (l.get i).a
+
 
 -- This is a port from [Soup](https://github.com/crabbo-rave/Soup/tree/master)
 

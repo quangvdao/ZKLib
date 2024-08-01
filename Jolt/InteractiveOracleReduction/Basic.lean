@@ -46,10 +46,6 @@ end IOR_new
 
 
 
-
-
-
-
 namespace IOR
 
 -- TODO: IORs where both parties have access to some oracle? commit-and-prove IOR?
@@ -72,6 +68,7 @@ structure ProtocolSpec where
   -- Transforming messages to oracles that take queries and return responses
   oracleFromMessage : ∀ i, Message i → OracleQuery i → OracleResponse i
 
+def ChallengePMF (spec : ProtocolSpec) := ∀ i, PMF (spec.Challenge i)
 
 /--
   The transcript of the IOR, including all messages and challenges
@@ -96,7 +93,7 @@ structure ProverSpec (spec : ProtocolSpec)
 structure ProverRound (spec : ProtocolSpec) (relIn : Relation) where
   PrvState : Fin (spec.numRounds + 1) → Type
   PrvRand : Fin spec.numRounds → Type
-  samplePrvRand : ∀ i, PMF (PrvRand i)
+  sampleRand : ∀ i, PMF (PrvRand i)
   prove : ∀ (i : Fin spec.numRounds), relIn.Statement → PrvState i → PrvRand i
     → spec.Challenge i → spec.Message i × (PrvState (i + 1))
 
@@ -104,7 +101,7 @@ structure ProverRound (spec : ProtocolSpec) (relIn : Relation) where
 structure ProverWithOracle (spec : ProtocolSpec) (oSpec : OracleSpec ι) (relIn : Relation) where
   PrvState : Fin (spec.numRounds + 1) → Type
   PrvRand : Fin spec.numRounds → Type
-  samplePrvRand : ∀ i, PMF (PrvRand i)
+  sampleRand : ∀ i, PMF (PrvRand i)
   prove : ∀ (i : Fin spec.numRounds), relIn.Statement → PrvState i → PrvRand i
     → spec.Challenge i → OracleComp oSpec (spec.Message i × (PrvState (i + 1)))
 
@@ -115,34 +112,35 @@ structure Prover (spec : ProtocolSpec) (relIn : Relation) (relOut : Relation) ex
   toWitnessOut : PrvState spec.numRounds → Transcript spec → relOut.Witness
 
 -- TODO: define `OraclePreSpec` or something that has no instances
-def verifierView (spec : ProtocolSpec) : OracleSpec (Fin spec.numRounds) where
-  domain := fun i => spec.OracleQuery i
-  range := fun i => spec.OracleResponse i
-  domain_decidableEq' := fun i => inferInstance
-  range_decidableEq' := fun i => inferInstance
-  range_inhabited' := fun i => inferInstance
-  range_fintype' := fun i => inferInstance
+-- def verifierView (spec : ProtocolSpec) : OracleSpec (Fin spec.numRounds) where
+--   domain := fun i => spec.OracleQuery i
+--   range := fun i => spec.OracleResponse i
+--   domain_decidableEq' := fun i => inferInstance
+--   range_decidableEq' := fun i => inferInstance
+--   range_inhabited' := fun i => inferInstance
+--   range_fintype' := fun i => inferInstance
 
 /-- The public-coin verifier of an IOR -/
 structure Verifier (spec : ProtocolSpec) (relIn : Relation) (relOut : Relation) where
-  sampleChallenge : ∀ i, PMF (spec.Challenge i) -- This should be outside
-  verify : relIn.Statement → OracleComp (verifierView spec) relOut.Statement
+  -- verify : relIn.Statement → OracleComp (verifierView spec) relOut.Statement
+  verify : relIn.Statement → Transcript spec → relOut.Statement
 
 
 /-- An IOR protocol consists of an honest prover and an honest verifier, to reduce a relation
   `RelIn` to relation `RelOut` -/
-structure Protocol (spec : ProtocolSpec) extends Prover spec, Verifier spec
+structure Protocol (spec : ProtocolSpec) (relIn : Relation) (relOut : Relation) extends Prover spec relIn relOut, Verifier spec relIn relOut
 
 
 /-- Define family of IOR specifications parameterized by `Index` -/
-structure SpecFamily where
-  Index : Type _
-  Spec : Index → ProtocolSpec
+structure ProtocolSpecFamily where
+  Index : Type
+  spec : Index → ProtocolSpec
 
 /-- Define family of IOR protocols parameterized by `Index` -/
-structure ProtocolFamily where
-  SpecFamily : SpecFamily
-  Protocol : (index : SpecFamily.Index) → Protocol (SpecFamily.Spec index)
+structure ProtocolFamily extends ProtocolSpecFamily where
+  relIn : Index → Relation
+  relOut : Index → Relation
+  protocol : (index : Index) → Protocol (spec index) (relIn index) (relOut index)
 
 
 end Format
@@ -157,31 +155,30 @@ structure PartialTranscript (spec : ProtocolSpec) (i : Fin (spec.numRounds + 1))
   messages : ∀ j : Fin i, spec.Message j
   challenges : ∀ j : Fin i, spec.Challenge j
 
+def Transcript.toBundledList (transcript : Transcript spec) : List Bundled := (List.finRange spec.numRounds).map fun i => Bundled.mk (spec.Message i) (transcript.messages i)
+
+def Transcript.fromBundledList (l : List Bundled) (hLen : l.length = spec.numRounds) (h : ∀ i, (l.get i).α = (spec.Message i × spec.Challenge i)) : Transcript spec where
+  messages := sorry
+  challenges := by
+    intro i
+    conv at i => {rw [←hLen]}
+    rename_i i1
+    let bundled := l.get i
+    have hi := h i
+    have hEq : i1 = i := sorry
+    sorry
+
 
 def Transcript.toPartial (transcript : Transcript spec) (i : Fin (spec.numRounds + 1)) :
     PartialTranscript spec i where
   messages := fun j => transcript.messages j
   challenges := fun j => transcript.challenges j
 
--- TODO: rewrite this god-awful proof
+-- TODO: is there a better way?
 def PartialTranscript.toFull (spec : ProtocolSpec)
     (partialTranscript : PartialTranscript spec spec.numRounds) : Transcript spec where
-  messages := by
-    let f := fun j => partialTranscript.messages j
-    simp [Fin.cast_val_eq_self] at f
-    rw [Nat.mod_eq_of_lt (a := ↑spec.numRounds) (by simp)] at f
-    intro i
-    obtain m := f i
-    simp [Fin.cast_val_eq_self] at m
-    exact m
-  challenges := by
-    let f := fun j => partialTranscript.challenges j
-    simp [Fin.cast_val_eq_self] at f
-    rw [Nat.mod_eq_of_lt (a := ↑spec.numRounds) (by simp)] at f
-    intro i
-    obtain m := f i
-    simp [Fin.cast_val_eq_self] at m
-    exact m
+  messages := fun j => (Fin.cast_val_eq_self j) ▸ ((Fin.val_cast_of_lt (n := spec.numRounds + 1) (a := spec.numRounds) (by simp)) ▸ partialTranscript.messages) j
+  challenges := fun j => (Fin.cast_val_eq_self j) ▸ ((Fin.val_cast_of_lt (n := spec.numRounds + 1) (a := spec.numRounds) (by simp)) ▸ partialTranscript.challenges) j
 
 
 /- The output statement and witness pair of an IOR execution -/
@@ -210,19 +207,32 @@ noncomputable section
 
 section Execution
 
-def runProverAux (spec : ProtocolSpec) (prover : Prover spec) (relIn : Relation)
-    (stmtIn : relIn.Statement) (witIn : relIn.Witness) (i : Fin spec.numRounds) :
-    PMF (PartialTranscript spec i × prover.PrvState i) := sorry
-  -- do
-  -- let newRand ← prover.samplePrvRand i
-  -- let challenge ← spec.sampleChallenge i
-  -- let (msg, newState) ← prover.prove i stmtIn (prover.fromWitnessIn witIn) newRand challenge
-  -- return ⟨⟨msg, newState⟩, newState⟩
+def runProverAux (prover : Prover spec relIn relOut)
+    (stmtIn : relIn.Statement) (witIn : relIn.Witness)
+    (sampleCh : ChallengePMF spec) (i : Fin spec.numRounds) :
+    PMF (PartialTranscript spec (i + 1) × prover.PrvState (i + 1)) := sorry
+
+
+  -- match i with
+  -- | ⟨0, isLt⟩ => do
+  --   let newRand ← prover.sampleRand 0
+  --   let challenge ← sampleCh 0
+  --   let (msg, newState) := prover.prove 0 stmtIn (prover.fromWitnessIn witIn) newRand challenge
+  --   let partialTrans :=
+  --   ⟨(by intro j ; conv at j => {simp [Nat.mod_eq_of_lt]}; exact msg),
+  --   fun j => (by simp [Nat.mod_eq_of_lt] at j; simp; exact challenge)⟩
+  --   return ⟨partialTrans, newState⟩
+  -- | ⟨j + 1, _⟩ => do
+  --   let newRand ← prover.sampleRand (j + 1)
+  --   let challenge ← sampleCh (j + 1)
+  --   let ⟨partialTrans, state⟩ ← runProverAux prover stmtIn witIn sampleCh j
+  --   let (msg, newState) := prover.prove (j + 1) stmtIn state newRand challenge
+  --   return ⟨⟨msg, newState⟩, newState⟩
 
 /--
   Running the IOR prover in the protocol; returns the transcript along with the final prover's state
 -/
-def runProver (spec : ProtocolSpec) (prover : Prover spec) (relIn : Relation)
+def runProver (prover : Prover spec relIn relOut) (sampleCh : ChallengePMF spec)
     (stmtIn : relIn.Statement) (witIn : relIn.Witness) :
     PMF (Transcript spec × prover.PrvState spec.numRounds) := do
   -- TODO: once we have `HList`, we go back and define this function
@@ -230,8 +240,8 @@ def runProver (spec : ProtocolSpec) (prover : Prover spec) (relIn : Relation)
   -- let mut oracles := HList.nil ;
   -- let mut challenges := HList.nil ;
   for h : i in [0:spec.numRounds] do {
-      let newRand ← prover.samplePrvRand i
-      let challenge ← spec.sampleChallenge i
+      let newRand ← prover.sampleRand i
+      let challenge ← sampleCh i
     -- let output := (prover.prove i) stmt newState newRand challenge
     -- oracles.append (spec.oracle i msg);
     -- challenges.append (challenge);
@@ -239,8 +249,7 @@ def runProver (spec : ProtocolSpec) (prover : Prover spec) (relIn : Relation)
   }
   sorry
 
-def runVerifier (spec : ProtocolSpec) (verifier : Verifier spec) (relIn : Relation)
-    (stmtIn : relIn.Statement) (view : VerifierView spec) :
+def runVerifier (verifier : Verifier spec relIn relOut) (stmtIn : relIn.Statement) (view : VerifierView spec) :
     PMF (relIn.Statement) := do
   let stmtOut := verifier.verify stmtIn view
   return stmtOut
@@ -252,17 +261,17 @@ def runVerifier (spec : ProtocolSpec) (verifier : Verifier spec) (relIn : Relati
   Returns a probability distribution over the prover's end private state and a verifier's output
   statement.
 -/
-def runWithTranscript (spec : ProtocolSpec) (prover : Prover spec) (verifier : Verifier spec)
-    (stmtIn : spec.relIn.Statement) (witIn : spec.relIn.Witness) :
+def runWithTranscript (prover : Prover spec relIn relOut) (verifier : Verifier spec relIn relOut)
+    (sampleCh : ChallengePMF spec) (stmtIn : relIn.Statement) (witIn : relIn.Witness) :
     PMF (Output spec × Transcript spec) := do
-  let (transcript, state) ← runProver spec prover stmtIn witIn
-  let stmtOut ← runVerifier spec verifier stmtIn (transcript.toOracles)
+  let (transcript, state) ← runProver prover sampleCh stmtIn witIn
+  let stmtOut ← runVerifier verifier stmtIn (transcript.toOracles)
   return ⟨⟨stmtOut, prover.toWitnessOut state⟩, transcript⟩
 
 
-def run (spec : ProtocolSpec) (prover : Prover spec) (verifier : Verifier spec)
-    (stmtIn : spec.relIn.Statement) (witIn : spec.relIn.Witness) : PMF (Output spec) := do
-  let result ← runWithTranscript spec prover verifier stmtIn witIn
+def run (prover : Prover spec relIn relOut) (verifier : Verifier spec relIn relOut)
+    (sampleCh : ChallengePMF spec) (stmtIn : relIn.Statement) (witIn : relIn.Witness) : PMF (Output spec) := do
+  let result ← runWithTranscript prover verifier sampleCh stmtIn witIn
   return result.fst
 
 end Execution
