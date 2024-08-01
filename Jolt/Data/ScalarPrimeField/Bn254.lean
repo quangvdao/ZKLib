@@ -1,12 +1,40 @@
 import Mathlib.Data.ZMod.Defs
 import Mathlib.NumberTheory.LucasPrimality
 
-def Bn254ScalarFieldCard := 21888242871839275222246405745257275088548364400416034343698204186575808495617
 
-theorem Bn254ScalarField_is_prime : Prime Bn254ScalarFieldCard := sorry
+namespace BN254
 
-def Bn254ScalarField := ZMod Bn254ScalarFieldCard
+notation "SCALAR_FIELD_CARD" => 21888242871839275222246405745257275088548364400416034343698204186575808495617
 
-instance : CommRing Bn254ScalarField := (ZMod.commRing Bn254ScalarFieldCard)
+def PrattCertificate := (5, (2, 3, 13, 29, 983, 11003, 237073, 405928799, 1670836401704629, 13818364434197438864469338081),
+     [28, 2, 1, 1, 1, 1, 1, 1, 1, 1],
+     [[], [], [], [], [], [], [],
+      [22, [2, 11, 3691, 4999],
+          [1, 1, 1, 1],
+          [[], [], [], []]],
+      [2, [2, 3, 5156902474397],
+         [2, 4, 1],
+         [[], [],
+          [2, [2, 107, 12048837557],
+             [2, 1, 1],
+             [[], [],
+              [2, [2, 7, 661, 93001],
+                 [2, 2, 1, 1],
+                 [[], [], [], []]]]]]],
+      [3, [2, 5, 823, 1593227, 65865678001877903],
+         [5, 1, 1, 1, 1],
+         [[], [], [], [],
+          [5, [2, 83, 379, 1637, 639533339],
+             [1, 1, 1, 1, 1],
+             [[], [], [], [],
+              [2, [2, 229, 853, 1637],
+                 [1, 1, 1, 1],
+                 [[], [], [], []]]]]]]])
 
-#eval (1 : Bn254ScalarField) + (1 : Bn254ScalarField)
+
+theorem ScalarField_is_prime : Prime SCALAR_FIELD_CARD := sorry
+
+def ScalarField := ZMod SCALAR_FIELD_CARD
+
+
+end BN254
