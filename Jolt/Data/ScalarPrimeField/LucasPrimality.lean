@@ -35,27 +35,7 @@ cases, we can take `q` to be any prime and see that `hd` does not hold, since `a
 to `1`.
 -/
 
-
-/- If `a^(p-1) = 1 mod p`, but `a^((p-1)/q) ≠ 1 mod p` for all prime factors `q` of `p-1`, then `p`
-is prime. This is true because `a` has order `p-1` in the multiplicative group mod `p`, so this
-group must itself have order `p-1`, which only happens when `p` is prime.
--/
--- This is in `Mathlib.NumberTheory.LucasPrimality`
--- theorem lucas_primality
-
-inductive PrattPart : (p : ℕ) → (a : ZMod p) → ℕ → Prop
-  | prime : {p : ℕ} → {a : ZMod p} → (n k nk : ℕ) → n.Prime →
-      a ^ ((p - 1) / n) ≠ 1 → n ^ k = nk → PrattPart p a nk
-  | split : {p : ℕ} → {a : ZMod p} → {n : ℕ} → (l r : ℕ) →
-      PrattPart p a l → PrattPart p a r → l * r = n → PrattPart p a n
-
-
-inductive PrattPart' : (p : ℕ) → (a : ZMod p) → ℕ → Prop
-  | prime : {p : ℕ} → {a : ZMod p} → (n k nk : ℕ) → n.Prime →
-      a ^ ((p - 1) / n) ≠ 1 → n ^ k = nk → PrattPart' p a nk
-  | split : {p : ℕ} → {a : ZMod p} → {n : ℕ} → (list : List ℕ) →
-      (∀ r ∈ list, PrattPart' p a r) → list.prod = n → PrattPart' p a n
-
+-- TODO: port to `Mathlib`?
 lemma Nat.Prime.dvd_mul_list {p : ℕ} {l : List ℕ} (h : p.Prime) :
     p ∣ l.prod ↔ ∃ r ∈ l, p ∣ r := by
   constructor
@@ -78,41 +58,22 @@ lemma Nat.Prime.dvd_mul_list {p : ℕ} {l : List ℕ} (h : p.Prime) :
     rw [←List.prod_erase hr]
     exact h.dvd_mul.mpr (Or.inl hdiv)
 
+
+/-- Recursive form of a Pratt certificate for `p`, which may take in Pratt certificates
+  for all primes `r` less than `p`. -/
+inductive PrattPart : (p : ℕ) → (a : ZMod p) → ℕ → Prop
+  | prime : {p : ℕ} → {a : ZMod p} → (n k nk : ℕ) → n.Prime →
+      a ^ ((p - 1) / n) ≠ 1 → n ^ k = nk → PrattPart p a nk
+  | split : {p : ℕ} → {a : ZMod p} → {n : ℕ} → (list : List ℕ) →
+      (∀ r ∈ list, PrattPart p a r) → list.prod = n → PrattPart p a n
+
 structure PrattCertificate (p : ℕ) : Type :=
   a : ZMod p
   pow_eq_one : a ^ (p - 1) = 1
   part : PrattPart p a (p - 1)
 
+
 theorem PrattPart.out {p : ℕ} {a : ZMod p} {n : ℕ} (h : PrattPart p a n) :
-    ∀ q : ℕ, q.Prime → q ∣ n → a ^ ((p - 1) / q) ≠ 1 := by
-  induction' h with n k nk hprime hpow hnk n l r _ _ hlr ih₁ ih₂
-  · subst hnk
-    intro q hq hdiv
-    cases (Nat.prime_dvd_prime_iff_eq hq hprime).mp (hq.dvd_of_dvd_pow hdiv)
-    exact hpow
-  · subst hlr
-    intro q hq hdiv
-    rcases hq.dvd_mul.mp hdiv with (hdiv|hdiv)
-    · exact ih₁ _ hq hdiv
-    · exact ih₂ _ hq hdiv
-
-theorem PrattCertificate.out {p : ℕ} (c : PrattCertificate p) : p.Prime :=
-  lucas_primality p c.a c.pow_eq_one c.part.out
-
-structure PrattCertificate' (p : ℕ) : Type :=
-  a : ZMod p
-  pow_eq_one : a ^ (p - 1) = 1
-  part : PrattPart' p a (p - 1)
-
-/-
-inductive PrattPart' : (p : ℕ) → (a : ZMod p) → ℕ → Prop
-  | prime : {p : ℕ} → {a : ZMod p} → (n k nk : ℕ) → n.Prime →
-      a ^ ((p - 1) / n) ≠ 1 → n ^ k = nk → PrattPart' p a nk
-  | split : {p : ℕ} → {a : ZMod p} → {n : ℕ} → (list : List ℕ) →
-      (∀ r ∈ list, PrattPart' p a r) → list.prod = n → PrattPart' p a n
--/
-
-theorem PrattPart'.out {p : ℕ} {a : ZMod p} {n : ℕ} (h : PrattPart' p a n) :
     ∀ q : ℕ, q.Prime → q ∣ n → a ^ ((p - 1) / q) ≠ 1 := by
   induction h with
   | prime n' k nk hprime hpow hnk =>
@@ -123,35 +84,33 @@ theorem PrattPart'.out {p : ℕ} {a : ZMod p} {n : ℕ} (h : PrattPart' p a n) :
   | split list hprev hprod ih =>
     rw [←hprod]
     intro q hq hdiv
-    induction list with
-    | nil => aesop
-    | cons r list' ih₁ =>
-      induction list' with
-      | nil => simp at * ; aesop
-      | cons r' list'' ih₂ =>
-        simp at *
-        rcases hq.dvd_mul.mp hdiv with (hdiv|hdiv)
-        · exact (And.left ih) q hq hdiv
-        · rcases hq.dvd_mul.mp hdiv with (hdiv|hdiv)
-          · exact (And.left (And.right ih)) q hq hdiv
-          · refine (And.right (And.right ih)) r ?_ q hq hdiv
+    rcases hq.dvd_mul_list.mp hdiv with ⟨r, hr, hdiv⟩
+    · exact ih r hr q hq hdiv
 
-
-theorem PrattCertificate'.out {p : ℕ} (c : PrattCertificate' p) : p.Prime :=
+theorem PrattCertificate.out {p : ℕ} (c : PrattCertificate p) : p.Prime :=
   lucas_primality p c.a c.pow_eq_one c.part.out
 
 -- cannot do ^1 correctly it seems?
 
 theorem prime_2 : Nat.Prime 2 := Nat.prime_two
+
 theorem prime_3 : Nat.Prime 3 := Nat.prime_three
+
 theorem prime_5 : Nat.Prime 5 := by
   refine PrattCertificate.out ⟨2, by reduce_mod_char, ?_⟩
   exact .prime 2 2 _ prime_2 (by reduce_mod_char; decide) (by norm_num)
+
 theorem prime_7 : Nat.Prime 7 := by
   refine PrattCertificate.out ⟨3, by reduce_mod_char, ?_⟩
-  refine .split 2 3 ?_ ?_ (by norm_num)
-  · exact .prime 2 1 _ prime_2 (by reduce_mod_char; decide) (by norm_num)
-  · exact .prime 3 1 _ prime_3 (by reduce_mod_char; decide) (by norm_num)
+  refine .split [2, 3] ?_ (by norm_num)
+  · intro r hr
+    /-
+    r : ℕ
+    ⊢ r ∈ [2, 3] → PrattPart 7 3 r
+    -/
+    -- what to do here?
+    sorry
+
 theorem prime_11 : Nat.Prime 11 := by
   refine PrattCertificate.out ⟨2, by reduce_mod_char, ?_⟩
   refine .split 2 5 ?_ ?_ (by norm_num)
