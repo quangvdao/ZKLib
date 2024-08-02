@@ -1,4 +1,3 @@
-import Mathlib.FieldTheory.Finite.Basic
 import Jolt.ToMathlib.NumberTheory.PrattCertificate
 
 
