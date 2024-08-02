@@ -1,5 +1,6 @@
-import Jolt.Data.ScalarPrimeField.PrattCertificate
-import Jolt.Data.ZMod.Pow
+import Mathlib.FieldTheory.Finite.Basic
+import Jolt.ToMathlib.NumberTheory.PrattCertificate
+
 
 /-!
   # The BN254 scalar prime field
@@ -9,61 +10,51 @@ namespace BN254
 
 notation "SCALAR_FIELD_CARD" => 21888242871839275222246405745257275088548364400416034343698204186575808495617
 
-#eval ZMod.powSplit (5 : ZMod SCALAR_FIELD_CARD) (SCALAR_FIELD_CARD - 1) 1000 (by decide)
+abbrev ScalarField := ZMod SCALAR_FIELD_CARD
 
-/-
-Pratt certificate from Kestrel:
+theorem ScalarField_is_prime : Nat.Prime SCALAR_FIELD_CARD := by
+  refine PrattCertificate'.out (p := SCALAR_FIELD_CARD) ⟨5, (by reduce_mod_char_pow), ?_⟩
+  refine .split [2 ^ 28, 3 ^ 2, 13, 29, 983, 11003, 237073, 405928799, 1670836401704629, 13818364434197438864469338081] (fun r hr => ?_) (by norm_num)
+  simp at hr
+  rcases hr with hr | hr | hr | hr | hr | hr | hr | hr | hr | hr <;> rw [hr]
+  · exact .prime 2 28 _ (by pratt) (by reduce_mod_char_pow; decide) (by norm_num)
+  · exact .prime 3 2 _ (by pratt) (by reduce_mod_char_pow; decide) (by norm_num)
+  · exact .prime 13 1 _ (by pratt) (by reduce_mod_char_pow; decide) (by norm_num)
+  · exact .prime 29 1 _ (by pratt) (by reduce_mod_char_pow; decide) (by norm_num)
+  · exact .prime 983 1 _ (by pratt) (by reduce_mod_char_pow; decide) (by norm_num)
+  · exact .prime 11003 1 _ (by pratt) (by reduce_mod_char_pow; decide) (by norm_num)
+  · exact .prime 237073 1 _ (by pratt) (by reduce_mod_char_pow; decide) (by norm_num)
+  · exact .prime 405928799 1 _ (by pratt) (by reduce_mod_char_pow; decide) (by norm_num)
+  · refine .prime 1670836401704629 1 _ ?_ (by reduce_mod_char_pow; decide) (by norm_num)
+    · refine PrattCertificate'.out ⟨2, by reduce_mod_char_pow, ?_⟩
+      refine .split [2 ^ 2, 3 ^ 4, 5156902474397] (fun r hr => ?_) (by norm_num)
+      simp at hr
+      rcases hr with hr | hr | hr <;> rw [hr]
+      · exact .prime 2 2 _ (by pratt) (by reduce_mod_char_pow; decide) (by norm_num)
+      · exact .prime 3 4 _ (by pratt) (by reduce_mod_char_pow; decide) (by norm_num)
+      · exact .prime 5156902474397 1 _ (by pratt) (by reduce_mod_char_pow; decide) (by norm_num)
+  · refine .prime 13818364434197438864469338081 1 _ ?_ (by reduce_mod_char_pow; decide) (by norm_num)
+    · refine PrattCertificate'.out ⟨3, by reduce_mod_char_pow, ?_⟩
+      refine .split [2 ^ 5, 5, 823, 1593227, 65865678001877903] (fun r hr => ?_) (by norm_num)
+      simp at hr
+      rcases hr with hr | hr | hr | hr | hr <;> rw [hr]
+      · exact .prime 2 5 _ (by pratt) (by reduce_mod_char_pow; decide) (by norm_num)
+      · exact .prime 5 1 _ (by pratt) (by reduce_mod_char_pow; decide) (by norm_num)
+      · exact .prime 823 1 _ (by pratt) (by reduce_mod_char_pow; decide) (by norm_num)
+      · exact .prime 1593227 1 _ (by pratt) (by reduce_mod_char_pow; decide) (by norm_num)
+      · refine .prime 65865678001877903 1 _ ?_ (by reduce_mod_char_pow; decide) (by norm_num)
+        · refine PrattCertificate'.out ⟨5, by reduce_mod_char_pow, ?_⟩
+          refine .split [2, 83, 379, 1637, 639533339] (fun r hr => ?_) (by norm_num)
+          simp at hr
+          rcases hr with hr | hr | hr | hr | hr <;> rw [hr]
+          · exact .prime 2 1 _ (by pratt) (by reduce_mod_char_pow; decide) (by norm_num)
+          · exact .prime 83 1 _ (by pratt) (by reduce_mod_char_pow; decide) (by norm_num)
+          · exact .prime 379 1 _ (by pratt) (by reduce_mod_char_pow; decide) (by norm_num)
+          · exact .prime 1637 1 _ (by pratt) (by reduce_mod_char_pow; decide) (by norm_num)
+          · exact .prime 639533339 1 _ (by pratt) (by reduce_mod_char_pow; decide) (by norm_num)
 
-(5, (2, 3, 13, 29, 983, 11003, 237073, 405928799, 1670836401704629, 13818364434197438864469338081),
-     [28, 2, 1, 1, 1, 1, 1, 1, 1, 1],
-     [[], [], [], [], [], [], [],
-      [22, [2, 11, 3691, 4999],
-          [1, 1, 1, 1],
-          [[], [], [], []]],
-      [2, [2, 3, 5156902474397],
-         [2, 4, 1],
-         [[], [],
-          [2, [2, 107, 12048837557],
-             [2, 1, 1],
-             [[], [],
-              [2, [2, 7, 661, 93001],
-                 [2, 2, 1, 1],
-                 [[], [], [], []]]]]]],
-      [3, [2, 5, 823, 1593227, 65865678001877903],
-         [5, 1, 1, 1, 1],
-         [[], [], [], [],
-          [5, [2, 83, 379, 1637, 639533339],
-             [1, 1, 1, 1, 1],
-             [[], [], [], [],
-              [2, [2, 229, 853, 1637],
-                 [1, 1, 1, 1],
-                 [[], [], [], []]]]]]]])
--/
+instance : Fact (Nat.Prime SCALAR_FIELD_CARD) := ⟨ScalarField_is_prime⟩
 
--- set_option trace.profiler true
--- set_option profiler true
-
-/-- Takes a bit -/
-lemma prod_factors_eq : [2 ^ 28, 3 ^ 2, 13, 29, 983, 11003, 237073, 405928799, 1670836401704629, 13818364434197438864469338081].prod = SCALAR_FIELD_CARD - 1 := by norm_num
-
-lemma mod_comp : (5 ^ (SCALAR_FIELD_CARD - 1) : ZMod SCALAR_FIELD_CARD) = 1 := by sorry
-  -- rw [ZMod.pow_eq_powSplit 1000 (by decide)]
-  -- simp
-  -- repeat (unfold ZMod.powSplit <;> simp <;> norm_num)
-  -- -- rw [←ZMod.pow_eq_pow']
-  -- norm_num
-
--- It takes too long (using `reduce_mod_char`) to verify that 5 ^ (SCALAR_FIELD_CARD - 1) = 1 mod SCALAR_FIELD_CARD.
--- Needs to implement power-of-two exponentiation?
--- theorem ScalarField_is_prime : Nat.Prime SCALAR_FIELD_CARD := by
---   refine PrattCertificate.out (p := SCALAR_FIELD_CARD) ⟨5, (by norm_num), ?_⟩
---   · refine .split [2 ^ 28, 3 ^ 2, 13, 29, 983, 11003, 237073, 405928799, 1670836401704629, 13818364434197438864469338081] (fun r hr => ?_) (by norm_num)
---   · simp at *
---     rcases hr with hr | hr <;> rw [hr]
---     · exact .prime 2 1 _ prime_2 (by reduce_mod_char; decide) (by norm_num)
---     · exact .prime 5 1 _ prime_5 (by reduce_mod_char; decide) (by norm_num)
-
-def ScalarField := ZMod SCALAR_FIELD_CARD
-
+instance : Field ScalarField := ZMod.instField SCALAR_FIELD_CARD
 
 end BN254

@@ -7,9 +7,10 @@ import Mathlib.Data.Fintype.Basic
 import Mathlib.GroupTheory.OrderOfElement
 import Mathlib.Tactic.Zify
 import Mathlib.Data.Nat.Totient
-import Mathlib.Tactic.ReduceModChar
+-- import Mathlib.Tactic.ReduceModChar
 import Mathlib.Tactic.NormNum.Prime
 import Mathlib.NumberTheory.LucasPrimality
+import Jolt.ToMathlib.Tactic.ReduceModCharPow
 
 /-!
 # The Lucas test for primes.
@@ -35,6 +36,8 @@ cases, we can take `q` to be any prime and see that `hd` does not hold, since `a
 to `1`.
 -/
 
+section New
+
 -- TODO: port to `Mathlib`?
 lemma Nat.Prime.dvd_mul_list {p : ℕ} {l : List ℕ} (h : p.Prime) :
     p ∣ l.prod ↔ ∃ r ∈ l, p ∣ r := by
@@ -58,22 +61,20 @@ lemma Nat.Prime.dvd_mul_list {p : ℕ} {l : List ℕ} (h : p.Prime) :
     rw [←List.prod_erase hr]
     exact h.dvd_mul.mpr (Or.inl hdiv)
 
-
 /-- Recursive form of a Pratt certificate for `p`, which may take in Pratt certificates
-  for all primes `r` less than `p`. -/
-inductive PrattPart : (p : ℕ) → (a : ZMod p) → ℕ → Prop
+  for a list of prime powers `r` less than `p` whose product is equal to `p - 1`. -/
+inductive PrattPartList : (p : ℕ) → (a : ZMod p) → ℕ → Prop
   | prime : {p : ℕ} → {a : ZMod p} → (n k nk : ℕ) → n.Prime →
-      a ^ ((p - 1) / n) ≠ 1 → n ^ k = nk → PrattPart p a nk
+      a ^ ((p - 1) / n) ≠ 1 → n ^ k = nk → PrattPartList p a nk
   | split : {p : ℕ} → {a : ZMod p} → {n : ℕ} → (list : List ℕ) →
-      (∀ r ∈ list, PrattPart p a r) → list.prod = n → PrattPart p a n
+      (∀ r ∈ list, PrattPartList p a r) → list.prod = n → PrattPartList p a n
 
-structure PrattCertificate (p : ℕ) : Type :=
+structure PrattCertificate' (p : ℕ) : Type :=
   a : ZMod p
   pow_eq_one : a ^ (p - 1) = 1
-  part : PrattPart p a (p - 1)
+  part : PrattPartList p a (p - 1)
 
-
-theorem PrattPart.out {p : ℕ} {a : ZMod p} {n : ℕ} (h : PrattPart p a n) :
+theorem PrattPartList.out {p : ℕ} {a : ZMod p} {n : ℕ} (h : PrattPartList p a n) :
     ∀ q : ℕ, q.Prime → q ∣ n → a ^ ((p - 1) / q) ≠ 1 := by
   induction h with
   | prime n' k nk hprime hpow hnk =>
@@ -87,122 +88,118 @@ theorem PrattPart.out {p : ℕ} {a : ZMod p} {n : ℕ} (h : PrattPart p a n) :
     rcases hq.dvd_mul_list.mp hdiv with ⟨r, hr, hdiv⟩
     · exact ih r hr q hq hdiv
 
+theorem PrattCertificate'.out {p : ℕ} (c : PrattCertificate' p) : p.Prime :=
+  lucas_primality p c.a c.pow_eq_one c.part.out
+
+end New
+
+/-- The binary version of `PrattPartList`. This is the one in the original file. -/
+inductive PrattPart : (p : ℕ) → (a : ZMod p) → ℕ → Prop
+  | prime : {p : ℕ} → {a : ZMod p} → (n k nk : ℕ) → n.Prime →
+      a ^ ((p - 1) / n) ≠ 1 → n ^ k = nk → PrattPart p a nk
+  | split : {p : ℕ} → {a : ZMod p} → {n : ℕ} → (l r : ℕ) →
+      PrattPart p a l → PrattPart p a r → l * r = n → PrattPart p a n
+
+structure PrattCertificate (p : ℕ) : Type :=
+  a : ZMod p
+  pow_eq_one : a ^ (p - 1) = 1
+  part : PrattPart p a (p - 1)
+
+theorem PrattPart.out {p : ℕ} {a : ZMod p} {n : ℕ} (h : PrattPart p a n) :
+    ∀ q : ℕ, q.Prime → q ∣ n → a ^ ((p - 1) / q) ≠ 1 := by
+  induction' h with n k nk hprime hpow hnk n l r _ _ hlr ih₁ ih₂
+  · subst hnk
+    intro q hq hdiv
+    cases (Nat.prime_dvd_prime_iff_eq hq hprime).mp (hq.dvd_of_dvd_pow hdiv)
+    exact hpow
+  · subst hlr
+    intro q hq hdiv
+    rcases hq.dvd_mul.mp hdiv with (hdiv|hdiv)
+    · exact ih₁ _ hq hdiv
+    · exact ih₂ _ hq hdiv
+
 theorem PrattCertificate.out {p : ℕ} (c : PrattCertificate p) : p.Prime :=
   lucas_primality p c.a c.pow_eq_one c.part.out
 
 -- cannot do ^1 correctly it seems?
 
 theorem prime_2 : Nat.Prime 2 := Nat.prime_two
-
 theorem prime_3 : Nat.Prime 3 := Nat.prime_three
-
 theorem prime_5 : Nat.Prime 5 := by
-  refine PrattCertificate.out ⟨2, by reduce_mod_char, ?_⟩
-  exact .prime 2 2 _ prime_2 (by reduce_mod_char; decide) (by norm_num)
-
+  refine PrattCertificate.out ⟨2, by reduce_mod_char_pow, ?_⟩
+  exact .prime 2 2 _ prime_2 (by reduce_mod_char_pow; decide) (by norm_num)
 theorem prime_7 : Nat.Prime 7 := by
-  refine PrattCertificate.out ⟨3, by reduce_mod_char, ?_⟩
-  refine .split [2, 3] (fun r hr => ?_) (by norm_num)
-  · simp at *
-    rcases hr with hr | hr <;> rw [hr]
-    · exact .prime 2 1 _ prime_2 (by reduce_mod_char; decide) (by norm_num)
-    · exact .prime 3 1 _ prime_3 (by reduce_mod_char; decide) (by norm_num)
-
+  refine PrattCertificate.out ⟨3, by reduce_mod_char_pow, ?_⟩
+  refine .split 2 3 ?_ ?_ (by norm_num)
+  · exact .prime 2 1 _ prime_2 (by reduce_mod_char_pow; decide) (by norm_num)
+  · exact .prime 3 1 _ prime_3 (by reduce_mod_char_pow; decide) (by norm_num)
 theorem prime_11 : Nat.Prime 11 := by
-  refine PrattCertificate.out ⟨2, by reduce_mod_char, ?_⟩
-  refine .split [2, 5] (fun r hr => ?_) (by norm_num)
-  · simp at *
-    rcases hr with hr | hr <;> rw [hr]
-    · exact .prime 2 1 _ prime_2 (by reduce_mod_char; decide) (by norm_num)
-    · exact .prime 5 1 _ prime_5 (by reduce_mod_char; decide) (by norm_num)
-
+  refine PrattCertificate.out ⟨2, by reduce_mod_char_pow, ?_⟩
+  refine .split 2 5 ?_ ?_ (by norm_num)
+  · exact .prime 2 1 _ prime_2 (by reduce_mod_char_pow; decide) (by norm_num)
+  · exact .prime 5 1 _ prime_5 (by reduce_mod_char_pow; decide) (by norm_num)
 theorem prime_13 : Nat.Prime 13 := by
-  refine PrattCertificate.out ⟨2, by reduce_mod_char, ?_⟩
-  refine .split [4, 3] (fun r hr => ?_) (by norm_num)
-  · simp at *
-    rcases hr with hr | hr <;> rw [hr]
-    · exact .prime 2 2 _ prime_2 (by reduce_mod_char; decide) (by norm_num)
-    · exact .prime 3 1 _ prime_3 (by reduce_mod_char; decide) (by norm_num)
-
+  refine PrattCertificate.out ⟨2, by reduce_mod_char_pow, ?_⟩
+  refine .split 4 3 ?_ ?_ (by norm_num)
+  · exact .prime 2 2 _ prime_2 (by reduce_mod_char_pow; decide) (by norm_num)
+  · exact .prime 3 1 _ prime_3 (by reduce_mod_char_pow; decide) (by norm_num)
 theorem prime_17 : Nat.Prime 17 := by
-  refine PrattCertificate.out ⟨3, by reduce_mod_char, ?_⟩
-  exact .prime 2 4 _ prime_2 (by reduce_mod_char; decide) (by norm_num)
-
+  refine PrattCertificate.out ⟨3, by reduce_mod_char_pow, ?_⟩
+  exact .prime 2 4 _ prime_2 (by reduce_mod_char_pow; decide) (by norm_num)
 theorem prime_19 : Nat.Prime 19 := by
-  refine PrattCertificate.out ⟨2, by reduce_mod_char, ?_⟩
-  refine .split [2, 9] (fun r hr => ?_) (by norm_num)
-  · simp at *
-    rcases hr with hr | hr <;> rw [hr]
-    · exact .prime 2 1 _ prime_2 (by reduce_mod_char; decide) (by norm_num)
-    · exact .prime 3 2 _ prime_3 (by reduce_mod_char; decide) (by norm_num)
-
+  refine PrattCertificate.out ⟨2, by reduce_mod_char_pow, ?_⟩
+  refine .split 2 9 ?_ ?_ (by norm_num)
+  · exact .prime 2 1 _ prime_2 (by reduce_mod_char_pow; decide) (by norm_num)
+  · exact .prime 3 2 _ prime_3 (by reduce_mod_char_pow; decide) (by norm_num)
 theorem prime_23 : Nat.Prime 23 := by
-  refine PrattCertificate.out ⟨5, by reduce_mod_char, ?_⟩
-  refine .split [2, 11] (fun r hr => ?_) (by norm_num)
-  · simp at *
-    rcases hr with hr | hr <;> rw [hr]
-    · exact .prime 2 1 _ prime_2 (by reduce_mod_char; decide) (by norm_num)
-    · exact .prime 11 1 _ prime_11 (by reduce_mod_char; decide) (by norm_num)
-
+  refine PrattCertificate.out ⟨5, by reduce_mod_char_pow, ?_⟩
+  refine .split 2 11 ?_ ?_ (by norm_num)
+  · exact .prime 2 1 _ prime_2 (by reduce_mod_char_pow; decide) (by norm_num)
+  · exact .prime 11 1 _ prime_11 (by reduce_mod_char_pow; decide) (by norm_num)
 theorem prime_29 : Nat.Prime 29 := by
-  refine PrattCertificate.out ⟨2, by reduce_mod_char, ?_⟩
-  refine .split [4, 7] (fun r hr => ?_) (by norm_num)
-  · simp at *
-    rcases hr with hr | hr <;> rw [hr]
-    · exact .prime 2 2 _ prime_2 (by reduce_mod_char; decide) (by norm_num)
-    · exact .prime 7 1 _ prime_7 (by reduce_mod_char; decide) (by norm_num)
-
+  refine PrattCertificate.out ⟨2, by reduce_mod_char_pow, ?_⟩
+  refine .split 4 7 ?_ ?_ (by norm_num)
+  · exact .prime 2 2 _ prime_2 (by reduce_mod_char_pow; decide) (by norm_num)
+  · exact .prime 7 1 _ prime_7 (by reduce_mod_char_pow; decide) (by norm_num)
 theorem prime_31 : Nat.Prime 31 := by
-  refine PrattCertificate.out ⟨3, by reduce_mod_char, ?_⟩
-  refine .split [2, 3, 5] (fun r hr => ?_) (by norm_num)
-  · simp at *
-    rcases hr with hr | hr | hr <;> rw [hr]
-    · exact .prime 2 1 _ prime_2 (by reduce_mod_char; decide) (by norm_num)
-    · exact .prime 3 1 _ prime_3 (by reduce_mod_char; decide) (by norm_num)
-    · exact .prime 5 1 _ prime_5 (by reduce_mod_char; decide) (by norm_num)
-
+  refine PrattCertificate.out ⟨3, by reduce_mod_char_pow, ?_⟩
+  refine .split 3 10 ?_ ?_ (by norm_num)
+  · exact .prime 3 1 _ prime_3 (by reduce_mod_char_pow; decide) (by norm_num)
+  · refine .split 2 5 ?_ ?_ (by norm_num)
+    · exact .prime 2 1 _ prime_2 (by reduce_mod_char_pow; decide) (by norm_num)
+    · exact .prime 5 1 _ prime_5 (by reduce_mod_char_pow; decide) (by norm_num)
 theorem prime_37 : Nat.Prime 37 := by
-  refine PrattCertificate.out ⟨2, by reduce_mod_char, ?_⟩
-  refine .split [2, 2, 3, 3] (fun r hr => ?_) (by norm_num)
-  · simp at *
-    rcases hr with hr | hr <;> rw [hr]
-    · exact .prime 2 1 _ prime_2 (by reduce_mod_char; decide) (by norm_num)
-    · exact .prime 3 1 _ prime_3 (by reduce_mod_char; decide) (by norm_num)
-
+  refine PrattCertificate.out ⟨2, by reduce_mod_char_pow, ?_⟩
+  refine .split 4 9 ?_ ?_ (by norm_num)
+  · exact .prime 2 2 _ prime_2 (by reduce_mod_char_pow; decide) (by norm_num)
+  · exact .prime 3 2 _ prime_3 (by reduce_mod_char_pow; decide) (by norm_num)
 theorem prime_41 : Nat.Prime 41 := by
-  refine PrattCertificate.out ⟨6, by reduce_mod_char, ?_⟩
-  refine .split [5, 8] (fun r hr => ?_) (by norm_num)
-  · simp at *
-    rcases hr with hr | hr <;> rw [hr]
-    · exact .prime 5 1 _ prime_5 (by reduce_mod_char; decide) (by norm_num)
-    · exact .prime 2 3 _ prime_2 (by reduce_mod_char; decide) (by norm_num)
-
+  refine PrattCertificate.out ⟨6, by reduce_mod_char_pow, ?_⟩
+  refine .split 5 8 ?_ ?_ (by norm_num)
+  · exact .prime 5 1 _ prime_5 (by reduce_mod_char_pow; decide) (by norm_num)
+  · exact .prime 2 3 _ prime_2 (by reduce_mod_char_pow; decide) (by norm_num)
 theorem prime_43 : Nat.Prime 43 := by
-  refine PrattCertificate.out ⟨3, by reduce_mod_char, ?_⟩
-  refine .split [2, 3, 7] (fun r hr => ?_) (by norm_num)
-  · simp at *
-    rcases hr with hr | hr | hr <;> rw [hr]
-    · exact .prime 2 1 _ prime_2 (by reduce_mod_char; decide) (by norm_num)
-    · exact .prime 3 1 _ prime_3 (by reduce_mod_char; decide) (by norm_num)
-    · exact .prime 7 1 _ prime_7 (by reduce_mod_char; decide) (by norm_num)
-
+  refine PrattCertificate.out ⟨3, by reduce_mod_char_pow, ?_⟩
+  refine .split 6 7 ?_ ?_ (by norm_num)
+  · refine .split 2 3 ?_ ?_ (by norm_num)
+    · exact .prime 2 1 _ prime_2 (by reduce_mod_char_pow; decide) (by norm_num)
+    · exact .prime 3 1 _ prime_3 (by reduce_mod_char_pow; decide) (by norm_num)
+  · exact .prime 7 1 _ prime_7 (by reduce_mod_char_pow; decide) (by norm_num)
 theorem prime_47 : Nat.Prime 47 := by
-  refine PrattCertificate.out ⟨5, by reduce_mod_char, ?_⟩
-  refine .split [2, 23] (fun r hr => ?_) (by norm_num)
-  · simp at *
-    rcases hr with hr | hr <;> rw [hr]
-    · exact .prime 2 1 _ prime_2 (by reduce_mod_char; decide) (by norm_num)
-    · exact .prime 23 1 _ prime_23 (by reduce_mod_char; decide) (by norm_num)
+  refine PrattCertificate.out ⟨5, by reduce_mod_char_pow, ?_⟩
+  refine .split 2 23 ?_ ?_ (by norm_num)
+  · exact .prime 2 1 _ prime_2 (by reduce_mod_char_pow; decide) (by norm_num)
+  · exact .prime 23 1 _ prime_23 (by reduce_mod_char_pow; decide) (by norm_num)
 
 theorem prime_101 : Nat.Prime 101 := by
-  refine PrattCertificate.out ⟨2, by reduce_mod_char, ?_⟩
-  refine .split [2, 2, 5, 5] (fun r hr => ?_) (by norm_num)
-  · simp at *
-    rcases hr with hr | hr <;> rw [hr]
-    · refine .prime 2 1 _ prime_2 (by reduce_mod_char; decide) (by norm_num)
-    · refine .prime 5 1 _ prime_5 (by reduce_mod_char; decide) (by norm_num)
-
-theorem prime_101' : Nat.Prime 101 := by norm_num
+  refine PrattCertificate.out ⟨2, by reduce_mod_char_pow, ?_⟩
+  refine .split 4 25 ?_ ?_ (by norm_num)
+  · refine .prime 2 2 _ ?_ (by reduce_mod_char_pow; decide) (by norm_num)
+    exact Nat.prime_two
+  · refine .prime 5 2 _ ?_ (by reduce_mod_char_pow; decide) (by norm_num)
+    refine PrattCertificate.out ⟨2, by reduce_mod_char_pow, ?_⟩
+    refine .prime 2 2 _ ?_ (by reduce_mod_char_pow; decide) (by norm_num)
+    exact Nat.prime_two
 
 -- theorem prime_987654319 : Nat.Prime 987654319 := sorry
 
@@ -492,8 +489,7 @@ partial def verifyCertificate (n' : Q(ℕ)) (n : ℕ) :
       -- dbg_trace "split {nleft.natLit!} {nright.natLit!}"
       have nn : Q(ℕ) := mkRawNatLit (nleft.natLit! * nright.natLit!)
       haveI : $nn =Q $nleft * $nright := ⟨⟩
-      return sorry
-      -- ⟨nn, q(PrattPart.split [$nleft, $nright] (fun r => match r with | .inl r => $pleft r | .inr r => $pright r) (.refl _))⟩
+      return ⟨nn, q(PrattPart.split $nleft $nright $pleft $pright (.refl _))⟩
 
 theorem Nat.Prime_of_isNat : ∀ {n n' : ℕ}, IsNat n n' → n'.Prime → n.Prime
   | _, _, ⟨rfl⟩, hp => hp
