@@ -26,19 +26,10 @@ structure ReadWriteMemoryPreprocessing where
   programIo : Option JoltDevice
 deriving Repr, Inhabited
 
-structure InstructionLookupsPreprocessing where
-  subtableToMemoryIndices : Array (Array UInt64)
-  instructionToMemoryIndices : Array (Array UInt64)
-  memoryToSubtableIndex : Array UInt64
-  memoryToDimensionIndex : Array UInt64
-  materializedSubtables : Array (Array F)
-  numMemories : UInt64
-deriving Repr, Inhabited
-
 structure JoltPreprocessing extends
   BytecodePreprocessing F,
   ReadWriteMemoryPreprocessing,
-  InstructionLookupsPreprocessing F
+  InstructionLookup.Preprocessing F
 deriving Inhabited
 
 
@@ -71,9 +62,6 @@ def ReadWriteMemoryPreprocessing.new (memoryInit : Array (UInt64 × UInt8)) :
     programIo := none }
 
 
--- TODO: this definition depends on the `InstructionSet` and `SubtableSet`
--- for a given architecture (i.e. RV32IM)
-def InstructionLookupsPreprocessing.new : InstructionLookupsPreprocessing F := sorry
 
 def JoltPreprocessing.new (bytecode : Array BytecodeRow) (memoryInit : Array (UInt64 × UInt8)) :
     JoltPreprocessing F :=

@@ -28,6 +28,11 @@
         i := i + 1
       return result
 
+-- LOL, the built-in `Array.range` is the best
+#eval for n in [20:24] do
+  discard $ timeit s!"Regular array range 2^{n}" do
+    return Array.range (2 ^ n)
+
 
 def fibonacci (n : Nat) : Nat :=
   let rec loop (n : Nat) : Nat × Nat :=

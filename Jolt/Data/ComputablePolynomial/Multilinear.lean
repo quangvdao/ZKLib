@@ -5,75 +5,88 @@ import Batteries.Data.Array.Lemmas
 import Mathlib.Data.Matrix.Basic
 import Mathlib.Data.Fin.VecNotation
 
+/-!
+  # Multilinear Polynomials
+
+  This file defines an efficient representation of multilinear polynomials, by their evaluations
+  on the Boolean hypercube `{0,1}^n`.
+
+  Our operations are designed to be as efficient as possible.
+-/
+
 -- We define multilinear polynomials over rings by their evaluation on the hypercube {0,1}^n (i.e.
 -- the Lagrange basis).
-structure MlPoly (R : Type) [DecidableEq R] [Inhabited R] [Ring R] where
+structure MlPoly (R : Type) where
   evals : Array R
   nVars : ℕ
   isValid : evals.size = 2 ^ nVars
+deriving DecidableEq, Repr
 
-variable {R : Type} [DecidableEq R] [Inhabited R] [Ring R]
+-- variable {R : Type} [DecidableEq R] [Inhabited R] [Ring R]
 
 section Math
 
-/- Just need [Mul R] and [AddCommMonoid R] -/
+variable {R : Type} [Mul R] [AddCommMonoid R]
+
+/-- Inner product between two arrays. Do automatic truncation for arrays of different lengths. -/
 def Array.dotProduct (a b : Array R) : R :=
   a.zip b |>.map (λ (a, b) => a * b) |>.foldl (· + ·) 0
+
+def Array.dotProduct' (a b : Array R) (hEq : a.size = b.size) : R := Array.dotProduct a b
+
+
 
 @[simp]
 lemma Array.dotProduct_eq_matrix_dotProduct (a b : Array R) (h : a.size = b.size) :
     Array.dotProduct a b = Matrix.dotProduct a.get (h ▸ b.get) := sorry
 
 end Math
+
+
 namespace MlPoly
+
+variable {R : Type} [DecidableEq R] [Inhabited R] [Ring R]
 
 -- This function converts multilinear representation in the evaluation basis to the monomial basis
 -- This is also called the Walsh-Hadamard transform (either that or the inverse)
-def evalToMonomial (a : Array R) : Array R :=
-  let n := Nat.clog 2 a.size
-  if a.size ≠ 2 ^ n then
-    panic! "Array size is not a power of two!"
-  else
-    let rec loop (a : Array R) (h : ℕ) : Array R :=
-      if h = 0 then a
-      else if h < 2 ^ n then
-        let a := (List.range (2 ^ n)).foldl (fun a i =>
-          if i &&& h == 0 then
-            let u := a.get! i
-            let v := a.get! (i + h)
-            (a.set! i (u + v)).set! (i + h) (v - u)
-          else
-            a
-        ) a
-        loop a (h * 2)
+
+def walshHadamardTransform (a : Array R) (n : ℕ) (h : ℕ) : Array R :=
+  if h < n then
+    let a := (Array.range (2 ^ n)).foldl (fun a i =>
+      if i &&& (2 ^ h) == 0 then
+        let u := a.get! i
+        let v := a.get! (i + (2 ^ h))
+        (a.set! i (u + v)).set! (i + (2 ^ h)) (v - u)
       else
         a
-  termination_by (2 ^ n - h)
-  loop a 1
-
-
-def monomialToEval (a : Array R) (n : ℕ) : Array R :=
-  if a.size ≠ 2 ^ n then
-    panic! "Array size must match number of variables"
+    ) a
+    walshHadamardTransform a n (h + 1)
   else
-    let rec loop (a : Array R) (h : ℕ) : Array R :=
-      if h = 0 then a
-      else if h < 2 ^ n then
-        let a := (List.range (2 ^ n)).foldl (fun a i =>
-          if i &&& h == 0 then
-            let u := a.get! i
-            let v := a.get! (i + h)
-            (a.set! i (u + v)).set! (i + h) (v - u)
-          else
-            a
-        ) a
-        loop a (h * 2)
+    a
+
+def evalToMonomial (a : Array R) : Array R := walshHadamardTransform a (Nat.clog 2 a.size) 0
+
+def invWalshHadamardTransform (a : Array R) (n : ℕ) (h : ℕ) : Array R :=
+  if h < n then
+    let a := (Array.range (2 ^ n)).foldl (fun a i =>
+      if i &&& (2 ^ h) == 0 then
+        let u := a.get! i
+        let v := a.get! (i + (2 ^ h))
+        (a.set! i (u + v)).set! (i + (2 ^ h)) (v - u)
       else
         a
-  termination_by (2 ^ n - h)
-  loop a 1
+    ) a
+    invWalshHadamardTransform a n (h + 1)
+  else
+    a
 
-#eval evalToMonomial #[(5 : ℤ), (7 : ℤ), (8 : ℤ), (9 : ℤ)]
+def monomialToEval (a : Array R) : Array R := invWalshHadamardTransform a (Nat.clog 2 a.size) 0
+
+@[simp]
+lemma evalToMonomial_size (a : Array R) : (evalToMonomial a).size = 2 ^ (Nat.clog 2 a.size) := by
+  unfold evalToMonomial
+  sorry
+
 
 def unitArray {R : Type} [Inhabited R] [Ring R] (n k : ℕ) : Array R :=
   let initialArray : Array R := Array.mkArray n 0
@@ -84,15 +97,15 @@ instance inhabited : Inhabited (MlPoly R) :=
   ⟨{ evals := #[Inhabited.default], nVars := 0, isValid := by simp }⟩
 
 -- maybe this can be done way better
-instance : DecidableEq (MlPoly R) :=
-  fun p q =>
-    if hEvals : p.evals = q.evals then
-      if hNVars : p.nVars = q.nVars then
-        isTrue (by cases p; cases q; simp only at hEvals hNVars; rw [hEvals, hNVars])
-      else
-        isFalse (by intro h; cases h; contradiction)
-    else
-      isFalse (by intro h; cases h; contradiction)
+-- instance : DecidableEq (MlPoly R) :=
+--   fun p q =>
+--     if hEvals : p.evals = q.evals then
+--       if hNVars : p.nVars = q.nVars then
+--         isTrue (by cases p; cases q; simp only at hEvals hNVars; rw [hEvals, hNVars])
+--       else
+--         isFalse (by intro h; cases h; contradiction)
+--     else
+--       isFalse (by intro h; cases h; contradiction)
 
 
 -- Automatically pad to the next power of two
@@ -161,11 +174,11 @@ def eval (p : MlPoly R) (x : Array R) (h : x.size = p.nVars) : R :=
 -- Theorems about evaluations
 
 -- Evaluation at a point in the Boolean hypercube is equal to the corresponding evaluation in the array
-theorem eval_eq_eval_array (p : MlPoly R) (x : Array R) (h : x.size = p.nVars) (h' : isBoolean x): eval p x = p.evals.get! (toNum x) := by
-  unfold eval
-  unfold dotProduct
-  simp [↓reduceIte, h]
-  sorry
+-- theorem eval_eq_eval_array (p : MlPoly R) (x : Array Bool) (h : x.size = p.nVars): eval p x.map (fun b => b) = p.evals.get! (x.foldl (fun i elt => i * 2 + elt) 0) := by
+--   unfold eval
+--   unfold dotProduct
+--   simp [↓reduceIte, h]
+--   sorry
 
 example (a b c : Prop) [Decidable a] (h : a) : (if a then b else c) = b := by
   simp_all only [↓reduceIte]
@@ -185,7 +198,7 @@ namespace MlPoly'
 variable {R : Type} [DecidableEq R] [Inhabited R] [Ring R]
 
 -- Convert to multilinear polynomial in the monomial basis
-def fromMlPoly (p : MlPoly R) : MlPoly' R :=
-  { coeffs := evalToMonomial p.evals, nVars := p.nVars }
+-- def fromMlPoly (p : MlPoly R) : MlPoly' R :=
+--   { coeffs := evalToMonomial p.evals, nVars := p.nVars }
 
 end MlPoly'

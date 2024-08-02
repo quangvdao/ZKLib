@@ -1,12 +1,37 @@
-
+import Jolt.ConstraintSystem.Field
+import Jolt.ConstraintSystem.Constants
+import Jolt.Data.ComputablePolynomial.Multilinear
 
 /-!
-  # Description of Jolt's Subtables
+  # Interface for Lasso Subtables in Jolt
+
+  This fine defines the basic interface for Lasso subtables.
 -/
 
 
-/-
-Which subtables to cover?
+namespace Jolt
+
+variable (F : Type) [JoltField F]
+
+/- Represents a subtable in the Jolt system. This is essentially a wrapper around a `MlPoly`. -/
+class LassoSubtable (logM : Nat) where
+  /-- Returns the `Id` of this subtable. -/
+  subtableId : Nat
+
+  /-- The multilinear polynomial that represents this subtable.
+  TODO: This should be a `MlPoly` of length `2 ^ logM`. -/
+  poly : MlPoly F
+
+
+/- Represents a set of Jolt subtables. -/
+class SubtableSet (logM : Nat) where
+  numSubtables : Nat
+  subtables : Fin numSubtables → LassoSubtable F logM
+
+
+
+
+/- Which subtables to cover?
 
 `And`
 `DivByZero`
@@ -31,3 +56,5 @@ Which subtables to cover?
 `ZeroLsb`
 
 -/
+
+end Jolt
