@@ -1,10 +1,10 @@
 import Jolt.ConstraintSystem.Constants
 import Jolt.ConstraintSystem.Field
 import Jolt.ConstraintSystem.Trace
-import Jolt.ConstraintSystem.Preprocessing
+import Jolt.ConstraintSystem.Bytecode
 import Jolt.ConstraintSystem.R1CS
 import Jolt.ConstraintSystem.InstructionLookup
-import Jolt.ConstraintSystem.MemoryChecking
+import Jolt.ConstraintSystem.ReadWriteMemory
 
 /-!
   # The Jolt Relation
@@ -27,95 +27,74 @@ namespace Jolt
 
 variable (F : Type) [JoltField F]
 
-section Witness
-
--- TODO: define a class that says you can embed `UInt64` into `F`
-
-structure BytecodeWitness where
-  readWriteAddress : Array F
-  readWriteValue : Fin NUM_BYTECODE_VALUE_FIELDS → Array F
-  readTimestamp : Array F
-  finalBytecodeTimestamp : Array F
+-- TODO: will need to add R1CS constraints as part of `JoltPreprocessing`.
+-- Right now, we "hard-code" the R1CS constraints as a bunch of conditions on the R1CS witness
+structure Preprocessing extends
+  Bytecode.Preprocessing F,
+  ReadWriteMemory.Preprocessing,
+  InstructionLookup.Preprocessing F
 deriving Repr, Inhabited
 
-structure ReadWriteMemoryWitness where
-  memorySize : UInt64
-  initialMemValue : Array F
-  ramAddress : Array F
-  readValue : Fin MEMORY_OPS_PER_INSTRUCTION → Array F
-  writeRdValue : Array F
-  writeRamValue : Fin NUM_BYTES_IN_WORD → Array F
-  finalMemValue : Array F
-  readMemTimestamps : Fin MEMORY_OPS_PER_INSTRUCTION → Array F
-  writeTimestamps : Fin NUM_BYTES_IN_WORD → Array F
-  finalTimestamp : Array F
-deriving Repr, Inhabited
+def Preprocessing.new (bytecode : Array Bytecode.Row) (memoryInit : Array (UInt64 × UInt8)) (instructionSet : InstructionSet F C logM) (subtableSet : SubtableSet F logM) : Preprocessing F :=
+  let bytecodePrep := Bytecode.Preprocessing.new F bytecode
+  let memoryPrep := ReadWriteMemory.Preprocessing.new memoryInit
+  let instructionLookupsPrep := InstructionLookup.Preprocessing.new F instructionSet subtableSet
+  { toPreprocessing := bytecodePrep,
+    toPreprocessing_1 := memoryPrep,
+    toPreprocessing_2 := instructionLookupsPrep }
 
-structure RangeCheckWitness where
-  readTimestamps : Fin MEMORY_OPS_PER_INSTRUCTION → Array UInt64
-  readCtsReadTimestamp : Fin MEMORY_OPS_PER_INSTRUCTION → Array F
-  readCtsGlobalMinusRead : Fin MEMORY_OPS_PER_INSTRUCTION → Array F
-  finalCtsReadTimestamp : Fin MEMORY_OPS_PER_INSTRUCTION → Array F
-  finalCtsGlobalMinusRead : Fin MEMORY_OPS_PER_INSTRUCTION → Array F
-deriving Repr, Inhabited
-
-structure InstructionLookupsWitness where
-  dim : Array (Array F)
-  readCts : Array (Array F)
-  finalCts : Array (Array F)
-  EPolys : Array (Array F)
-  instructionFlagPolys : Array (Array F)
-  instructionFlagBitvectors : Array (Array UInt64)
-  lookupOutputs : Array F
-deriving Repr, Inhabited
-
--- TODO: rename variables in different witness types to have no overlap
--- TODO: add instruction flags (it's just an array / vector of `UInt64`?)
-
-structure JoltWitness extends BytecodeWitness F, ReadWriteMemoryWitness F,
-    RangeCheckWitness F, InstructionLookupsWitness F
-  --   where
-  -- circuitFlags : Array F
+structure Witness (C logM : Nat) extends Bytecode.Witness F, ReadWriteMemory.Witness F,
+    ReadWriteMemory.WitnessRangeCheck F, InstructionLookup.Witness F C logM, R1CS.WitnessAux F
 
 -- Generate witness from `Array ELFInstruction` and `Array (UInt64 × UInt8)`
 
 
 -- TODO: this depends on the `InstructionSet` and `SubtableSet`
 def InstructionLookupsWitness.new
-    (preprocessedInstructionLookups : InstructionLookupsPreprocessing F)
-    (trace : Array (JoltTraceStep InstructionSet)) : InstructionLookupsWitness F := sorry
+    (preprocessedInstructionLookups : InstructionLookup.Preprocessing F)
+    (trace : Array (TraceStep C logM)) : InstructionLookup.Witness F C logM := sorry
 
-def InstructionLookupsWitness.getFlags (w : InstructionLookupsWitness F) : Array F := sorry
+def InstructionLookupsWitness.getFlags (w : InstructionLookup.Witness F C logM) : Array F := sorry
 
 -- Also supposed to return `readTimestamp`
-def ReadWriteMemoryWitness.new (programIo : JoltDevice)
+def ReadWriteMemoryWitness.new (programIo : Device)
     (loadStoreFlags : Array F)
-    (preprocessedRWMemory : ReadWriteMemoryPreprocessing)
-    (trace : Array (JoltTraceStep InstructionSet)) : ReadWriteMemoryWitness F := sorry
+    (preprocessedRWMemory : ReadWriteMemory.Preprocessing)
+    (trace : Array (TraceStep C logM)) : ReadWriteMemory.Witness F := sorry
 
-def ReadWriteMemoryWitness.getReadTimestamps (w : ReadWriteMemoryWitness F) : Array F := sorry
+def ReadWriteMemoryWitness.getReadTimestamps (w : ReadWriteMemory.Witness F) : Array F := sorry
 
-def BytecodeWitness.new (preprocessedBytecode : BytecodePreprocessing F)
-    (trace : Array (JoltTraceStep InstructionSet)) : BytecodeWitness F := sorry
+def BytecodeWitness.new (preprocessedBytecode : Bytecode.Preprocessing F)
+    (trace : Array (TraceStep C logM)) : Bytecode.Witness F := sorry
 
-def RangeCheckWitness.new (readTimestamps : Array F) : RangeCheckWitness F := sorry
+def RangeCheckWitness.new (readTimestamps : Array F) : ReadWriteMemory.WitnessRangeCheck F := sorry
+
 
 -- Combine the witness generation from the previous functions
-def JoltWitness.new (programIo : JoltDevice)
-    (preprocessing : JoltPreprocessing F)
-    (trace : Array (JoltTraceStep InstructionSet)) : JoltWitness F :=
-  let instructionLookupsWitness := InstructionLookupsWitness.new F preprocessing.toInstructionLookupsPreprocessing trace
-  let loadStoreFlags := instructionLookupsWitness.getFlags
-  let bytecodeWitness := BytecodeWitness.new F preprocessing.toBytecodePreprocessing trace
-  let rwMemoryWitness := ReadWriteMemoryWitness.new F programIo loadStoreFlags preprocessing.toReadWriteMemoryPreprocessing trace
-  let rangeCheckWitness := RangeCheckWitness.new F rwMemoryWitness.getReadTimestamps
-  { toBytecodeWitness := bytecodeWitness,
-    toReadWriteMemoryWitness := sorry,
-    toRangeCheckWitness := rangeCheckWitness,
-    toInstructionLookupsWitness := instructionLookupsWitness }
+def Witness.new (programIo : Device)
+    (preprocessing : Preprocessing F)
+    (trace : Array (TraceStep C logM)) : Witness F C logM := sorry
+  -- let instructionLookupsWitness := InstructionLookup.Witness.new F preprocessing.toInstructionLookup.Preprocessing trace
+  -- let loadStoreFlags := instructionLookupsWitness.getFlags
+  -- let bytecodeWitness := Bytecode.Witness.new F preprocessing.toBytecodePreprocessing trace
+  -- let rwMemoryWitness := ReadWriteMemory.Witness.new F programIo loadStoreFlags preprocessing.toReadWriteMemoryPreprocessing trace
+  -- let rangeCheckWitness := ReadWriteMemory.WitnessRangeCheck.new F rwMemoryWitness.getReadTimestamps
+  -- { toBytecodeWitness := bytecodeWitness,
+  --   toReadWriteMemoryWitness := rwMemoryWitness,
+  --   toRangeCheckWitness := rangeCheckWitness,
+  --   toInstructionLookupsWitness := instructionLookupsWitness }
+
+/-- Define the conversion of the Jolt witness to the R1CS witness (both main and auxiliary parts),
+  that is then used in the R1CS constraints -/
+def Witness.toR1CS (wit : Witness F C logM) : R1CS.Witness F := sorry
 
 
-end Witness
+def Witness.isValid (preprocess : Preprocessing F) (wit : Witness F C logM) : Prop := sorry
+  -- Bytecode.isValid preprocess.toPreprocessing wit.toBytecodeWitness ∧
+  -- ReadWriteMemory.isValid preprocess.toPreprocessing_1 wit.toReadWriteMemoryWitness ∧
+  -- ReadWriteMemory.isValid preprocess.toPreprocessing_2 wit.toReadWriteMemoryWitness ∧
+  -- InstructionLookup.isValid preprocess.toPreprocessing_3 wit.toInstructionLookupsWitness ∧
+  -- wit.toR1CS.isValid
 
 
 /-

@@ -276,7 +276,7 @@ structure WitnessMain extends Index where
   -- `InstructionFlags`
   instructionFlags : InstructionFlags → Fin paddedTraceLength.toNat → F
 
-structure Witness extends WitnessMain F where
+structure WitnessAux extends Index where
   x : Fin paddedTraceLength.toNat → F
   y : Fin paddedTraceLength.toNat → F
   immSigned : Fin paddedTraceLength.toNat → F
@@ -286,6 +286,8 @@ structure Witness extends WitnessMain F where
   branchAndLookupOutput : Fin paddedTraceLength.toNat → F
   nextPcJump : Fin paddedTraceLength.toNat → F
   nextPcJumpBranch : Fin paddedTraceLength.toNat → F
+
+structure Witness extends WitnessMain F, WitnessAux F
 
 -- Copying the constraints being enforced from the Jolt codebase
 -- TODO: converting these constraints into R1CS matrices and cross-validating with Jolt's
@@ -547,6 +549,7 @@ def Witness.isValid (witness : Witness F) : Prop :=
   witness.eqProdBranchAndLookupOutput F ∧
   witness.eqIfElseNextPcJump F ∧
   witness.eqIfElseNextPcJumpBranch F
+
 
 
 

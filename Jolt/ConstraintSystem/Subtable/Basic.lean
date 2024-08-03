@@ -21,13 +21,14 @@ class LassoSubtable (logM : Nat) where
   /-- The multilinear polynomial that represents this subtable.
   TODO: This should be a `MlPoly` of length `2 ^ logM`. -/
   poly : MlPoly F
+deriving Repr, Inhabited, DecidableEq
 
 
 /- Represents a set of Jolt subtables. -/
 class SubtableSet (logM : Nat) where
   numSubtables : Nat
   subtables : Fin numSubtables → LassoSubtable F logM
-
+deriving Repr, Inhabited, DecidableEq
 
 
 

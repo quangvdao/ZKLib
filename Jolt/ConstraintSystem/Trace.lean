@@ -1,5 +1,5 @@
-import Batteries.Data.UInt
 import Jolt.ConstraintSystem.Constants
+import Jolt.ConstraintSystem.Instruction.Basic
 import Jolt.RiscV.ISA
 
 /-!
@@ -18,7 +18,7 @@ structure ELFInstruction where
   rd : Option UInt64
   imm : Option UInt32
   virtualSequenceIndex : Option USize
-deriving Repr, Inhabited
+deriving Repr, Inhabited, DecidableEq
 
 structure RegisterState where
   rs1Value : Option UInt64
@@ -31,17 +31,17 @@ section Memory
 inductive MemoryState where
   | Read (address : UInt64) (value : UInt64)
   | Write (address : UInt64) (value : UInt64)
-deriving Repr, Inhabited
+deriving Repr, Inhabited, DecidableEq
 
 inductive MemoryOp where
   | Read (address : UInt64)
   | Write (address : UInt64) (value : UInt64)
-deriving Repr, Inhabited
+deriving Repr, Inhabited, DecidableEq
 
 structure MemoryLayout where
   maxInputSize : UInt64
   maxOutputSize : UInt64
-deriving Repr, Inhabited
+deriving Repr, Inhabited, DecidableEq
 
 def MemoryLayout.ramWitnessOffset (m : MemoryLayout) : UInt64 :=
   (REGISTER_COUNT + m.maxInputSize + m.maxOutputSize + 1).nextPowerOfTwo
@@ -68,30 +68,32 @@ structure RVTraceRow where
   registerState : RegisterState
   memoryState : Option MemoryState
   adviceValue : Option UInt64
-deriving Repr, Inhabited
+deriving Repr, Inhabited, DecidableEq
 
-structure BytecodeRow where
+-- We want to define it here before `Bytecode.lean`
+-- since we need it for defining `TraceStep`
+structure Bytecode.Row where
   address : USize
   bitflags : UInt64
   rs1 : UInt64
   rs2 : UInt64
   rd : UInt64
   imm : UInt64
-deriving Repr, Inhabited
+deriving Repr, Inhabited, DecidableEq
 
--- TODO: Define `InstructionSet` and `SubtableSet`
 
-structure JoltTraceStep (InstructionSet : Type) where
-  instructionLookup : Option InstructionSet
-  bytecodeRow : BytecodeRow
+structure TraceStep (C : Nat) (logM : Nat) where
+  instructionLookup : Option (InstructionSet F C logM)
+  bytecodeRow : Bytecode.Row
   memoryOps : Fin MEMORY_OPS_PER_INSTRUCTION → MemoryOp
-deriving Inhabited
+-- deriving Repr, Inhabited, DecidableEq
 
-structure JoltDevice where
+/-- The program's input, output, whether the program panics, and its memory layout -/
+structure Device where
   inputs : Array UInt8
   outputs : Array UInt8
   panic : Bool
   memoryLayout : MemoryLayout
-deriving Repr, Inhabited
+deriving Repr, Inhabited, DecidableEq
 
 end Jolt

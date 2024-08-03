@@ -22,21 +22,26 @@ class Instruction (C : Nat) (logM : Nat) where
   -- The second operand of the instruction
   secondOperand : Fin (C * 2 ^ (logM / 2))
 
+  -- The number of subtables used by the instruction
+  numSubtables : Nat
+
   -- The subtables used by the instruction
-  subtables : List (LassoSubtable F logM)
+  subtables : Fin numSubtables → LassoSubtable F logM
 
   -- Combine table lookups into final value
   -- Here, `vals` is modeled as a list of `C`-length vectors of the subtables.
-  combineLookups : (vals : List (Fin C → LassoSubtable F logM)) → F
+  combineLookups : (vals : Fin numSubtables → Fin C → LassoSubtable F logM) → F
 
   -- The degree of the `g` polynomial described by `combineLookups`
   combineDegree : Nat
 
   -- The lookup entry of the instruction
   lookupEntry : UInt64
+-- deriving Repr, Inhabited, DecidableEq
 
 class InstructionSet (C : Nat) (logM : Nat) where
   numInstructions : Nat
   instructions : Fin numInstructions → Instruction F C logM
+-- deriving Repr, Inhabited, DecidableEq
 
 end Jolt
