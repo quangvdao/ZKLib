@@ -64,7 +64,7 @@ structure WitnessRangeCheck where
 deriving Repr, Inhabited, DecidableEq
 
 -- Multiset equality of the vectors of field elements
-def Witness.isValid (wit : Witness F) : Prop := sorry
+def isValid (preprocessing : Preprocessing) (wit : Witness F) : Prop := sorry
 
 -- Each field element is in a small range
 -- Alternatively, there exists small `Fin n` elements that map to the field elements

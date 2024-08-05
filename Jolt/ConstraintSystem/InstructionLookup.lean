@@ -46,7 +46,7 @@ deriving Repr, Inhabited
 
 -- TODO: define the relation that this is supposed to satisfy (i.e. all lookups are correct)
 
-def Witness.isValid (wit : Witness F C logM) : Prop := sorry
+def isValid (preprocessing : Preprocessing F) (witness : Witness F C logM) : Prop := sorry
 
 end InstructionLookup
 

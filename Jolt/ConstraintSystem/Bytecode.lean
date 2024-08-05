@@ -42,7 +42,7 @@ structure Witness where
   finalBytecodeTimestamp : Array F
 deriving Repr, Inhabited, DecidableEq
 
-def Witness.isValid (wit : Witness F) : Prop := sorry
+def isValid (preprocessing : Preprocessing F) (wit : Witness F) : Prop := sorry
 
 end Bytecode
 

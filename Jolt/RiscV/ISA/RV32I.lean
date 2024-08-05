@@ -77,76 +77,183 @@ fm    pred     succ   rs1   000             rd    0001111   FENCE
 -/
 
 inductive Instr where
-  | LUI   | AUIPC | JAL   | JALR  | BEQ   | BNE   | BLT   | BGE
-  | BLTU  | BGEU  | LB    | LH    | LW    | LBU   | LHU   | SB
-  | SH    | SW    | ADDI  | SLTI  | SLTIU | XORI  | ORI   | ANDI
-  | SLLI  | SRLI  | SRAI  | ADD   | SUB   | SLL   | SLT   | SLTU
-  | XOR   | SRL   | SRA   | OR    | AND   | FENCE | ECALL | EBREAK
+  -- R-type instructions
+  | ADD
+  | AND
+  | OR
+  | SLL
+  | SLT
+  | SLTU
+  | SRA
+  | SRL
+  | SUB
+  | XOR
+  -- I-type instructions
+  | ADDI
+  | ANDI
+  | JALR
+  | LB
+  | LBU
+  | LH
+  | LHU
+  | LW
+  | ORI
+  | SLLI
+  | SLTI
+  | SLTIU
+  | SRAI
+  | SRLI
+  | XORI
+  -- S-type instructions
+  | SB
+  | SH
+  | SW
+  -- B-type instructions
+  | BEQ
+  | BGE
+  | BGEU
+  | BLT
+  | BLTU
+  | BNE
+  -- U-type instructions
+  | AUIPC
+  | LUI
+  -- J-type instructions
+  | JAL
+  -- Special instructions
+  | ECALL
+  | EBREAK
+  | FENCE
 deriving Repr, Inhabited, DecidableEq
 
 def ISA: ISA where
   Mnemonic := Instr
   all := #[
-    .LUI,   .AUIPC, .JAL,   .JALR,  .BEQ,   .BNE,   .BLT,   .BGE,
-    .BLTU,  .BGEU,  .LB,    .LH,    .LW,    .LBU,   .LHU,   .SB,
-    .SH,    .SW,    .ADDI,  .SLTI,  .SLTIU, .XORI,  .ORI,   .ANDI,
-    .SLLI,  .SRLI,  .SRAI,  .ADD,   .SUB,   .SLL,   .SLT,   .SLTU,
-    .XOR,   .SRL,   .SRA,   .OR,    .AND,   .FENCE, .ECALL, .EBREAK
+    .ADD,   .ADDI,  .AND,   .ANDI,  .AUIPC, .BEQ,   .BGE,   .BGEU,
+    .BLT,   .BLTU,  .BNE,   .ECALL, .EBREAK, .FENCE, .JAL,   .JALR,
+    .LB,    .LBU,   .LH,    .LHU,   .LUI,    .LW,    .OR,    .ORI,
+    .SB,    .SH,    .SLL,   .SLLI,  .SLT,    .SLTI,  .SLTIU, .SLTU,
+    .SRA,   .SRAI,  .SRL,   .SRLI,  .SUB,    .SW,    .XOR,   .XORI
   ]
   toString
-    | .LUI => "LUI"   | .AUIPC => "AUIPC" | .JAL => "JAL"   | .JALR => "JALR" | .BEQ => "BEQ"     | .BNE => "BNE"     | .BLT => "BLT"     | .BGE => "BGE"
-    | .BLTU => "BLTU" | .BGEU => "BGEU"   | .LB => "LB"     | .LH => "LH"     | .LW => "LW"       | .LBU => "LBU"     | .LHU => "LHU"     | .SB => "SB"
-    | .SH => "SH"     | .SW => "SW"       | .ADDI => "ADDI" | .SLTI => "SLTI" | .SLTIU => "SLTIU" | .XORI => "XORI"   | .ORI => "ORI"     | .ANDI => "ANDI"
-    | .SLLI => "SLLI" | .SRLI => "SRLI"   | .SRAI => "SRAI" | .ADD => "ADD"   | .SUB => "SUB"     | .SLL => "SLL"     | .SLT => "SLT"     | .SLTU => "SLTU"
-    | .XOR => "XOR"   | .SRL => "SRL"     | .SRA => "SRA"   | .OR => "OR"     | .AND => "AND"     | .FENCE => "FENCE" | .ECALL => "ECALL" | .EBREAK => "EBREAK"
+    | .ADD => "ADD"   | .ADDI => "ADDI" | .AND => "AND"   | .ANDI => "ANDI" | .AUIPC => "AUIPC" | .BEQ => "BEQ"   | .BGE => "BGE"   | .BGEU => "BGEU"
+    | .BLT => "BLT"   | .BLTU => "BLTU" | .BNE => "BNE"   | .ECALL => "ECALL" | .EBREAK => "EBREAK" | .FENCE => "FENCE" | .JAL => "JAL"   | .JALR => "JALR"
+    | .LB => "LB"     | .LBU => "LBU"   | .LH => "LH"     | .LHU => "LHU"   | .LUI => "LUI"    | .LW => "LW"    | .OR => "OR"    | .ORI => "ORI"
+    | .SB => "SB"     | .SH => "SH"     | .SLL => "SLL"   | .SLLI => "SLLI" | .SLT => "SLT"    | .SLTI => "SLTI" | .SLTIU => "SLTIU" | .SLTU => "SLTU"
+    | .SRA => "SRA"   | .SRAI => "SRAI" | .SRL => "SRL"   | .SRLI => "SRLI" | .SUB => "SUB"    | .SW => "SW"    | .XOR => "XOR"   | .XORI => "XORI"
   encode_mnemonic (m: Instr)
     := match m with
-        | .LUI    => .U <|  U.EncMnemonic.new                       0b0110111
-        | .AUIPC  => .U <|  U.EncMnemonic.new                       0b0010111
-        | .JAL    => .J <|  J.EncMnemonic.new                       0b1101111
-        | .JALR   => .I <|  I.EncMnemonic.new               0b000   0b1100111
-        | .BEQ    => .B <|  B.EncMnemonic.new               0b000   0b1100011
-        | .BNE    => .B <|  B.EncMnemonic.new               0b001   0b1100011
-        | .BLT    => .B <|  B.EncMnemonic.new               0b100   0b1100011
-        | .BGE    => .B <|  B.EncMnemonic.new               0b101   0b1100011
-        | .BLTU   => .B <|  B.EncMnemonic.new               0b110   0b1100011
-        | .BGEU   => .B <|  B.EncMnemonic.new               0b111   0b1100011
-        | .LB     => .I <|  I.EncMnemonic.new               0b000   0b0000011
-        | .LH     => .I <|  I.EncMnemonic.new               0b001   0b0000011
-        | .LW     => .I <|  I.EncMnemonic.new               0b010   0b0000011
-        | .LBU    => .I <|  I.EncMnemonic.new               0b100   0b0000011
-        | .LHU    => .I <|  I.EncMnemonic.new               0b101   0b0000011
-        | .SB     => .S <|  S.EncMnemonic.new               0b000   0b0100011
-        | .SH     => .S <|  S.EncMnemonic.new               0b001   0b0100011
-        | .SW     => .S <|  S.EncMnemonic.new               0b010   0b0100011
-        | .ADDI   => .I <|  I.EncMnemonic.new               0b000   0b0010011
-        | .SLTI   => .I <|  I.EncMnemonic.new               0b010   0b0010011
-        | .SLTIU  => .I <|  I.EncMnemonic.new               0b011   0b0010011
-        | .XORI   => .I <|  I.EncMnemonic.new               0b100   0b0010011
-        | .ORI    => .I <|  I.EncMnemonic.new               0b110   0b0010011
-        | .ANDI   => .I <|  I.EncMnemonic.new               0b111   0b0010011
-        | .SLLI   => .R <|  R.EncMnemonic.new   0b0000000   0b001   0b0010011
-        | .SRLI   => .R <|  R.EncMnemonic.new   0b0000000   0b101   0b0010011
-        | .SRAI   => .R <|  R.EncMnemonic.new   0b0100000   0b101   0b0010011
         | .ADD    => .R <|  R.EncMnemonic.new   0b0000000   0b000   0b0110011
-        | .SUB    => .R <|  R.EncMnemonic.new   0b0100000   0b000   0b0110011
-        | .SLL    => .R <|  R.EncMnemonic.new   0b0000000   0b001   0b0110011
-        | .SLT    => .R <|  R.EncMnemonic.new   0b0000000   0b010   0b0110011
-        | .SLTU   => .R <|  R.EncMnemonic.new   0b0000000   0b011   0b0110011
-        | .XOR    => .R <|  R.EncMnemonic.new   0b0000000   0b100   0b0110011
-        | .SRL    => .R <|  R.EncMnemonic.new   0b0000000   0b101   0b0110011
-        | .SRA    => .R <|  R.EncMnemonic.new   0b0100000   0b101   0b0110011
-        | .OR     => .R <|  R.EncMnemonic.new   0b0000000   0b110   0b0110011
+        | .ADDI   => .I <|  I.EncMnemonic.new               0b000   0b0010011
         | .AND    => .R <|  R.EncMnemonic.new   0b0000000   0b111   0b0110011
-        | .FENCE  => .I <|  I.EncMnemonic.new               0b000   0b0001111
+        | .ANDI   => .I <|  I.EncMnemonic.new               0b111   0b0010011
+        | .AUIPC  => .U <|  U.EncMnemonic.new                       0b0010111
+        | .BEQ    => .B <|  B.EncMnemonic.new               0b000   0b1100011
+        | .BGE    => .B <|  B.EncMnemonic.new               0b101   0b1100011
+        | .BGEU   => .B <|  B.EncMnemonic.new               0b111   0b1100011
+        | .BLT    => .B <|  B.EncMnemonic.new               0b100   0b1100011
+        | .BLTU   => .B <|  B.EncMnemonic.new               0b110   0b1100011
+        | .BNE    => .B <|  B.EncMnemonic.new               0b001   0b1100011
         | .ECALL  => .Const <|  Const.EncMnemonic.new   0b000000000000    0b00000   0b000   0b00000   0b1110011
         | .EBREAK => .Const <|  Const.EncMnemonic.new   0b000000000001    0b00000   0b000   0b00000   0b1110011
+        | .FENCE  => .I <|  I.EncMnemonic.new               0b000   0b0001111
+        | .JAL    => .J <|  J.EncMnemonic.new                       0b1101111
+        | .JALR   => .I <|  I.EncMnemonic.new               0b000   0b1100111
+        | .LB     => .I <|  I.EncMnemonic.new               0b000   0b0000011
+        | .LBU    => .I <|  I.EncMnemonic.new               0b100   0b0000011
+        | .LH     => .I <|  I.EncMnemonic.new               0b001   0b0000011
+        | .LHU    => .I <|  I.EncMnemonic.new               0b101   0b0000011
+        | .LUI    => .U <|  U.EncMnemonic.new                       0b0110111
+        | .LW     => .I <|  I.EncMnemonic.new               0b010   0b0000011
+        | .OR     => .R <|  R.EncMnemonic.new   0b0000000   0b110   0b0110011
+        | .ORI    => .I <|  I.EncMnemonic.new               0b110   0b0010011
+        | .SB     => .S <|  S.EncMnemonic.new               0b000   0b0100011
+        | .SH     => .S <|  S.EncMnemonic.new               0b001   0b0100011
+        | .SLL    => .R <|  R.EncMnemonic.new   0b0000000   0b001   0b0110011
+        | .SLLI   => .R <|  R.EncMnemonic.new   0b0000000   0b001   0b0010011
+        | .SLT    => .R <|  R.EncMnemonic.new   0b0000000   0b010   0b0110011
+        | .SLTI   => .I <|  I.EncMnemonic.new               0b010   0b0010011
+        | .SLTIU  => .I <|  I.EncMnemonic.new               0b011   0b0010011
+        | .SLTU   => .R <|  R.EncMnemonic.new   0b0000000   0b011   0b0110011
+        | .SRA    => .R <|  R.EncMnemonic.new   0b0100000   0b101   0b0110011
+        | .SRAI   => .R <|  R.EncMnemonic.new   0b0100000   0b101   0b0010011
+        | .SRL    => .R <|  R.EncMnemonic.new   0b0000000   0b101   0b0110011
+        | .SRLI   => .R <|  R.EncMnemonic.new   0b0000000   0b101   0b0010011
+        | .SUB    => .R <|  R.EncMnemonic.new   0b0100000   0b000   0b0110011
+        | .SW     => .S <|  S.EncMnemonic.new               0b010   0b0100011
+        | .XOR    => .R <|  R.EncMnemonic.new   0b0000000   0b100   0b0110011
+        | .XORI   => .I <|  I.EncMnemonic.new               0b100   0b0010011
   run
-    | .LUI, args
-        => RegFile.set_word args.rd args.imm
+    | .ADD, args
+        => do let x <- RegFile.get_word args.rs1
+              let y <- RegFile.get_word args.rs2
+              RegFile.set_word args.rd (x + y)
+    | .ADDI, args
+        => do let x <- RegFile.get_word args.rs1
+              RegFile.set_word args.rd (x + args.imm)
+    | .AND, args
+        => do let x <- RegFile.get_word args.rs1
+              let y <- RegFile.get_word args.rs2
+              RegFile.set_word args.rd (x &&& y)
+    | .ANDI, args
+        => do let x <- RegFile.get_word args.rs1
+              RegFile.set_word args.rd (x &&& args.imm)
     | .AUIPC, args
         => do let pc <- RegFile.get_word .PC
               RegFile.set_word args.rd (pc - 4 + args.imm)
+    | .BEQ, args
+        => do let x <- RegFile.get_word args.rs1
+              let y <- RegFile.get_word args.rs2
+              let pc <- RegFile.get_word .PC
+              if x == y then do
+                let newPC := pc - 4 + args.imm
+                if newPC % 4 != 0 then throw (.InstructionAddressMisaligned newPC.toNat)
+                RegFile.set_word .PC newPC
+    | .BGE, args
+        => do let x <- RegFile.get_word args.rs1
+              let y <- RegFile.get_word args.rs2
+              let pc <- RegFile.get_word .PC
+              if UInt32.ge_signed x y then do
+                let newPC := pc - 4 + args.imm
+                if newPC % 4 != 0 then throw (.InstructionAddressMisaligned newPC.toNat)
+                RegFile.set_word .PC newPC
+    | .BGEU, args
+        => do let x <- RegFile.get_word args.rs1
+              let y <- RegFile.get_word args.rs2
+              let pc <- RegFile.get_word .PC
+              if x >= y then do
+                let newPC := pc - 4 + args.imm
+                if newPC % 4 != 0 then throw (.InstructionAddressMisaligned newPC.toNat)
+                RegFile.set_word .PC newPC
+    | .BLT, args
+        => do let x <- RegFile.get_word args.rs1
+              let y <- RegFile.get_word args.rs2
+              let pc <- RegFile.get_word .PC
+              if UInt32.lt_signed x y then do
+                let newPC := pc - 4 + args.imm
+                if newPC % 4 != 0 then throw (.InstructionAddressMisaligned newPC.toNat)
+                RegFile.set_word .PC newPC
+    | .BLTU, args
+        => do let x <- RegFile.get_word args.rs1
+              let y <- RegFile.get_word args.rs2
+              let pc <- RegFile.get_word .PC
+              if x < y then do
+                let newPC := pc - 4 + args.imm
+                if newPC % 4 != 0 then throw (.InstructionAddressMisaligned newPC.toNat)
+                RegFile.set_word .PC newPC
+    | .BNE, args
+        => do let x <- RegFile.get_word args.rs1
+              let y <- RegFile.get_word args.rs2
+              let pc <- RegFile.get_word .PC
+              if x != y then do
+                let newPC := pc - 4 + args.imm
+                if newPC % 4 != 0 then throw (.InstructionAddressMisaligned newPC.toNat)
+                RegFile.set_word .PC newPC
+    | .ECALL, _
+        => do let pc <- RegFile.get_word .PC
+              throw (.ECall pc.toNat)
+    | .EBREAK, _ => pure ()
+    | .FENCE, _ => pure ()
     | .JAL, args
         => do let pc <- RegFile.get_word .PC
               RegFile.set_word args.rd pc
@@ -160,79 +267,40 @@ def ISA: ISA where
               let newPC := (base + args.imm) &&& 0xfffffffe
               if newPC % 4 != 0 then throw (.InstructionAddressMisaligned newPC.toNat)
               RegFile.set_word .PC newPC
-    | .BEQ, args
-        => do let x <- RegFile.get_word args.rs1
-              let y <- RegFile.get_word args.rs2
-              let pc <- RegFile.get_word .PC
-              if x == y then do
-                let newPC := pc - 4 + args.imm
-                if newPC % 4 != 0 then throw (.InstructionAddressMisaligned newPC.toNat)
-                RegFile.set_word .PC newPC
-    | .BNE, args
-        => do let x <- RegFile.get_word args.rs1
-              let y <- RegFile.get_word args.rs2
-              let pc <- RegFile.get_word .PC
-              if x != y then do
-                let newPC := pc - 4 + args.imm
-                if newPC % 4 != 0 then throw (.InstructionAddressMisaligned newPC.toNat)
-                RegFile.set_word .PC newPC
-    | .BLT, args
-        => do let x <- RegFile.get_word args.rs1
-              let y <- RegFile.get_word args.rs2
-              let pc <- RegFile.get_word .PC
-              if UInt32.lt_signed x y then do
-                let newPC := pc - 4 + args.imm
-                if newPC % 4 != 0 then throw (.InstructionAddressMisaligned newPC.toNat)
-                RegFile.set_word .PC newPC
-    | .BGE, args
-        => do let x <- RegFile.get_word args.rs1
-              let y <- RegFile.get_word args.rs2
-              let pc <- RegFile.get_word .PC
-              if UInt32.ge_signed x y then do
-                let newPC := pc - 4 + args.imm
-                if newPC % 4 != 0 then throw (.InstructionAddressMisaligned newPC.toNat)
-                RegFile.set_word .PC newPC
-    | .BLTU, args
-        => do let x <- RegFile.get_word args.rs1
-              let y <- RegFile.get_word args.rs2
-              let pc <- RegFile.get_word .PC
-              if x < y then do
-                let newPC := pc - 4 + args.imm
-                if newPC % 4 != 0 then throw (.InstructionAddressMisaligned newPC.toNat)
-                RegFile.set_word .PC newPC
-    | .BGEU, args
-        => do let x <- RegFile.get_word args.rs1
-              let y <- RegFile.get_word args.rs2
-              let pc <- RegFile.get_word .PC
-              if x >= y then do
-                let newPC := pc - 4 + args.imm
-                if newPC % 4 != 0 then throw (.InstructionAddressMisaligned newPC.toNat)
-                RegFile.set_word .PC newPC
     | .LB, args
         => do let a <- RegFile.get_word args.rs1
               let addr := a + args.imm
               let x <- Mem.get_byte addr.toNat
               RegFile.set_word args.rd (UInt32.ofUInt8_signed x)
-    | .LH, args
-        => do let a <- RegFile.get_word args.rs1
-              let addr := a + args.imm
-              let x <- Mem.get_half addr.toNat
-              RegFile.set_word args.rd (UInt32.ofUInt16_signed x)
-    | .LW, args
-        => do let a <- RegFile.get_word args.rs1
-              let addr := a + args.imm
-              let x <- Mem.get_word addr.toNat
-              RegFile.set_word args.rd x
     | .LBU, args
         => do let a <- RegFile.get_word args.rs1
               let addr := a + args.imm
               let x <- Mem.get_byte addr.toNat
               RegFile.set_word args.rd x.toUInt32
+    | .LH, args
+        => do let a <- RegFile.get_word args.rs1
+              let addr := a + args.imm
+              let x <- Mem.get_half addr.toNat
+              RegFile.set_word args.rd (UInt32.ofUInt16_signed x)
     | .LHU, args
         => do let a <- RegFile.get_word args.rs1
               let addr := a + args.imm
               let x <- Mem.get_half addr.toNat
               RegFile.set_word args.rd x.toUInt32
+    | .LUI, args
+        => RegFile.set_word args.rd args.imm
+    | .LW, args
+        => do let a <- RegFile.get_word args.rs1
+              let addr := a + args.imm
+              let x <- Mem.get_word addr.toNat
+              RegFile.set_word args.rd x
+    | .OR, args
+        => do let x <- RegFile.get_word args.rs1
+              let y <- RegFile.get_word args.rs2
+              RegFile.set_word args.rd (x ||| y)
+    | .ORI, args
+        => do let x <- RegFile.get_word args.rs1
+              RegFile.set_word args.rd (x ||| args.imm)
     | .SB, args
         => do let a <- RegFile.get_word args.rs1
               let addr := a + args.imm
@@ -243,86 +311,60 @@ def ISA: ISA where
               let addr := a + args.imm
               let x <- RegFile.get_word args.rs2
               Mem.set_half addr.toNat x.toNat.toUInt16
-    | .SW, args
-        => do let a <- RegFile.get_word args.rs1
-              let addr := a + args.imm
-              let x <- RegFile.get_word args.rs2
-              Mem.set_word addr.toNat x
-    | .ADDI, args
+    | .SLL, args
         => do let x <- RegFile.get_word args.rs1
-              RegFile.set_word args.rd (x + args.imm)
+              let y <- RegFile.get_word args.rs2
+              RegFile.set_word args.rd (x <<< y)
+    | .SLLI, args
+        => do let x <- RegFile.get_word args.rs1
+              let shamt6 := (Reg.index args.rs2).toUInt32
+              RegFile.set_word args.rd (x <<< shamt6)
+    | .SLT, args
+        => do let x <- RegFile.get_word args.rs1
+              let y <- RegFile.get_word args.rs2
+              RegFile.set_word args.rd (if UInt32.lt_signed x y then 1 else 0)
     | .SLTI, args
         => do let x <- RegFile.get_word args.rs1
               RegFile.set_word args.rd (if UInt32.lt_signed x args.imm then 1 else 0)
     | .SLTIU, args
         => do let x <- RegFile.get_word args.rs1
               RegFile.set_word args.rd (if x < args.imm then 1 else 0)
-    | .XORI, args
-        => do let x <- RegFile.get_word args.rs1
-              RegFile.set_word args.rd (x ^^^ args.imm)
-    | .ORI, args
-        => do let x <- RegFile.get_word args.rs1
-              RegFile.set_word args.rd (x ||| args.imm)
-    | .ANDI, args
-        => do let x <- RegFile.get_word args.rs1
-              RegFile.set_word args.rd (x &&& args.imm)
-    | .SLLI, args
-        => do let x <- RegFile.get_word args.rs1
-              let shamt6 := (Reg.index args.rs2).toUInt32
-              RegFile.set_word args.rd (x <<< shamt6)
-    | .SRLI, args
-        => do let x <- RegFile.get_word args.rs1
-              let shamt6 := (Reg.index args.rs2).toUInt32
-              RegFile.set_word args.rd (x >>> shamt6)
-    | .SRAI, args
-        => do let x <- RegFile.get_word args.rs1
-              let shamt6 := (Reg.index args.rs2).toUInt32
-              RegFile.set_word args.rd (UInt32.shr_signed x shamt6)
-    | .ADD, args
-        => do let x <- RegFile.get_word args.rs1
-              let y <- RegFile.get_word args.rs2
-              RegFile.set_word args.rd (x + y)
-    | .SUB, args
-        => do let x <- RegFile.get_word args.rs1
-              let y <- RegFile.get_word args.rs2
-              RegFile.set_word args.rd (x - y)
-    | .SLL, args
-        => do let x <- RegFile.get_word args.rs1
-              let y <- RegFile.get_word args.rs2
-              RegFile.set_word args.rd (x <<< y)
-    | .SLT, args
-        => do let x <- RegFile.get_word args.rs1
-              let y <- RegFile.get_word args.rs2
-              RegFile.set_word args.rd (if UInt32.lt_signed x y then 1 else 0)
     | .SLTU, args
         => do let x <- RegFile.get_word args.rs1
               let y <- RegFile.get_word args.rs2
               RegFile.set_word args.rd (if x < y then 1 else 0)
-    | .XOR, args
-        => do let x <- RegFile.get_word args.rs1
-              let y <- RegFile.get_word args.rs2
-              RegFile.set_word args.rd (x ^^^ y)
-    | .SRL, args
-        => do let x <- RegFile.get_word args.rs1
-              let y <- RegFile.get_word args.rs2
-              RegFile.set_word args.rd (x >>> y)
     | .SRA, args
         => do let x <- RegFile.get_word args.rs1
               let y <- RegFile.get_word args.rs2
               RegFile.set_word args.rd (UInt32.shr_signed x y)
-    | .OR, args
+    | .SRAI, args
+        => do let x <- RegFile.get_word args.rs1
+              let shamt6 := (Reg.index args.rs2).toUInt32
+              RegFile.set_word args.rd (UInt32.shr_signed x shamt6)
+    | .SRL, args
         => do let x <- RegFile.get_word args.rs1
               let y <- RegFile.get_word args.rs2
-              RegFile.set_word args.rd (x ||| y)
-    | .AND, args
+              RegFile.set_word args.rd (x >>> y)
+    | .SRLI, args
+        => do let x <- RegFile.get_word args.rs1
+              let shamt6 := (Reg.index args.rs2).toUInt32
+              RegFile.set_word args.rd (x >>> shamt6)
+    | .SUB, args
         => do let x <- RegFile.get_word args.rs1
               let y <- RegFile.get_word args.rs2
-              RegFile.set_word args.rd (x &&& y)
-    | .FENCE, _args => pure ()
-    | .ECALL, _args
-        => do let pc <- RegFile.get_word .PC
-              throw (.ECall pc.toNat)
-    | .EBREAK, _args => pure ()
+              RegFile.set_word args.rd (x - y)
+    | .SW, args
+        => do let a <- RegFile.get_word args.rs1
+              let addr := a + args.imm
+              let x <- RegFile.get_word args.rs2
+              Mem.set_word addr.toNat x
+    | .XOR, args
+        => do let x <- RegFile.get_word args.rs1
+              let y <- RegFile.get_word args.rs2
+              RegFile.set_word args.rd (x ^^^ y)
+    | .XORI, args
+        => do let x <- RegFile.get_word args.rs1
+              RegFile.set_word args.rd (x ^^^ args.imm)
 
 end RV32I
 
