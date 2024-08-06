@@ -345,43 +345,43 @@ open CircuitFlags RV32IM.Instr RV32I.Instr in
 /-- Generate the circuit flags for a given `opcode` -/
 def ELFInstruction.toCircuitFlags (instr : ELFInstruction) : List CircuitFlags :=
   let flag0 := match instr.opcode with
-  | I JAL | I LUI | I AUIPC => [OpFlags_IsRs1Rs2]
+  | .I .JAL | .I .LUI | .I .AUIPC => [OpFlags_IsRs1Rs2]
   | _ => []
 
   let flag1 := match instr.opcode with
-  | I ADDI | I XORI | I ORI | I ANDI | I SLLI | I SRLI
-  | I SRAI | I SLTI | I SLTIU | I AUIPC | I JAL | I JALR => [OpFlags_IsImm]
+  | .I .ADDI | .I .XORI | .I .ORI | .I .ANDI | .I .SLLI | .I .SRLI
+  | .I .SRAI | .I .SLTI | .I .SLTIU | .I .AUIPC | .I .JAL | .I .JALR => [OpFlags_IsImm]
   | _ => []
 
   let flag2 := match instr.opcode with
-  | I LB | I LH | I LW | I LBU | I LHU => [OpFlags_IsLoad]
+  | .I .LB | .I .LH | .I .LW | .I .LBU | .I .LHU => [OpFlags_IsLoad]
   | _ => []
 
   let flag3 := match instr.opcode with
-  | I SB | I SH | I SW => [OpFlags_IsStore]
+  | .I .SB | .I .SH | .I .SW => [OpFlags_IsStore]
   | _ => []
 
   let flag4 := match instr.opcode with
-  | I JAL | I JALR => [OpFlags_IsJmp]
+  | .I .JAL | .I .JALR => [OpFlags_IsJmp]
   | _ => []
 
   let flag5 := match instr.opcode with
-  | I BEQ | I BNE | I BLT | I BGE | I BLTU | I BGEU => [OpFlags_IsBranch]
+  | .I .BEQ | .I .BNE | .I .BLT | .I .BGE | .I .BLTU | .I .BGEU => [OpFlags_IsBranch]
   | _ => []
 
   let flag6 := match instr.opcode with
-  | I SB | I SH | I SW | I BEQ | I BNE | I BLT | I BGE | I BLTU | I BGEU
-  | I JAL | I JALR | I LUI => []
-  | _ => [OpFlags_LookupOutToRd]
+  | .I .SB | .I .SH | .I .SW | .I .BEQ | .I .BNE | .I .BLT | .I .BGE | .I .BLTU | .I .BGEU
+  | .I .JAL | .I .JALR | .I .LUI => [OpFlags_LookupOutToRd]
+  | _ => []
 
   let flag7 := match instr.imm with
   | some imm => if imm &&& (1 <<< 31).toUInt32 ≠ 0 then [OpFlags_SignImm] else []
   | none => []
 
   let flag8 := match instr.opcode with
-  | I XOR | I XORI | I OR | I ORI | I AND | I ANDI | I SLL | I SRL | I SRA
-  | I SLLI | I SRLI | I SRAI | I SLT | I SLTU | I SLTI | I SLTIU
-  | I BEQ | I BNE | I BLT | I BGE | I BLTU | I BGEU => [OpFlags_IsConcat]
+  | .I .XOR | .I .XORI | .I .OR | .I .ORI | .I .AND | .I .ANDI | .I .SLL | .I .SRL | .I .SRA
+  | .I .SLLI | .I .SRLI | .I .SRAI | .I .SLT | .I .SLTU | .I .SLTI | .I .SLTIU
+  | .I .BEQ | .I .BNE | .I .BLT | .I .BGE | .I .BLTU | .I .BGEU => [OpFlags_IsConcat]
   | _ => []
 
   let flag9 := match instr.virtualSequenceIndex with
@@ -390,8 +390,8 @@ def ELFInstruction.toCircuitFlags (instr : ELFInstruction) : List CircuitFlags :
 
   -- TODO: add virtual instructions to the instruction set `RV32IM.Instr`
   -- let flag10 := match instr.opcode with
-  -- | V ASSERT_EQ | V ASSERT_LTE | V ASSERT_VALID_SIGNED_REMAINDER
-  -- | V ASSERT_VALID_UNSIGNED_REMAINDER | V ASSERT_VALID_DIV0 => [OpFlags_IsVirtual]
+  -- | .V ASSERT_EQ | .V ASSERT_LTE | .V ASSERT_VALID_SIGNED_REMAINDER
+  -- | .V ASSERT_VALID_UNSIGNED_REMAINDER | .V ASSERT_VALID_DIV0 => [OpFlags_IsVirtual]
   -- | _ => []
 
   -- Combine all flags
@@ -399,44 +399,44 @@ def ELFInstruction.toCircuitFlags (instr : ELFInstruction) : List CircuitFlags :
   -- ++ flag10
 
 
-
-/-- Generate the instruction flag for a given `opcode`. TODO: figure out exact mapping -/
+open InstructionFlags RV32IM.Instr RV32I.Instr RV32M.Instr in
+/-- Generate the instruction flag for a given `opcode`. -/
 def InstructionFlags.fromOpcode (opcode : RV32IM.Instr) : InstructionFlags :=
   match opcode with
-  | RV32IM.Instr.I (RV32I.Instr.ADD) => IF_Add
-  | RV32IM.Instr.I (RV32I.Instr.SUB) => IF_Sub
-  | RV32IM.Instr.I (RV32I.Instr.AND) => IF_And
-  | RV32IM.Instr.I (RV32I.Instr.OR) => IF_Or
-  | RV32IM.Instr.I (RV32I.Instr.XOR) => IF_Xor
-  | RV32IM.Instr.I (RV32I.Instr.LB) => IF_Lb
-  | RV32IM.Instr.I (RV32I.Instr.LH) => IF_Lh
-  | RV32IM.Instr.I (RV32I.Instr.SB) => IF_Sb
-  | RV32IM.Instr.I (RV32I.Instr.SH) => IF_Sh
-  | RV32IM.Instr.I (RV32I.Instr.SW) => IF_Sw
-  | RV32IM.Instr.I (RV32I.Instr.BEQ) => IF_Beq
-  | RV32IM.Instr.I (RV32I.Instr.BGE) => IF_Bge
-  | RV32IM.Instr.I (RV32I.Instr.BGEU) => IF_Bgeu
-  | RV32IM.Instr.I (RV32I.Instr.BNE) => IF_Bne
-  | RV32IM.Instr.I (RV32I.Instr.SLT) => IF_Slt
-  | RV32IM.Instr.I (RV32I.Instr.SLTU) => IF_Sltu
-  | RV32IM.Instr.I (RV32I.Instr.SLL) => IF_Sll
-  | RV32IM.Instr.I (RV32I.Instr.SRA) => IF_Sra
-  | RV32IM.Instr.I (RV32I.Instr.SRL) => IF_Srl
-  | RV32IM.Instr.I (RV32I.Instr.SRAI) => IF_Sra
-  | RV32IM.Instr.I (RV32I.Instr.SRLI) => IF_Srl
-  -- Not sure if these two are correct
-  | RV32IM.Instr.I (RV32I.Instr.JAL) => IF_Movsign
-  | RV32IM.Instr.I (RV32I.Instr.JALR) => IF_Movsign
-  -- the rest just goes to this one for now
-  | _ => IF_Virt_Adv
-  -- | IF_Mul => 20
-  -- | IF_MulU => 21
-  -- | IF_MulHu => 22
-  -- | IF_Virt_Adv => 23
-  -- | IF_Virt_Assert_LTE => 24
-  -- | IF_Virt_Assert_VALID_SIGNED_REMAINDER => 25
-  -- | IF_Virt_Assert_VALID_UNSIGNED_REMAINDER => 26
-  -- | IF_Virt_Assert_VALID_DIV0 => 27
+  | .I .ADD | .I .ADDI => IF_Add
+  | .I .SUB => IF_Sub
+  | .I .XOR | .I .XORI => IF_Xor
+  | .I .OR | .I .ORI => IF_Or
+  | .I .AND | .I .ANDI => IF_And
+  | .I .SLL | .I .SLLI => IF_Sll
+  | .I .SRL | .I .SRLI => IF_Srl
+  | .I .SRA | .I .SRAI => IF_Sra
+  | .I .SLT | .I .SLTI => IF_Slt
+  | .I .SLTU | .I .SLTIU => IF_Sltu
+  | .I .BEQ => IF_Beq
+  | .I .BNE => IF_Bne
+  | .I .BLT => IF_Slt  -- BLT uses SLT internally
+  | .I .BLTU => IF_Sltu  -- BLTU uses SLTU internally
+  | .I .BGE => IF_Bge
+  | .I .BGEU => IF_Bgeu
+  | .I .JAL | .I .JALR | .I .AUIPC => IF_Add  -- These use ADD internally
+  | .I .SB => IF_Sb
+  | .I .SH => IF_Sh
+  | .I .SW => IF_Sw
+  | .I .LB | .I .LBU => IF_Lb
+  | .I .LH | .I .LHU => IF_Lh
+  | .I .LW => IF_Sw  -- LW uses the same instruction as SW
+  | .M .MUL => IF_Mul
+  | .M .MULHU => IF_MulHu
+  -- Virtual instructions
+  -- | .V ADVICE => IF_Virt_Adv
+  -- | .V MOVSIGN => IF_Movsign
+  -- | .V ASSERT_EQ => IF_Beq
+  -- | .V ASSERT_LTE => IF_Virt_Assert_LTE
+  -- | .V ASSERT_VALID_UNSIGNED_REMAINDER => IF_Virt_Assert_VALID_UNSIGNED_REMAINDER
+  -- | .V ASSERT_VALID_SIGNED_REMAINDER => IF_Virt_Assert_VALID_SIGNED_REMAINDER
+  -- | .V ASSERT_VALID_DIV0 => IF_Virt_Assert_VALID_DIV0
+  | _ => IF_Add  -- Default case, you might want to handle this differently
 
 
 /-- Pack the circuit flags and instruction flags into a single bitflag. The circuit flags are the higher bits, and the instruction flags are the lower bits.
@@ -449,7 +449,7 @@ def packBitflags (cFlags : List CircuitFlags) (iFlag : InstructionFlags) : UInt6
 /-- Generate `Bytecode.Row` from `ELFInstruction`. For now, we ignore the `virtualSequenceIndex` field which is only relevant for a few instructions. -/
 def Bytecode.Row.fromELFInstruction (instr : ELFInstruction) : Bytecode.Row where
   address := instr.address.toUSize
-  bitflags := packBitflags (CircuitFlags.fromOpcode instr.opcode) (InstructionFlags.fromOpcode instr.opcode)
+  bitflags := packBitflags (ELFInstruction.toCircuitFlags instr) (InstructionFlags.fromOpcode instr.opcode)
   rs1 := instr.rs1.getD 0
   rs2 := instr.rs2.getD 0
   rd := instr.rd.getD 0
