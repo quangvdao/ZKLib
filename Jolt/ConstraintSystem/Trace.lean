@@ -341,16 +341,64 @@ section Generation
 
 /- Generate traces from ELF instructions -/
 
-/-- Generate the circuit flags for a given `opcode`. TODO: figure out exact mapping -/
-def CircuitFlags.fromOpcode (opcode : RV32IM.Instr) : List CircuitFlags :=
-  match opcode with
-  | RV32IM.Instr.I (RV32I.Instr.ADD) => [OpFlags_IsRs1Rs2, OpFlags_IsImm]
-  | RV32IM.Instr.I (RV32I.Instr.SUB) => [OpFlags_IsRs1Rs2, OpFlags_IsImm]
-  | RV32IM.Instr.I (RV32I.Instr.AND) => [OpFlags_IsRs1Rs2, OpFlags_IsImm]
-  | RV32IM.Instr.I (RV32I.Instr.OR) => [OpFlags_IsRs1Rs2, OpFlags_IsImm]
-  | RV32IM.Instr.I (RV32I.Instr.XOR) => [OpFlags_IsRs1Rs2, OpFlags_IsImm]
-  -- For now, all other instructions are virtual
-  | _ => [OpFlags_IsVirtual]
+open CircuitFlags RV32IM.Instr RV32I.Instr in
+/-- Generate the circuit flags for a given `opcode` -/
+def ELFInstruction.toCircuitFlags (instr : ELFInstruction) : List CircuitFlags :=
+  let flag0 := match instr.opcode with
+  | I JAL | I LUI | I AUIPC => [OpFlags_IsRs1Rs2]
+  | _ => []
+
+  let flag1 := match instr.opcode with
+  | I ADDI | I XORI | I ORI | I ANDI | I SLLI | I SRLI
+  | I SRAI | I SLTI | I SLTIU | I AUIPC | I JAL | I JALR => [OpFlags_IsImm]
+  | _ => []
+
+  let flag2 := match instr.opcode with
+  | I LB | I LH | I LW | I LBU | I LHU => [OpFlags_IsLoad]
+  | _ => []
+
+  let flag3 := match instr.opcode with
+  | I SB | I SH | I SW => [OpFlags_IsStore]
+  | _ => []
+
+  let flag4 := match instr.opcode with
+  | I JAL | I JALR => [OpFlags_IsJmp]
+  | _ => []
+
+  let flag5 := match instr.opcode with
+  | I BEQ | I BNE | I BLT | I BGE | I BLTU | I BGEU => [OpFlags_IsBranch]
+  | _ => []
+
+  let flag6 := match instr.opcode with
+  | I SB | I SH | I SW | I BEQ | I BNE | I BLT | I BGE | I BLTU | I BGEU
+  | I JAL | I JALR | I LUI => []
+  | _ => [OpFlags_LookupOutToRd]
+
+  let flag7 := match instr.imm with
+  | some imm => if imm &&& (1 <<< 31).toUInt32 ≠ 0 then [OpFlags_SignImm] else []
+  | none => []
+
+  let flag8 := match instr.opcode with
+  | I XOR | I XORI | I OR | I ORI | I AND | I ANDI | I SLL | I SRL | I SRA
+  | I SLLI | I SRLI | I SRAI | I SLT | I SLTU | I SLTI | I SLTIU
+  | I BEQ | I BNE | I BLT | I BGE | I BLTU | I BGEU => [OpFlags_IsConcat]
+  | _ => []
+
+  let flag9 := match instr.virtualSequenceIndex with
+  | some i => if i > 0 then [OpFlags_IsVirtualSequence] else []
+  | none => []
+
+  -- TODO: add virtual instructions to the instruction set `RV32IM.Instr`
+  -- let flag10 := match instr.opcode with
+  -- | V ASSERT_EQ | V ASSERT_LTE | V ASSERT_VALID_SIGNED_REMAINDER
+  -- | V ASSERT_VALID_UNSIGNED_REMAINDER | V ASSERT_VALID_DIV0 => [OpFlags_IsVirtual]
+  -- | _ => []
+
+  -- Combine all flags
+  flag0 ++ flag1 ++ flag2 ++ flag3 ++ flag4 ++ flag5 ++ flag6 ++ flag7 ++ flag8 ++ flag9
+  -- ++ flag10
+
+
 
 /-- Generate the instruction flag for a given `opcode`. TODO: figure out exact mapping -/
 def InstructionFlags.fromOpcode (opcode : RV32IM.Instr) : InstructionFlags :=
