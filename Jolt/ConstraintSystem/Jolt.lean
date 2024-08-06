@@ -29,22 +29,52 @@ variable (F : Type) [JoltField F]
 
 -- TODO: will need to add R1CS constraints as part of `JoltPreprocessing`.
 -- Right now, we "hard-code" the R1CS constraints as a bunch of conditions on the R1CS witness
+/-- The full Jolt preprocessing, containing all the preprocessing components -/
 structure Preprocessing extends
   Bytecode.Preprocessing F,
   ReadWriteMemory.Preprocessing,
   InstructionLookup.Preprocessing F
 deriving Repr, Inhabited
 
+-- Define abbreviations for the preprocessing fields
+
+abbrev Preprocessing.toBytecode (preprocessing : Preprocessing F) : Bytecode.Preprocessing F :=
+  preprocessing.toPreprocessing
+
+abbrev Preprocessing.toReadWriteMemory (preprocessing : Preprocessing F) : ReadWriteMemory.Preprocessing :=
+  preprocessing.toPreprocessing_1
+
+abbrev Preprocessing.toInstructionLookup (preprocessing : Preprocessing F) : InstructionLookup.Preprocessing F :=
+  preprocessing.toPreprocessing_2
+
+
 def Preprocessing.new (bytecode : Array Bytecode.Row) (memoryInit : Array (UInt64 × UInt8)) (instructionSet : InstructionSet F C logM) (subtableSet : SubtableSet F logM) : Preprocessing F :=
   let bytecodePrep := Bytecode.Preprocessing.new F bytecode
   let memoryPrep := ReadWriteMemory.Preprocessing.new memoryInit
   let instructionLookupsPrep := InstructionLookup.Preprocessing.new F instructionSet subtableSet
-  { toPreprocessing := bytecodePrep,
-    toPreprocessing_1 := memoryPrep,
-    toPreprocessing_2 := instructionLookupsPrep }
+  Preprocessing.mk bytecodePrep memoryPrep instructionLookupsPrep
 
+/-- The full Jolt witness, containing all the witness components -/
 structure Witness (C logM : Nat) extends Bytecode.Witness F, ReadWriteMemory.Witness F,
     ReadWriteMemory.WitnessRangeCheck F, InstructionLookup.Witness F C logM, R1CS.WitnessAux F
+
+-- Define abbreviations for the witness fields
+
+abbrev Witness.toBytecode (witness : Witness F C logM) : Bytecode.Witness F :=
+  witness.toWitness
+
+abbrev Witness.toReadWriteMemory (witness : Witness F C logM) : ReadWriteMemory.Witness F :=
+  witness.toWitness_1
+
+abbrev Witness.toInstructionLookup (witness : Witness F C logM) : InstructionLookup.Witness F C logM :=
+  witness.toWitness_2
+
+abbrev Witness.toRangeCheck (witness : Witness F C logM) : ReadWriteMemory.WitnessRangeCheck F :=
+  witness.toWitnessRangeCheck
+
+abbrev Witness.toR1CSAux (witness : Witness F C logM) : R1CS.WitnessAux F :=
+  witness.toWitnessAux
+
 
 -- Generate witness from `Array ELFInstruction` and `Array (UInt64 × UInt8)`
 
@@ -89,12 +119,12 @@ def Witness.new (programIo : Device)
 def Witness.toR1CS (wit : Witness F C logM) : R1CS.Witness F := sorry
 
 
-def Witness.isValid (preprocess : Preprocessing F) (wit : Witness F C logM) : Prop := sorry
-  -- Bytecode.isValid preprocess.toPreprocessing wit.toBytecodeWitness ∧
-  -- ReadWriteMemory.isValid preprocess.toPreprocessing_1 wit.toReadWriteMemoryWitness ∧
-  -- ReadWriteMemory.isValid preprocess.toPreprocessing_2 wit.toReadWriteMemoryWitness ∧
-  -- InstructionLookup.isValid preprocess.toPreprocessing_3 wit.toInstructionLookupsWitness ∧
-  -- wit.toR1CS.isValid
+def Witness.isValid (preprocess : Preprocessing F) (wit : Witness F C logM) : Prop :=
+  Bytecode.isValid F (preprocess.toBytecode F) (wit.toBytecode F) ∧
+  ReadWriteMemory.isValid F (preprocess.toReadWriteMemory F) (wit.toReadWriteMemory F) ∧
+  ReadWriteMemory.WitnessRangeCheck.isValid F (wit.toRangeCheck F) ∧
+  InstructionLookup.isValid F (preprocess.toInstructionLookup F) (wit.toInstructionLookup F) ∧
+  R1CS.isValid F (wit.toR1CS F)
 
 
 /-

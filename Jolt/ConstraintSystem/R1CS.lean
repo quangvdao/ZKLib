@@ -1,6 +1,7 @@
 import Jolt.Relation.R1CS
 import Jolt.ConstraintSystem.Constants
 import Jolt.ConstraintSystem.Field
+import Jolt.ConstraintSystem.Trace
 
 
 namespace Jolt
@@ -285,7 +286,8 @@ def Witness.eqIfElseNextPcJumpBranch (wit : Witness F) : Prop :=
 
 
 -- Do all of the checks above
-def Witness.isValid (witness : Witness F) : Prop :=
+-- Right now, there is no preprocessing, since we hardwire the constraints
+def isValid (witness : Witness F) : Prop :=
   witness.eqBinaryFlags F ∧
   witness.eqPcBytecodeAddress F ∧
   witness.eqPackedFlags F ∧
