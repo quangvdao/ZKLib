@@ -20,7 +20,7 @@ class LassoSubtable (logM : Nat) where
 
   /-- The multilinear polynomial that represents this subtable.
   TODO: This should be a `MlPoly` of length `2 ^ logM`. -/
-  poly : MlPoly F
+  poly : Fin (2 ^ logM) → F
 deriving Repr, Inhabited, DecidableEq
 
 

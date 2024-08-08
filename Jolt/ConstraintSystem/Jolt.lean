@@ -48,7 +48,7 @@ abbrev Preprocessing.toInstructionLookup (preprocessing : Preprocessing F) : Ins
   preprocessing.toPreprocessing_2
 
 
-def Preprocessing.new (bytecode : Array Bytecode.Row) (memoryInit : Array (UInt64 × UInt8)) (instructionSet : InstructionSet F C logM) (subtableSet : SubtableSet F logM) : Preprocessing F :=
+def Preprocessing.new (bytecode : Array Bytecode.Row) (memoryInit : Array (UInt64 × UInt8)) (instructionSet : InstructionSet F) (subtableSet : SubtableSet F logM) : Preprocessing F :=
   let bytecodePrep := Bytecode.Preprocessing.new F bytecode
   let memoryPrep := ReadWriteMemory.Preprocessing.new memoryInit
   let instructionLookupsPrep := InstructionLookup.Preprocessing.new F instructionSet subtableSet

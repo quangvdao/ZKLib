@@ -82,10 +82,11 @@ structure Bytecode.Row where
 deriving Repr, Inhabited, DecidableEq
 
 
-structure TraceStep (C : Nat) (logM : Nat) where
-  instructionLookup : Option (InstructionSet F C logM)
+structure TraceStep (F : Type) [JoltField F] where
+  instructionLookup : Option (InstructionSet F)
   bytecodeRow : Bytecode.Row
   memoryOps : Fin MEMORY_OPS_PER_INSTRUCTION → MemoryOp
+deriving Inhabited
 -- deriving Repr, Inhabited, DecidableEq
 
 /-- The program's input, output, whether the program panics, and its memory layout -/

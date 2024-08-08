@@ -21,6 +21,10 @@ variable (F : Type) [JoltField F]
 
 namespace ReadWriteMemory
 
+/--
+  Preprocessing for the read-write memory checking argument.
+  Consists of the bytecode and the program IO.
+ -/
 structure Preprocessing where
   minBytecodeAddress : UInt64
   bytecodeBytes : Array UInt8
