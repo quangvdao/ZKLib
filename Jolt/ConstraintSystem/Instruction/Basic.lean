@@ -22,26 +22,25 @@ class Instruction (Instr : Type) where
   -- The second operand of the instruction
   secondOperand : Instr → UInt64
 
-  -- The number of subtables used by the instruction
-  numSubtables : Nat
+  toQueries : Instr → List (BitVec logM)
 
   -- The subtables used by the instruction
-  subtables (C : Nat) (logM : Nat) : Fin numSubtables → LassoSubtable F logM
+  subtables (C : Nat) (logM : Nat) : List (LassoSubtable F logM)
 
   -- Combine table lookups into final value
   -- Here, `vals` is modeled as a list of `C`-length vectors of the subtables.
-  combineLookups (C : Nat) (logM : Nat) : Instr → (vals : Fin numSubtables → Fin C → LassoSubtable F logM) → F
+  combineLookups (C : Nat) (logM : Nat) : Instr → (vals : List (Fin C → LassoSubtable F logM)) → F
 
-  -- The degree of the `g` polynomial described by `combineLookups`
-  combineDegree : Nat
-
-  -- The lookup entry of the instruction
-  lookupEntry : UInt64
+  -- The expected output of the instruction
+  expectedOutput : UInt64
 -- deriving Repr, Inhabited, DecidableEq
+
+/-- An instruction is valid if the expected output is equal to the result of combining lookup results from querying subtables with the indices -/
+def isValid (instr : Instruction F Instr) : Prop := sorry
 
 class InstructionSet where
   numInstructions : Nat
-  instructions : Fin numInstructions → Instruction F
+  instructions : Fin numInstructions → Instruction F Instr
 -- deriving Repr, Inhabited, DecidableEq
 
 end Jolt

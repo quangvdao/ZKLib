@@ -6,9 +6,8 @@ import Batteries.Data.UInt
   # Define the field for Jolt
 -/
 
-instance instInjectiveUInt64ToNat : Function.Injective UInt64.toNat :=
+instance : Function.Injective UInt64.toNat :=
   fun x y h => UInt64.ext (by simp [h])
-
 
 class FromUInt64 (F : Type u) where
   embed : UInt64 ↪ F
