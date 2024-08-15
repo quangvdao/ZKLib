@@ -7,7 +7,7 @@ def moreServerArgs := #[
 ]
 
 
-package «jolt-lean» {
+package «ZKLib» {
   -- add any package configuration options here
   -- moreLinkArgs := #[
   --   "-L./.lake/packages/LeanCopilot/.lake/build/lib",
@@ -24,7 +24,7 @@ require VCVio from git
   "https://github.com/dtumad/VCV-io.git" @ "master"
 
 @[default_target]
-lean_lib «Jolt» {
+lean_lib «ZKLib» {
   -- add any library configuration options here
 }
 

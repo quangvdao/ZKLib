@@ -1,16 +1,22 @@
-# Formal Verification of Jolt
+# A Library for Formally Verified Cryptographic Proof Systems
 
-The goal of this project is to formalize the information-theoretic components of Jolt, a "zero-knowledge" virtual machine (zkVM) for the RISC-V ISA.
+We provide a formalization of cryptographic proof systems that are compiled from interactive (oracle) proofs via the Fiat-Shamir transform and (polynomial) commitment schemes.
 
-In particular, we formalize the following protocols:
-
-- Sumcheck
+In the first stage of the project, we formalize interactive (oracle) proofs, and prove information-theoretic completeness and soundness for the class of multilinear-based proof systems. In particular, our scope includes the following protocols:
+- Sum-check
 - Spartan
-- GKR
+- GKR and variants
 - Grand Product Argument
 - Lasso Lookup Argument
 - Spice Memory Checking Argument
 
-For each protocol, seen as interactive proofs, we provide an implementation of the prover and verifier, and prove completeness and round-by-round soundness with tight bounds.
+In addition, we also plan to formalize the following polynomial commitment schemes, seen as interactive (oracle) proofs:
+- Ligero and follow-ups such as Brakedown and Binius
+- Hyrax
 
-Along the way, we also formalize notions of interactive oracle proofs/reductions, multilinear polynomials, and binary tower fields.
+The protocols above form the core components of the Jolt zero-knowledge virtual machine (zkVM). A long-term goal of this project is to fully formalize the Jolt zkVM.
+
+For each interactive protocol, we aim to provide:
+- A specification based on (multivariate) polynomials from `Mathlib`,
+- An implementation of the prover and verifier using computable encodings of polynomials, similar to Rust implementations,
+- Proofs of completeness and round-by-round soundness for the specification, proof that the implementation refines the specification.
