@@ -152,33 +152,39 @@ section Transcript
 /-- A partial transcript of the IOR consists of all the messages and challenges up to a certain
   round `i ≤ spec.numRounds` -/
 structure PartialTranscript (spec : ProtocolSpec) (i : Fin (spec.numRounds + 1)) where
-  messages : ∀ j : Fin i, spec.Message j
-  challenges : ∀ j : Fin i, spec.Challenge j
+  messages : ∀ j : Fin spec.numRounds, (j.val < i.val) → spec.Message j
+  challenges : ∀ j : Fin spec.numRounds, (j.val < i.val) → spec.Challenge j
 
-def Transcript.toBundledList (transcript : Transcript spec) : List Bundled := (List.finRange spec.numRounds).map fun i => Bundled.mk (spec.Message i) (transcript.messages i)
+/-- Return two `HList`s, one for the messages and one for the challenges -/
+def Transcript.toHList (transcript : Transcript spec) : HList × HList := ⟨ HList.ofDVec transcript.messages, HList.ofDVec transcript.challenges ⟩
 
-def Transcript.fromBundledList (l : List Bundled) (hLen : l.length = spec.numRounds) (h : ∀ i, (l.get i).α = (spec.Message i × spec.Challenge i)) : Transcript spec where
-  messages := sorry
-  challenges := by
-    intro i
-    conv at i => {rw [←hLen]}
-    rename_i i1
-    let bundled := l.get i
-    have hi := h i
-    have hEq : i1 = i := sorry
-    sorry
+def Messages.fromHList {spec : ProtocolSpec} (lMessages : HList) (hLen : lMessages.length = spec.numRounds) (h : ∀ i, lMessages[i].1 = spec.Message i) : DVec spec.Message := fun j => ((h j) ▸ lMessages[j].2)
+
+def Challenges.fromHList {spec : ProtocolSpec} (lChallenges : HList) (hLen : lChallenges.length = spec.numRounds) (h : ∀ i, lChallenges[i].1 = spec.Challenge i) : DVec spec.Challenge := fun j => ((h j) ▸ lChallenges[j].2)
+
+def Transcript.fromHList {spec : ProtocolSpec} (lMessages : HList) (lChallenges : HList) (hMLen : lMessages.length = spec.numRounds) (hM : ∀ i, lMessages[i].1 = spec.Message i) (hCLen : lChallenges.length = spec.numRounds) (hC : ∀ i, lChallenges[i].1 = spec.Challenge i) : Transcript spec := ⟨Messages.fromHList lMessages hMLen hM, Challenges.fromHList lChallenges hCLen hC⟩
 
 
 def Transcript.toPartial (transcript : Transcript spec) (i : Fin (spec.numRounds + 1)) :
     PartialTranscript spec i where
-  messages := fun j => transcript.messages j
-  challenges := fun j => transcript.challenges j
+  messages := fun j _ => transcript.messages j
+  challenges := fun j _ => transcript.challenges j
 
--- TODO: is there a better way?
 def PartialTranscript.toFull (spec : ProtocolSpec)
     (partialTranscript : PartialTranscript spec spec.numRounds) : Transcript spec where
-  messages := fun j => (Fin.cast_val_eq_self j) ▸ ((Fin.val_cast_of_lt (n := spec.numRounds + 1) (a := spec.numRounds) (by simp)) ▸ partialTranscript.messages) j
-  challenges := fun j => (Fin.cast_val_eq_self j) ▸ ((Fin.val_cast_of_lt (n := spec.numRounds + 1) (a := spec.numRounds) (by simp)) ▸ partialTranscript.challenges) j
+  messages := fun j => partialTranscript.messages j (by simp)
+  challenges := fun j => partialTranscript.challenges j (by simp)
+
+@[simp]
+theorem Transcript.toPartial_toFull (spec : ProtocolSpec) (transcript : Transcript spec) :
+  (transcript.toPartial spec.numRounds).toFull spec = transcript := by
+  simp [Transcript.toPartial, PartialTranscript.toFull]
+
+@[simp]
+theorem PartialTranscript.toFull_toPartial (spec : ProtocolSpec) (partialTranscript : PartialTranscript spec spec.numRounds) :
+  (partialTranscript.toFull spec).toPartial spec.numRounds = partialTranscript := by
+  simp [Transcript.toPartial, PartialTranscript.toFull]
+  rcongr
 
 
 /- The output statement and witness pair of an IOR execution -/
@@ -206,6 +212,25 @@ end Transcript
 noncomputable section
 
 section Execution
+
+def runFirstRound (prover : Prover spec relIn relOut) (stmtIn : relIn.Statement) (witIn : relIn.Witness) (sampleCh : ChallengePMF spec) : PMF (PartialTranscript spec 1 × prover.PrvState 1) := do
+  let newRand ← prover.sampleRand 0
+  let challenge ← sampleCh 0
+  let (msg, newState) := prover.prove 0 stmtIn (prover.fromWitnessIn witIn) newRand challenge
+  let newState' : prover.PrvState 1 := by
+    simp at newState
+    exact newState
+  let partialTrans :=
+  ⟨fun j h => by
+    simp [Nat.mod_eq_of_lt] at h
+    have : j = 0 := by aesop
+    exact this ▸ msg,
+  fun j h => by
+    simp [Nat.mod_eq_of_lt] at h
+    have : j = 0 := by aesop
+    exact this ▸ challenge⟩
+  return ⟨partialTrans, newState'⟩
+
 
 def runProverAux (prover : Prover spec relIn relOut)
     (stmtIn : relIn.Statement) (witIn : relIn.Witness)
@@ -455,19 +480,19 @@ section Composition
 
 def ProtocolSpec.composeSequential (spec1 spec2 : ProtocolSpec) : ProtocolSpec where
   numRounds := spec1.numRounds + spec2.numRounds
-  Message := fun i => if i < spec1.numRounds then spec1.Message i else spec2.Message (i - spec1.numRounds)
-  Challenge := fun i => if i < spec1.numRounds then spec1.Challenge i else spec2.Challenge (i - spec1.numRounds)
-  OracleQuery := fun i => if i < spec1.numRounds then spec1.OracleQuery i else spec2.OracleQuery (i - spec1.numRounds)
-  OracleResponse := fun i => if i < spec1.numRounds then spec1.OracleResponse i else spec2.OracleResponse (i - spec1.numRounds)
-  oracleFromMessage := fun i msg q => if i < spec1.numRounds then spec1.oracleFromMessage i msg q else spec2.oracleFromMessage (i - spec1.numRounds) msg q
+  Message := Fin.addCases spec1.Message spec2.Message
+  Challenge := Fin.addCases spec1.Challenge spec2.Challenge
+  OracleQuery := fun i => Fin.addCases spec1.OracleQuery spec2.OracleQuery i
+  OracleResponse := fun i => Fin.addCases spec1.OracleResponse spec2.OracleResponse i
+  oracleFromMessage := fun i msg q => Fin.addCases (spec1.oracleFromMessage i msg q) (spec2.oracleFromMessage (i - spec1.numRounds) msg q)
 
 def ProtocolSpec.composeParallel (spec1 spec2 : ProtocolSpec) (hEqual : spec1.numRounds = spec2.numRounds) : ProtocolSpec where
   numRounds := spec1.numRounds
-  Message := fun i => spec1.Message i × spec2.Message i
+  Message := fun i => spec1.Message i × spec2.Message (hEqual ▸ i)
   Challenge := fun i => spec1.Challenge i × spec2.Challenge i
   OracleQuery := fun i => spec1.OracleQuery i × spec2.OracleQuery i
   OracleResponse := fun i => spec1.OracleResponse i × spec2.OracleResponse i
-  oracleFromMessage := fun i msg q => (spec1.oracleFromMessage i msg q, spec2.oracleFromMessage i msg q)
+  oracleFromMessage := fun i msg q => (spec1.oracleFromMessage i msg.1 q.1, spec2.oracleFromMessage i msg.2 q.2)
 
 end Composition
 

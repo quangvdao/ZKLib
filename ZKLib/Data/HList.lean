@@ -23,6 +23,100 @@ theorem test_length : test.length = 3 := rfl
 
 def BundledList.toFin (l : List Bundled) : ∀ (i : Fin l.length), (l.get i).α := fun i => (l.get i).a
 
+universe u
+
+/-- Heterogeneous list -/
+abbrev HList := List (Σ α : Type u, α)
+
+namespace HList
+
+def nil : HList := []
+
+def cons (x : Σ α : Type u, α) (xs : HList) : HList := x :: xs
+
+syntax (name := hlist) "[" term,* "]ₕ" : term
+macro_rules (kind := hlist)
+  | `([]ₕ) => `(HList.nil)
+  | `([$x]ₕ) => `(HList.cons $x HList.nil)
+  | `([$x, $xs,*]ₕ) => `(HList.cons $x [$xs,*]ₕ)
+
+/- HList.cons notation -/
+infixr:67 " ::ₕ " => HList.cons
+
+@[simp]
+lemma cons_eq_List.cons : x ::ₕ xs = x :: xs := rfl
+
+@[simp]
+lemma length_nil : nil.length = 0 := rfl
+
+@[simp]
+lemma length_cons (x : Σ α : Type u, α) (xs : HList) : (x ::ₕ xs).length = xs.length + 1 := rfl
+
+/-- Returns the types of the elements in the `HList` -/
+def getTypes : HList → List (Type u) := List.map (fun x => x.1)
+
+@[simp]
+lemma getTypes_nil : getTypes [] = [] := rfl
+
+@[simp]
+lemma getTypes_cons (x : Σ α : Type u, α) (xs : HList) : getTypes (x :: xs) = x.1 :: xs.getTypes := rfl
+
+@[simp]
+lemma getTypes_hcons (x : Σ α : Type u, α) (xs : HList) : (x ::ₕ xs).getTypes = x.1 :: xs.getTypes := rfl
+
+@[simp]
+lemma length_getTypes (l : HList) : l.getTypes.length = l.length := by
+  induction l with
+  | nil => simp
+  | cons _ xs ih => simp [ih]
+
+@[simp]
+lemma getTypes_eq_get_fst (l : HList) (i : Fin l.length) : l.getTypes[i] = l[i].1 := by
+  induction l with
+  | nil => simp at i; exact isEmptyElim i
+  | cons x xs ih =>
+    refine Fin.cases ?_ (fun i => ?_) i
+    · simp
+    · aesop
+
+
+/-- Get the value of the element at index `i`, of type `l[i].1` -/
+def getValue (l : HList) (i : Fin l.length) := l[i].2
+
+end HList
+
+#check List.get_append
+
+#eval (@List.nil Nat).get
+
+@[simp]
+lemma List.get_nil (i : Fin 0) (a : α) : [].get i = a := by exact isEmptyElim i
+
+/--
+  Dependent vectors
+-/
+def DVec {m : Type v} (α : m → Type u) : Type (max u v) := ∀ i, α i
+
+
+/-- Convert a `HList` to a `DVec` -/
+def HList.toDVec (l : HList) : DVec (m := Fin l.length) (fun i => l[i].1) := fun i => l[i].2
+
+/-- Create an `HList` from a `DVec` -/
+def HList.ofDVec (l : DVec (m := Fin n) α) : HList := (List.finRange n).map fun i => ⟨α i, l i⟩
+
+-- /-- Convert a `DVec` to an `HList` -/
+-- def DVec.toHList (l : DVec (m := Fin n) α) : HList := (List.finRange n).map fun i => ⟨α i, l i⟩
+
+-- theorem DVec.toHList_getTypes (l : DVec (m := Fin n) α) : l.toHList.getTypes = List.ofFn α := by aesop
+
+
+/-- Equivalent between `HList.getValue` and `HList.toDVec` -/
+lemma HList.toDVec_eq_getValue (l : HList) (i : Fin l.length) : l.toDVec i = l.getValue i := rfl
+
+
+/-
+
+Other candidate implementations of `HList`:
 
 -- This is a port from [Soup](https://github.com/crabbo-rave/Soup/tree/master)
 
@@ -119,25 +213,6 @@ def test : HList [Nat, String, Nat] :=
 
 #eval test
 
--- Okay, what do I need to define?
--- `Monad` and `LawfulMonad` instances for `HList`
--- `ForInStep` instance for `HList`
-
-@[inline]
-def pure {α : Type u} (a : α) : HList [α] := [a]ₕ
-
--- @[inline]
--- def bind {α : Type u} {β : Type v} (a : HList [α]) (f : α → HList [β]) : HList [β] :=
---   match a with
---   | [a]ₕ => f a
---   | _ => HList.nil
-
--- instance (αs : List (Type u)) : Monad (HList αs) where
---   pure := fun a => [a]ₕ
---   @bind := fun _ _ _ hla f _ => HList.nil
-
--- instance : LawfulMonad HList := {}
-
 
 -- def mapNthNoMetaEval : (n : Fin αs.length) → ((αs.get n) → β) → HList αs → HList (αs.repla n β)
 --   | ⟨0, _⟩, f, a::as => (f a)::as
@@ -148,17 +223,6 @@ def pure {α : Type u} (a : α) : HList [α] := [a]ₕ
 --   the (HList typeSig) (h.mapNthNoMetaEval n f)
 
 end HList
-
-
-/--
-  A dependent vector of length `n`, indexed by `Fin n`,
-  that is, a function `Fin n → α`.
--/
-def DVec (m : Type v) (α : m → Type u) : Type (max u v) := ∀ i, α i
-
-def DVec' (m : Type v) (α : m → Unit → Type u) : Type (max u v) := DMatrix m Unit α
-
-
 
 
 inductive HList' {α : Type v} (β : α → Type u) : List α → Type (max u v)
@@ -199,3 +263,5 @@ def somePairs : HList' (fun x => x × x) someTypes :=
 #eval HList'.get (fun x => x × x) somePairs (HList'.member.next HList'.member.first)
 
 end HList'
+
+-/
