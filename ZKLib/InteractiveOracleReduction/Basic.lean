@@ -58,31 +58,49 @@ namespace IOR
 
 section Format
 
-/-- Define the format of an Interactive Oracle Reduction -/
+/--
+  Structure that turns messages of an IOR into oracles.
+-/
+structure Oracleize (n : ℕ+) (Message : Fin n → Type) where
+  Query : Fin n → Type -- Query type for oracle in each round
+  Response : Fin n → Type -- Response type for oracle in each round
+  oracle : ∀ i, Message i → Query i → Response i -- Transforming messages to oracles that take queries and return responses
+
+/--
+  A class to ensure that the oracle queries and responses are finite, decidable, and inhabited. This can then be plugged into the `VCVio` framework.
+-/
+class ValidOracleize (O : Oracleize n Message) where
+  domain_decidableEq : ∀ i, DecidableEq (O.Query i)
+  range_decidableEq : ∀ i, DecidableEq (O.Response i)
+  range_inhabited : ∀ i, Inhabited (O.Response i)
+  range_fintype : ∀ i, Fintype (O.Response i)
+
+/-- The specification of an Interactive Oracle Reduction -/
 structure ProtocolSpec where
   numRounds : ℕ+
   Message : Fin numRounds → Type -- Message type for each round
   Challenge : Fin numRounds → Type -- Challenge type for each round
-  OracleQuery : Fin numRounds → Type -- Query type for oracle in each round
-  OracleResponse : Fin numRounds → Type -- Response type for oracle in each round
-  -- Transforming messages to oracles that take queries and return responses
-  oracleFromMessage : ∀ i, Message i → OracleQuery i → OracleResponse i
+  Oracle : Oracleize numRounds Message -- Oracle for each round, derived from the message
+  validOracle : ValidOracleize Oracle -- Oracle satisfies the `ValidOracleize` conditions
 
 def ChallengePMF (spec : ProtocolSpec) := ∀ i, PMF (spec.Challenge i)
+
+/-- Vector of messages -/
+def Messages (spec : ProtocolSpec) := ∀ i, spec.Message i
+
+/-- Vector of challenges -/
+def Challenges (spec : ProtocolSpec) := ∀ i, spec.Challenge i
 
 /--
   The transcript of the IOR, including all messages and challenges
 -/
-structure Transcript (spec : ProtocolSpec) where
-  messages : ∀ i, spec.Message i
-  challenges : ∀ i, spec.Challenge i
+def Transcript (spec : ProtocolSpec) := ∀ i, spec.Message i × spec.Challenge i
 
+def Transcript.mk (msgs : Messages spec) (chals : Challenges spec) : Transcript spec := fun i => ⟨ msgs i, chals i ⟩
 
+def Transcript.toMessages (transcript : Transcript spec) : Messages spec := fun i => (transcript i).1
 
-
-
-
-
+def Transcript.toChallenges (transcript : Transcript spec) : Challenges spec := fun i => (transcript i).2
 
 -- TODO: re-org this structure
 structure ProverSpec (spec : ProtocolSpec)
@@ -111,24 +129,24 @@ structure Prover (spec : ProtocolSpec) (relIn : Relation) (relOut : Relation) ex
   fromWitnessIn : relIn.Witness → PrvState 0
   toWitnessOut : PrvState spec.numRounds → Transcript spec → relOut.Witness
 
--- TODO: define `OraclePreSpec` or something that has no instances
--- def verifierView (spec : ProtocolSpec) : OracleSpec (Fin spec.numRounds) where
---   domain := fun i => spec.OracleQuery i
---   range := fun i => spec.OracleResponse i
---   domain_decidableEq' := fun i => inferInstance
---   range_decidableEq' := fun i => inferInstance
---   range_inhabited' := fun i => inferInstance
---   range_fintype' := fun i => inferInstance
+def verifierOracleSpec (spec : ProtocolSpec) : OracleSpec (Fin spec.numRounds) where
+  domain := fun i => spec.Oracle.Query i
+  range := fun i => spec.Oracle.Response i
+  domain_decidableEq' := spec.validOracle.domain_decidableEq
+  range_decidableEq' := spec.validOracle.range_decidableEq
+  range_inhabited' := spec.validOracle.range_inhabited
+  range_fintype' := spec.validOracle.range_fintype
 
-/-- The public-coin verifier of an IOR -/
-structure Verifier (spec : ProtocolSpec) (relIn : Relation) (relOut : Relation) where
-  -- verify : relIn.Statement → OracleComp (verifierView spec) relOut.Statement
-  verify : relIn.Statement → Transcript spec → relOut.Statement
+/-- The public-coin verifier of an IOR, which returns a boolean indicating whether the reduction is
+  valid. It is itself an oracle computation that may query any of the oracles sent by the prover. -/
+structure Verifier (spec : ProtocolSpec) (relIn : Relation) where
+  verify : relIn.Statement → OracleComp (verifierOracleSpec spec) Bool
+  -- verify : relIn.Statement → Transcript spec → relOut.Statement
 
 
 /-- An IOR protocol consists of an honest prover and an honest verifier, to reduce a relation
   `RelIn` to relation `RelOut` -/
-structure Protocol (spec : ProtocolSpec) (relIn : Relation) (relOut : Relation) extends Prover spec relIn relOut, Verifier spec relIn relOut
+structure Protocol (spec : ProtocolSpec) (relIn : Relation) (relOut : Relation) extends Prover spec relIn relOut, Verifier spec relIn
 
 
 /-- Define family of IOR specifications parameterized by `Index` -/
@@ -136,14 +154,12 @@ structure ProtocolSpecFamily where
   Index : Type
   spec : Index → ProtocolSpec
 
-/-- Define family of IOR protocols parameterized by `Index` -/
+-- /-- Define family of IOR protocols parameterized by `Index` -/
 structure ProtocolFamily extends ProtocolSpecFamily where
   relIn : Index → Relation
   relOut : Index → Relation
   protocol : (index : Index) → Protocol (spec index) (relIn index) (relOut index)
 
-
-end Format
 
 section Transcript
 
@@ -151,108 +167,128 @@ section Transcript
 
 /-- A partial transcript of the IOR consists of all the messages and challenges up to a certain
   round `i ≤ spec.numRounds` -/
-structure PartialTranscript (spec : ProtocolSpec) (i : Fin (spec.numRounds + 1)) where
-  messages : ∀ j : Fin spec.numRounds, (j.val < i.val) → spec.Message j
-  challenges : ∀ j : Fin spec.numRounds, (j.val < i.val) → spec.Challenge j
+def PartialTranscript (spec : ProtocolSpec) (i : Fin (spec.numRounds + 1)) := ∀ j : Fin spec.numRounds, (j.val < i.val) → (spec.Message j × spec.Challenge j)
+
+/-- The empty (partial) transcript, which is the unique element of `PartialTranscript spec 0` -/
+def emptyTranscript : PartialTranscript spec 0 := fun j h => by contradiction
+
+/-- Add a new message and challenge for round `i` to a partial transcript up to round `i - 1` -/
+def PartialTranscript.cons (partialTranscript : PartialTranscript spec i) (hLt : i.val < spec.numRounds) (msg : spec.Message i) (challenge : spec.Challenge i) : PartialTranscript spec (i + 1) := fun j h => by
+    -- TODO: try `Fin.addCases` instead
+    if h' : j.val < i.val then
+      exact partialTranscript j h'
+    else
+      have : (i + 1).val = i.val + 1 := Fin.val_add_one_of_lt (by aesop)
+      rw [this] at h
+      simp at *
+      have : j = i := by
+        refine Fin.eq_of_val_eq ?_
+        rw [Fin.val_cast_of_lt (n := spec.numRounds) hLt]
+        exact Nat.eq_of_le_of_lt_succ h' h
+      exact this ▸ ⟨msg, challenge⟩
+
+
+-- def PartialTranscript.cons (partialTranscript : PartialTranscript spec i) (hNe : i ≠ Fin.last spec.numRounds) (msg : spec.Message <| i.castPred hNe) (challenge : spec.Challenge <| i.castPred hNe) : PartialTranscript spec (i + 1) := fun j h => by
+--     -- TODO: try `Fin.addCases` instead
+--     if h' : j.val < i.val then
+--       exact partialTranscript j h'
+--     else
+--       have hLt : i.val < spec.numRounds := Fin.val_lt_last hNe
+--       have : (i + 1).val = i.val + 1 := Fin.val_add_one_of_lt hLt
+--       rw [this] at h
+--       simp at *
+--       have : j = i.castPred hNe := by
+--         refine Fin.eq_of_val_eq ?_
+--         exact Nat.eq_of_le_of_lt_succ h' h
+--       exact this ▸ ⟨msg, challenge⟩
+
+def Messages.toHList (messages : Messages spec) : HList := HList.ofDVec messages
+
+def Challenges.toHList (challenges : Challenges spec) : HList := HList.ofDVec challenges
 
 /-- Return two `HList`s, one for the messages and one for the challenges -/
-def Transcript.toHList (transcript : Transcript spec) : HList × HList := ⟨ HList.ofDVec transcript.messages, HList.ofDVec transcript.challenges ⟩
+def Transcript.toHList (transcript : Transcript spec) : HList × HList := ⟨ transcript.toMessages.toHList, transcript.toChallenges.toHList ⟩
 
 def Messages.fromHList {spec : ProtocolSpec} (lMessages : HList) (hLen : lMessages.length = spec.numRounds) (h : ∀ i, lMessages[i].1 = spec.Message i) : DVec spec.Message := fun j => ((h j) ▸ lMessages[j].2)
 
 def Challenges.fromHList {spec : ProtocolSpec} (lChallenges : HList) (hLen : lChallenges.length = spec.numRounds) (h : ∀ i, lChallenges[i].1 = spec.Challenge i) : DVec spec.Challenge := fun j => ((h j) ▸ lChallenges[j].2)
 
-def Transcript.fromHList {spec : ProtocolSpec} (lMessages : HList) (lChallenges : HList) (hMLen : lMessages.length = spec.numRounds) (hM : ∀ i, lMessages[i].1 = spec.Message i) (hCLen : lChallenges.length = spec.numRounds) (hC : ∀ i, lChallenges[i].1 = spec.Challenge i) : Transcript spec := ⟨Messages.fromHList lMessages hMLen hM, Challenges.fromHList lChallenges hCLen hC⟩
-
+-- To get `Transcript` from two `HList`s, first convert them to `Messages` and `Challenges` and then make a transcript from that
 
 def Transcript.toPartial (transcript : Transcript spec) (i : Fin (spec.numRounds + 1)) :
-    PartialTranscript spec i where
-  messages := fun j _ => transcript.messages j
-  challenges := fun j _ => transcript.challenges j
+    PartialTranscript spec i := fun j _ => transcript j
 
 def PartialTranscript.toFull (spec : ProtocolSpec)
-    (partialTranscript : PartialTranscript spec spec.numRounds) : Transcript spec where
-  messages := fun j => partialTranscript.messages j (by simp)
-  challenges := fun j => partialTranscript.challenges j (by simp)
+    (partialTranscript : PartialTranscript spec spec.numRounds) : Transcript spec := fun j => partialTranscript j (by simp)
 
 @[simp]
 theorem Transcript.toPartial_toFull (spec : ProtocolSpec) (transcript : Transcript spec) :
-  (transcript.toPartial spec.numRounds).toFull spec = transcript := by
-  simp [Transcript.toPartial, PartialTranscript.toFull]
+  (transcript.toPartial spec.numRounds).toFull spec = transcript := rfl
 
 @[simp]
 theorem PartialTranscript.toFull_toPartial (spec : ProtocolSpec) (partialTranscript : PartialTranscript spec spec.numRounds) :
-  (partialTranscript.toFull spec).toPartial spec.numRounds = partialTranscript := by
-  simp [Transcript.toPartial, PartialTranscript.toFull]
-  rcongr
-
-
-/- The output statement and witness pair of an IOR execution -/
--- def Output (spec : ProtocolSpec) := spec.relOut.Statement × spec.relOut.Witness
-
-
-/-- The verifier's view of an IOR (before returning the output statement) -/
-structure VerifierView (spec : ProtocolSpec) where
-  oracles : ∀ i : Fin spec.numRounds, spec.OracleQuery i → spec.OracleResponse i
-  challenges : ∀ i : Fin spec.numRounds, spec.Challenge i
-
-/--
-  Convert the messages in a transcript to their oracle forms.
-
-  TODO: replace this with the `OracleComp` definitions
--/
-def Transcript.toOracles (transcript : Transcript spec) : VerifierView spec where
-  oracles := fun i => fun q => spec.oracleFromMessage i (transcript.messages i) q
-  challenges := transcript.challenges
+  (partialTranscript.toFull spec).toPartial spec.numRounds = partialTranscript := rfl
 
 end Transcript
 
+end Format
 
 -- Since we are using `PMF`, this section is marked as noncomputable
 noncomputable section
 
 section Execution
 
-def runFirstRound (prover : Prover spec relIn relOut) (stmtIn : relIn.Statement) (witIn : relIn.Witness) (sampleCh : ChallengePMF spec) : PMF (PartialTranscript spec 1 × prover.PrvState 1) := do
-  let newRand ← prover.sampleRand 0
-  let challenge ← sampleCh 0
-  let (msg, newState) := prover.prove 0 stmtIn (prover.fromWitnessIn witIn) newRand challenge
-  let newState' : prover.PrvState 1 := by
-    simp at newState
-    exact newState
-  let partialTrans :=
-  ⟨fun j h => by
-    simp [Nat.mod_eq_of_lt] at h
-    have : j = 0 := by aesop
-    exact this ▸ msg,
-  fun j h => by
-    simp [Nat.mod_eq_of_lt] at h
-    have : j = 0 := by aesop
-    exact this ▸ challenge⟩
-  return ⟨partialTrans, newState'⟩
+-- def runFirstRound (prover : Prover spec relIn relOut) (stmtIn : relIn.Statement) (witIn : relIn.Witness) (sampleCh : ChallengePMF spec) : PMF (PartialTranscript spec 1 × prover.PrvState 1) := do
+--   let newRand ← prover.sampleRand 0
+--   let challenge ← sampleCh 0
+--   let state := prover.fromWitnessIn witIn
+--   let (msg, newState) := prover.prove 0 stmtIn state newRand challenge
+--   let newState' : prover.PrvState 1 := by
+--     simp at newState
+--     exact newState
+--   let partialTrans := fun j h => by
+--     simp [Nat.mod_eq_of_lt] at h
+--     have : j = 0 := by aesop
+--     exact this ▸ ⟨msg, challenge⟩
+--   return ⟨partialTrans, newState'⟩
 
 
 def runProverAux (prover : Prover spec relIn relOut)
     (stmtIn : relIn.Statement) (witIn : relIn.Witness)
-    (sampleCh : ChallengePMF spec) (i : Fin spec.numRounds) :
-    PMF (PartialTranscript spec (i + 1) × prover.PrvState (i + 1)) := sorry
-
-
-  -- match i with
-  -- | ⟨0, isLt⟩ => do
-  --   let newRand ← prover.sampleRand 0
-  --   let challenge ← sampleCh 0
-  --   let (msg, newState) := prover.prove 0 stmtIn (prover.fromWitnessIn witIn) newRand challenge
-  --   let partialTrans :=
-  --   ⟨(by intro j ; conv at j => {simp [Nat.mod_eq_of_lt]}; exact msg),
-  --   fun j => (by simp [Nat.mod_eq_of_lt] at j; simp; exact challenge)⟩
-  --   return ⟨partialTrans, newState⟩
-  -- | ⟨j + 1, _⟩ => do
-  --   let newRand ← prover.sampleRand (j + 1)
-  --   let challenge ← sampleCh (j + 1)
-  --   let ⟨partialTrans, state⟩ ← runProverAux prover stmtIn witIn sampleCh j
-  --   let (msg, newState) := prover.prove (j + 1) stmtIn state newRand challenge
-  --   return ⟨⟨msg, newState⟩, newState⟩
+    (sampleCh : ChallengePMF spec) (i : Fin (spec.numRounds + 1)) :
+    PMF (PartialTranscript spec i × prover.PrvState i) := do
+  if h : i = 0 then
+    -- Simply return the empty transcript and the initial state
+    let state := prover.fromWitnessIn witIn
+    return ⟨h ▸ emptyTranscript, h ▸ state⟩
+  else
+    -- Run the prover up to the `i - 2`-th round
+    let j := Fin.pred i h
+    let ⟨partialTrans, state⟩ ← runProverAux prover stmtIn witIn sampleCh j
+    -- Sample new randomness and challenge for round `i - 1`
+    let newRand ← prover.sampleRand j
+    let challenge ← sampleCh j
+    -- Run the prover for round `i - 1`
+    let (msg, newState) := prover.prove j stmtIn state newRand challenge
+    have newState' : prover.PrvState i := by
+      simp at newState
+      rw [Fin.succ_pred] at newState
+      exact newState
+    -- Compute new partial transcript
+    let partialTransAux := partialTrans.cons (by simp)
+    have partialTransAux' : spec.Message j → spec.Challenge j → PartialTranscript spec i := by
+      simp at partialTransAux
+      rw [Fin.succ_pred] at partialTransAux
+      exact partialTransAux
+    let partialTrans' := partialTransAux' msg challenge
+    return ⟨partialTrans', newState'⟩
+termination_by i.val
+decreasing_by
+  simp_wf
+  refine Fin.lt_iff_val_lt_val.mpr ?_
+  simp
+  rw [Nat.mod_eq_of_lt (by omega)]
+  exact Nat.sub_lt_self (by decide) ((Fin.pos_iff_ne_zero' i).mpr h)
 
 /--
   Running the IOR prover in the protocol; returns the transcript along with the final prover's state
@@ -260,33 +296,15 @@ def runProverAux (prover : Prover spec relIn relOut)
 def runProver (prover : Prover spec relIn relOut) (sampleCh : ChallengePMF spec)
     (stmtIn : relIn.Statement) (witIn : relIn.Witness) :
     PMF (Transcript spec × prover.PrvState spec.numRounds) := do
-  -- TODO: once we have `HList`, we go back and define this function
-  let mut state := prover.fromWitnessIn witIn
-  -- let mut oracles := HList.nil ;
-  -- let mut challenges := HList.nil ;
-  for h : i in [0:spec.numRounds] do {
-      let newRand ← prover.sampleRand i
-      let challenge ← sampleCh i
-    -- let output := (prover.prove i) stmt newState newRand challenge
-    -- oracles.append (spec.oracle i msg);
-    -- challenges.append (challenge);
-    -- newState := state
-  }
-  sorry
-
-def runVerifier (verifier : Verifier spec relIn relOut) (stmtIn : relIn.Statement) (view : VerifierView spec) :
-    PMF (relIn.Statement) := do
-  let stmtOut := verifier.verify stmtIn view
-  return stmtOut
+  let ⟨transcript, state⟩ ← runProverAux prover stmtIn witIn sampleCh spec.numRounds
+  return ⟨transcript.toFull, state⟩
 
 /--
-  An IOR execution between an arbitrary prover and an arbitrary verifier, on a given initial
-  statement and witness.
+  An IOR execution between an arbitrary prover and an arbitrary verifier, on a given initial statement and witness.
 
-  Returns a probability distribution over the prover's end private state and a verifier's output
-  statement.
+  Returns a probability distribution over the prover's end private state and a verifier's output statement.
 -/
-def runWithTranscript (prover : Prover spec relIn relOut) (verifier : Verifier spec relIn relOut)
+def runProtocolWithTranscript (prover : Prover spec relIn relOut) (verifier : Verifier spec relIn)
     (sampleCh : ChallengePMF spec) (stmtIn : relIn.Statement) (witIn : relIn.Witness) :
     PMF (Output spec × Transcript spec) := do
   let (transcript, state) ← runProver prover sampleCh stmtIn witIn
@@ -294,9 +312,9 @@ def runWithTranscript (prover : Prover spec relIn relOut) (verifier : Verifier s
   return ⟨⟨stmtOut, prover.toWitnessOut state⟩, transcript⟩
 
 
-def run (prover : Prover spec relIn relOut) (verifier : Verifier spec relIn relOut)
+def runProtocol (prover : Prover spec relIn relOut) (verifier : Verifier spec relIn relOut)
     (sampleCh : ChallengePMF spec) (stmtIn : relIn.Statement) (witIn : relIn.Witness) : PMF (Output spec) := do
-  let result ← runWithTranscript prover verifier sampleCh stmtIn witIn
+  let result ← runProtocolWithTranscript prover verifier sampleCh stmtIn witIn
   return result.fst
 
 end Execution
@@ -409,22 +427,22 @@ def knowledgeSoundness (spec : ProtocolSpec) (verifier : Verifier spec) (knowled
       True
 
 
-def BadFunction (spec : ProtocolSpec) :=
-  (i : Fin spec.numRounds) → spec.relIn.Statement →  PartialTranscript spec i → Prop
+def BadFunction (spec : ProtocolSpec) (relIn : Relation) :=
+  (i : Fin spec.numRounds) → relIn.Statement →  PartialTranscript spec i → Prop
 
 /--
   Round-by-round soundness should be defined for each round
 -/
-def roundByRoundSoundness (spec : ProtocolSpec) (verifier : Verifier spec)
+def roundByRoundSoundness (spec : ProtocolSpec) [ValidOracleize spec.Oracle] (relIn : Relation) (relOut : Relation) (verifier : Verifier spec relIn)
     (badFunction : BadFunction spec) (rbrSoundnessBound : Fin spec.numRounds → I) : Prop :=
-  ∀ stmtIn ∉ spec.relIn.language,
-  ∀ witIn : spec.relIn.Witness,
-  ∀ prover : Prover spec,
+  ∀ stmtIn ∉ relIn.language,
+  ∀ witIn : relIn.Witness,
+  ∀ prover : Prover spec relIn relOut,
   ∀ i : Fin spec.numRounds,
     let result := runWithTranscript spec prover verifier stmtIn witIn
     let output := Prod.fst <$> result
     let transcript := Prod.snd <$> result
-    let prob := spec.relOut.isValid' <$> output
+    let prob := relOut.isValid' <$> output
     let partialTranscript := (fun tr => tr.toPartial i) <$> transcript
     -- prob true ≤ rbrSoundnessBound i
     sorry
@@ -443,11 +461,10 @@ def Simulator (spec : ProtocolSpec) := spec.relIn.Statement → PMF (VerifierVie
 
 
 /--
+  We define honest-verifier zero-knowledge as follows:
   There exists a simulator such that for all (malicious) verifier, the distributions of transcripts
   generated by the simulator and the interaction between the verifier and the prover are
   (statistically) indistinguishable.
-
-  Since we are in the public-coin case anyway, the verifier can't do anything...
 -/
 def zeroKnowledge (spec : ProtocolSpec) (prover : Prover spec) : Prop :=
   ∃ simulator : Simulator spec,
@@ -461,15 +478,6 @@ def zeroKnowledge (spec : ProtocolSpec) (prover : Prover spec) : Prop :=
     -- let prob := spec.relOut.isValid' <$> output
     sorry
 
-
-
-
-/--
-  Zero-knowledge with respect to the honest verifier
--/
-def honestVerifierZeroKnowledge (spec : ProtocolSpec) (protocol : Protocol spec) : Prop :=
-  sorry
-
 end ZeroKnowledge
 
 end SecurityDefinitions
@@ -478,21 +486,43 @@ end SecurityDefinitions
 
 section Composition
 
-def ProtocolSpec.composeSequential (spec1 spec2 : ProtocolSpec) : ProtocolSpec where
+def Oracleize.append (O1 : Oracleize n1 Message1) (O2 : Oracleize n2 Message2) : Oracleize (n1 + n2) (Fin.addCases Message1 Message2) where
+  Query := Fin.addCases O1.Query O2.Query
+  Response := Fin.addCases O1.Response O2.Response
+  oracle := fun i => by
+    refine Fin.addCases ?_ ?_ i <;> intro j msg q
+    · simp [Fin.addCases_left j] at msg
+      simp [Fin.addCases_left j] at q
+      simp
+      exact O1.oracle j msg q
+    · simp [Fin.addCases_right j] at msg
+      simp [Fin.addCases_right j] at q
+      simp
+      exact O2.oracle j msg q
+
+
+/-- Sequential composition of two protocols -/
+def ProtocolSpec.append (spec1 spec2 : ProtocolSpec) : ProtocolSpec where
   numRounds := spec1.numRounds + spec2.numRounds
   Message := Fin.addCases spec1.Message spec2.Message
   Challenge := Fin.addCases spec1.Challenge spec2.Challenge
-  OracleQuery := fun i => Fin.addCases spec1.OracleQuery spec2.OracleQuery i
-  OracleResponse := fun i => Fin.addCases spec1.OracleResponse spec2.OracleResponse i
-  oracleFromMessage := fun i msg q => Fin.addCases (spec1.oracleFromMessage i msg q) (spec2.oracleFromMessage (i - spec1.numRounds) msg q)
+  Oracle := Oracleize.append spec1.Oracle spec2.Oracle
 
-def ProtocolSpec.composeParallel (spec1 spec2 : ProtocolSpec) (hEqual : spec1.numRounds = spec2.numRounds) : ProtocolSpec where
+
+
+/-- Parallel repetition of two protocols
+
+When proving theorems, need to add the condition that `spec1.numRounds = spec2.numRounds` -/
+def ProtocolSpec.composeParallel (spec1 spec2 : ProtocolSpec) : ProtocolSpec where
   numRounds := spec1.numRounds
-  Message := fun i => spec1.Message i × spec2.Message (hEqual ▸ i)
+  Message := fun i => spec1.Message i × spec2.Message i
   Challenge := fun i => spec1.Challenge i × spec2.Challenge i
-  OracleQuery := fun i => spec1.OracleQuery i × spec2.OracleQuery i
-  OracleResponse := fun i => spec1.OracleResponse i × spec2.OracleResponse i
-  oracleFromMessage := fun i msg q => (spec1.oracleFromMessage i msg.1 q.1, spec2.oracleFromMessage i msg.2 q.2)
+  Oracle := sorry
+  -- spec1.Oracle × spec2.Oracle
+  -- OracleQuery := fun i => spec1.OracleQuery i × spec2.OracleQuery i
+  -- OracleResponse := fun i => spec1.OracleResponse i × spec2.OracleResponse i
+  -- oracleFromMessage := fun i msg q => (spec1.oracleFromMessage i msg.1 q.1, spec2.oracleFromMessage i msg.2 q.2)
+
 
 end Composition
 
