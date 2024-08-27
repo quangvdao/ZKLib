@@ -1,15 +1,26 @@
 import Mathlib.Data.Set.Basic
+import VCVio
 
 /-!
-  # Relations
+  # (Oracle) Relations
 
-  This file contains definitions related to NP (indexed) relations. An indexed relation $R$ consists of tuples $(i,x,w)$, where $i$ is called an index, $x$ is called a statement, and $w$ is called a witness. Relations can be parametrized by additional data (public parameters) such as the choice of a field. We do not explicitly mention these public parameters in the definition of the relation; instead, they are assumed to be implicit variables in each instantiation.
+  This file contains definitions related to NP (oracle) relations. An oracle relation $R$ consists of tuples $(x,w,o)$, where $x$ is called a statement, $w$ is called a witness, and $o$ specifies how the witness may be queried. The validity of a tuple $(x,w,o)$ is determined by the result of an oracle computation, which takes in $x$ and may query the oracle $o$ before returning a boolean value.
+
+  Relations can be parametrized by additional data (public parameters) such as the choice of a field. We do not explicitly mention these public parameters in the definition of the relation; instead, they are assumed to be implicit variables in each instantiation.
 
   We define the corresponding language `L_R` to be the set of all `stmt`s such that there exists some `wit` with `(stmt, wit) ∈ R`.
 -/
 
 
-/-- A binary relation on an instance -/
+/-- An oracle relation -/
+structure OracleRelation where
+  Statement : Type
+  Witness : Type
+  enumOracle : Type
+  oracle : Witness → OracleSpec enumOracle
+  isValid : Statement → (wit : Witness) → OracleComp (oracle wit) Bool
+
+/-- A non-oracle relation -/
 structure Relation where
   Statement : Type
   Witness : Type

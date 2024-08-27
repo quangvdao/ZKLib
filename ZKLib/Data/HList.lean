@@ -4,24 +4,15 @@ import Mathlib.Tactic
 
 /-!
   # Heterogeneous Lists
+
+  We define `HList` as a synonym for `List (Σ α : Type u, α)`, namely a list of types together with a value.
+
+  We note some other implementations of `HList`:
+  - [Soup](https://github.com/crabbo-rave/Soup/tree/master)
+  - Part of Certified Programming with Dependent Types (it's in Coq, but can be translated to Lean)
+
+  Our choice of definition is so that we can directly rely on the existing API for `List`.
 -/
-
-
-structure Bundled where
-  α : Type
-  a : α
-
-instance : Inhabited Bundled where
-  default := Bundled.mk Nat 0
-
-def test : List Bundled := [Bundled.mk Nat 1, Bundled.mk String "bad", Bundled.mk Int 3]
-
-@[simp]
-theorem test_length : test.length = 3 := rfl
-
-#eval (test.getD 5 default).a
-
-def BundledList.toFin (l : List Bundled) : ∀ (i : Fin l.length), (l.get i).α := fun i => (l.get i).a
 
 universe u
 

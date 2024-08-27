@@ -17,8 +17,7 @@ theorem Fin.two_cases_eq_ite (x : Fin 2) (u : Type _) (v : Type _) :
     | 0 => u
     | 1 => v)
     = if x = 0 then u else v := by
-  refine' Fin.cases _ _ x <;> simp [Fin.succ]
-
+  refine Fin.cases ?_ ?_ x <;> simp [Fin.succ]
 
 theorem Fin.vec_fin2_ite_eq_prod_ite {n : ℕ} {x y : Fin n → Fin 2} : (if x = y then 1 else 0) = ∏ i : Fin n, if x i = y i then 1 else 0 := by
   induction n with
@@ -77,11 +76,11 @@ theorem singleEqPolynomial_one (x : MvPolynomial σ F) : singleEqPolynomial (1 :
 
 @[simp]
 theorem singleEqPolynomial_zeroOne_eq_ite (r : Fin 2) (x : MvPolynomial σ F) : singleEqPolynomial (r : F) x = if r = 0 then 1 - x else x := by
-  refine' Fin.two_cases _ _ r <;> simp
+  refine Fin.two_cases ?_ ?_ r <;> simp
 
 @[simp]
 theorem singleEqPolynomial_zeroOne_eq_ite' (r : Fin 2) (x : Fin 2) : (singleEqPolynomial (r : F) (C x) : MvPolynomial σ F) = if x = r then 1 else 0 := by
-  refine' Fin.two_cases _ _ r <;> refine' Fin.two_cases _ _ x <;> simp
+  refine Fin.two_cases ?_ ?_ r <;> refine Fin.two_cases ?_ ?_ x <;> simp
 
 @[simp]
 theorem singleEqPolynomial_eval_zeroOne (x : Fin n → Fin 2) (r : Fin n → Fin 2) (i : Fin n) : (eval fun i => ↑↑(x i))
@@ -96,7 +95,7 @@ theorem eqPolynomial_zeroOne (r : Fin n → Fin 2) : (eqPolynomial r : MvPolynom
         | 0 => 1 - X i
         | 1 => X i := by
   unfold eqPolynomial ; congr ; funext i ; simp
-  refine' Fin.two_cases _ _ (r i) <;> simp
+  refine Fin.two_cases ?_ ?_ (r i) <;> simp
 
 @[simp]
 theorem eqPolynomial_eval_zeroOne_eq_ite (r : Fin n → Fin 2) (x : Fin n → Fin 2) : MvPolynomial.eval (x : Fin n → F) (eqPolynomial r) = if x = r then 1 else 0 := by

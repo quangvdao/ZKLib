@@ -32,29 +32,7 @@ IOP" [BCG20] (and other kinds of IOPs) from our definition.
 
 -/
 
-namespace IOR_new
-
-
--- What should a relation be? Dependent on a commitment scheme?
-structure OracleRelation [DecidableEq ι] (spec : OracleSpec ι) where
-  Statement : Type
-  Witness : Type
-  isValid : Statement → Witness → OracleComp spec Bool
-
-end IOR_new
-
-
-
-
 namespace IOR
-
--- TODO: IORs where both parties have access to some oracle? commit-and-prove IOR?
-
-/- These relations don't need to be bundled with the protocol specification; this separation is
-  helpful when defining composition.
-  relIn : Relation
-  relOut : Relation
--/
 
 section Format
 
@@ -299,6 +277,16 @@ def runProver (prover : Prover spec relIn relOut) (sampleCh : ChallengePMF spec)
   let ⟨transcript, state⟩ ← runProverAux prover stmtIn witIn sampleCh spec.numRounds
   return ⟨transcript.toFull, state⟩
 
+def runVerifier (verifier : Verifier spec relIn)
+    (stmtIn : relIn.Statement) (transcript : Transcript spec) :
+    PMF Bool := do
+  -- TODO: implement this
+  -- First run the prover to get oracles, then run the verifier as an oracle computation, answering each query with the corresponding oracle
+  let oracles := verifierOracleSpec spec
+  let oracleComp := verifier.verify stmtIn
+  let decision := oracleComp.runDeterministic messages.toOracles
+  return decision
+
 /--
   An IOR execution between an arbitrary prover and an arbitrary verifier, on a given initial statement and witness.
 
@@ -308,11 +296,11 @@ def runProtocolWithTranscript (prover : Prover spec relIn relOut) (verifier : Ve
     (sampleCh : ChallengePMF spec) (stmtIn : relIn.Statement) (witIn : relIn.Witness) :
     PMF (Output spec × Transcript spec) := do
   let (transcript, state) ← runProver prover sampleCh stmtIn witIn
-  let stmtOut ← runVerifier verifier stmtIn (transcript.toOracles)
+  let stmtOut ← verifier.verify stmtIn (transcript.toOracles)
   return ⟨⟨stmtOut, prover.toWitnessOut state⟩, transcript⟩
 
 
-def runProtocol (prover : Prover spec relIn relOut) (verifier : Verifier spec relIn relOut)
+def runProtocol (prover : Prover spec relIn relOut) (verifier : Verifier spec relIn)
     (sampleCh : ChallengePMF spec) (stmtIn : relIn.Statement) (witIn : relIn.Witness) : PMF (Output spec) := do
   let result ← runProtocolWithTranscript prover verifier sampleCh stmtIn witIn
   return result.fst
