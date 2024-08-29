@@ -20,3 +20,7 @@ For each interactive protocol, we aim to provide:
 - A specification based on (multivariate) polynomials from `Mathlib`,
 - An implementation of the prover and verifier using computable encodings of polynomials, similar to Rust implementations,
 - Proofs of completeness and round-by-round soundness for the specification, proof that the implementation refines the specification.
+
+## Roadmap
+
+See [here](./ROADMAP.md).
