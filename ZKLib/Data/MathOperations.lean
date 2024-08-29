@@ -1,3 +1,9 @@
+/-
+Copyright (c) 2024 Quang Dao. All rights reserved.
+Released under Apache 2.0 license as described in the file LICENSE.
+Authors: Quang Dao
+-/
+
 import Mathlib.Data.Nat.Log
 
 def isBoolean {R : Type} [Zero R] [One R] (x : Array R) : Prop := ∀ i, (h : i < x.size) → x[i] = 0 ∨ x[i] = 1

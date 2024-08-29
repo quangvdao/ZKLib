@@ -1,3 +1,5 @@
+-- This file is imported from elsewhere (TODO: track down original location)
+
 import Mathlib.Algebra.Polynomial.Basic
 
 open scoped Polynomial

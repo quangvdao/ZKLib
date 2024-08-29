@@ -51,4 +51,31 @@ def runWithOracle (f : Oracle spec) : OracleComp spec α → α
   | pure' _ x => x
   | queryBind' i q _ oa => runWithOracle f (oa (f i q))
 
+@[simp] theorem SatisfiesM_Option_eq' : SatisfiesM (m := Option) p x ↔ ∀ a, x = some a → p a :=
+  ⟨by revert x; intro
+    | some x', y, z, w =>
+      simp_all,
+    -- | some _, ⟨some ⟨_, h⟩, rfl⟩, _, rfl => exact h,
+   fun h => match x with | some a => ⟨some ⟨a, h _ rfl⟩, rfl⟩ | none => ⟨none, rfl⟩⟩
+
 end OracleComp
+
+@[simp]
+theorem SatisfiesM_OracleComp_eq : SatisfiesM (m := OracleComp spec) p x ↔
+    (∀ a, x = pure' _ a → p a) ∧ (∀ i q oa, x = queryBind' i q _ oa → ∀ a, SatisfiesM (m := OracleComp spec) p (oa a)) where
+  mp h := by
+    obtain ⟨ x', hx' ⟩ := h
+    constructor
+    · intro a h'
+      simp_all
+      match x' with
+      | pure' _ ⟨ _, h'' ⟩ => simp_all; exact hx' ▸ h''
+    · intro i q oa h' a
+      simp_all
+      match x' with
+      | queryBind' i' q' _ oa' =>
+        simp [map_bind] at hx'
+        obtain ⟨ hi, hq, hoa ⟩ := hx'
+        -- exact ⟨ oa' q, hx' ⟩
+        sorry
+  mpr := sorry

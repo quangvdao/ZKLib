@@ -84,8 +84,6 @@ def singleHash (left : α) (right : α) : OracleComp (oracleSpec α) α := do
   let out ← query () ⟨left, right⟩
   return out
 
--- TODO: provide `satisfiesM_eq` lemma for `OracleComp`, stating what the result is supposed to be
-
 /-- Building the next layer of a Merkle tree, as an oracle computation. -/
 def buildLayer (m : Nat) (leaves : Vector (α × α) (2 ^ m)) : OracleComp (oracleSpec α) (Vector α (2 ^ m)) :=
   (Vector.ofFn (n := 2 ^ m) (fun i => i)).mmap fun i => query (spec := oracleSpec α) () (leaves.get i)
