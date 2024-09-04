@@ -503,7 +503,7 @@ elab "pratt" : tactic => do
   let some unverifiedCert := computePrattCertificate n'.natLit! | failure
   let cert ← verifyCertificate n' n'.natLit! unverifiedCert
   let u := q(Nat.Prime_of_isNat $pn $cert)
-  closeMainGoal u
+  closeMainGoal (Name.mkSimple "pratt") u
 
 set_option trace.profiler true
 set_option profiler true
