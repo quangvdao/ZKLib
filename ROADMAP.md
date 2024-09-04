@@ -17,11 +17,23 @@ We provide a (non-exhaustive) list of tasks to be completed:
       - [ ] Develop the theory of interpolating multivariate polynomials given their values on a `n`-dimensional grid of points.
       - [ ] Specialize this theory to the case of multilinear polynomials (then merge with [`Multilinear.lean`](ZKLib/Data/MvPolynomial/Multilinear.lean)).
         - There is some subtlety here in the sense that general interpolation requires a field (for inverses of Lagrange coefficients), but multilinear interpolation/extension only requires a ring (since the coefficients are just `1`). We may need to develop multilinear theory for non-fields (for Binius).
+  - [ ] [`CodingTheory`](ZKLib/Data/CodingTheory)
+    - [ ] Define and develop basic results on linear codes.
+    - [ ] Define basic codes such as Reed-Solomon.
+    - [ ] Prove proximity gap and interleaved distance results (up to `distance / 3`).
   - [ ] [`BinaryTowerField`](ZKLib/Data/BinaryTowerField)
     - [ ] Define iterated quadratic extensions of the binary field (Wiedermann construction), and prove that the resulting ring is a field.
     - [ ] Define efficient representation of elements in a binary tower field (using `BitVec`?), (efficient) operations on them (see Binius paper), and prove that the resulting structure is a field isomorphic to the definition above.
   - [ ] [`ScalarPrimeField`](ZKLib/Data/ScalarPrimeField)
-    - [ ] Override operations on prime fields with verified implementations by e.g. fiat-crypto.
+    - [ ] Override operations on prime fields with verified implementations by e.g. fiat-crypto. Low priority for now.
   - [ ] [`EllipticCurve`](ZKLib/Data/EllipticCurve/)
-    - [ ] Consider importing [`FFaCiL`](https://github.com/argumentcomputer/FFaCiL.lean/tree/main) and improving upon it.
-    - [ ] Need to prove statements of the form "this elliptic curve over `F_q` has a large prime-order subgroup isomorphic to `F_p`".
+    - [ ] Development on this should be done over at [`FFaCiL`](https://github.com/argumentcomputer/FFaCiL.lean/tree/main).
+    - [ ] Low-priority for now.
+- [ ] [`InteractiveOracleReduction`](ZKLib/InteractiveOracleReduction)
+  - [ ] [`Basic.lean`](ZKLib/InteractiveOracleReduction/Basic.lean)
+- [ ] [`ProofSystem`](ZKLib/ProofSystem)
+  - [ ] [`Sumcheck`](ZKLib/ProofSystem/Sumcheck.lean)
+  - [ ] [`Spartan`](ZKLib/ProofSystem/Spartan.lean)
+- [ ] [`CommitmentScheme`](ZKLib/CommitmentScheme)
+  - [ ] [`Basic`](ZKLib/CommitmentScheme/Basic.lean)
+  - [ ] [`Tensor`](ZKLib/CommitmentScheme/Tensor.lean)

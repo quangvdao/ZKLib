@@ -98,4 +98,11 @@ def build (m : Nat) (leaves : Vector α (2 ^ m)) : OracleComp (oracleSpec α) α
     let nextLayer ← buildLayer α m leavesPair
     return ← build m nextLayer
 
+def exampleTest : OracleComp unifSpec Nat := do
+  let x ← query 3 ()
+  let y ← query 5 ()
+  return x + y
+
+#eval exampleTest.finSupport
+
 end MerkleTree

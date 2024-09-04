@@ -1,8 +1,4 @@
-/-
-Copyright (c) 2024 Quang Dao. All rights reserved.
-Released under Apache 2.0 license as described in the file LICENSE.
-Authors: Quang Dao
--/
+-- This file is from Bolton Bailey
 
 import Mathlib.LinearAlgebra.Lagrange
 

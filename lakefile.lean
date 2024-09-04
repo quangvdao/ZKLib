@@ -27,7 +27,3 @@ require VCVio from git
 lean_lib «ZKLib» {
   -- add any library configuration options here
 }
-
-lean_lib «Tutorials» {
-  -- root := `Tutorials.CodeExtraction
-}
