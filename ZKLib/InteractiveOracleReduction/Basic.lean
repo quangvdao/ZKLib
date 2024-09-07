@@ -8,7 +8,7 @@ import Mathlib.Probability.ProbabilityMassFunction.Constructions
 import Mathlib.Probability.Distributions.Uniform
 import Mathlib.Topology.UnitInterval
 import VCVio
-import ZKLib.Data.HList
+import ZKLib.Data.Misc.HList
 import ZKLib.Relation.Basic
 import ZKLib.ToVCVio.Oracle
 

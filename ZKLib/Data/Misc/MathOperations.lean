@@ -11,6 +11,8 @@ import Mathlib.Data.ZMod.Basic
 
 /-!
   # Helper Functions and Lemmas
+
+  TODO: split these files into different files based on each namespace
 -/
 
 namespace Nat

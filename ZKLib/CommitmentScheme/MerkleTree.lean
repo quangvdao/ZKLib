@@ -5,7 +5,7 @@ Authors: Quang Dao
 -/
 
 import ZKLib.ToVCVio.Oracle
-import ZKLib.Data.MathOperations
+import ZKLib.Data.Misc.MathOperations
 
 /-!
   # Merkle Trees as a vector commitment

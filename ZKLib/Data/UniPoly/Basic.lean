@@ -6,7 +6,7 @@ Authors: Quang Dao
 
 import Mathlib.Algebra.Tropical.Basic
 import Mathlib.RingTheory.Polynomial.Basic
-import ZKLib.Data.MathOperations
+import ZKLib.Data.Misc.MathOperations
 
 /-!
   # Univariate Polynomials with Efficient Operations
@@ -58,9 +58,17 @@ def add (p q : UniPoly R) : UniPoly R :=
   let ⟨p', q'⟩ := Array.matchSize p.coeffs q.coeffs 0
   .mk (Array.zipWith p' q' (· + ·) )
 
-/-- Scalar multiplication of `UniPoly`. -/
+/-- Scalar multiplication of `UniPoly` by an element of `R`. -/
 def smul (r : R) (p : UniPoly R) : UniPoly R :=
   .mk (Array.map (fun a => r * a) p.coeffs)
+
+/-- Scalar multiplication of `UniPoly` by a natural number. -/
+def nsmul (n : ℕ) (p : UniPoly R) : UniPoly R :=
+  .mk (Array.map (fun a => n * a) p.coeffs)
+
+/-- Scalar multiplication of `UniPoly` by an integer. -/
+def zsmul [Ring R] (z : ℤ) (p : UniPoly R) : UniPoly R :=
+  .mk (Array.map (fun a => z * a) p.coeffs)
 
 /-- Negation of a `UniPoly`. -/
 def neg [Ring R] (p : UniPoly R) : UniPoly R := p.smul (-1)
@@ -87,7 +95,8 @@ instance : Zero (UniPoly R) := ⟨UniPoly.mk #[]⟩
 instance : One (UniPoly R) := ⟨UniPoly.C 1⟩
 instance : Add (UniPoly R) := ⟨UniPoly.add⟩
 instance : SMul R (UniPoly R) := ⟨UniPoly.smul⟩
--- instance [Ring R] : SMul ℤ (UniPoly R) := ⟨UniPoly.zsmul⟩
+instance : SMul ℕ (UniPoly R) := ⟨UniPoly.nsmul⟩
+instance [Ring R] : SMul ℤ (UniPoly R) := ⟨UniPoly.zsmul⟩
 instance [Ring R] : Neg (UniPoly R) := ⟨UniPoly.neg⟩
 instance [Ring R] : Sub (UniPoly R) := ⟨UniPoly.sub⟩
 instance : Mul (UniPoly R) := ⟨UniPoly.mul⟩
@@ -161,6 +170,44 @@ instance [BEq R] [Field R] : Mod (UniPoly R) := ⟨UniPoly.mod⟩
 /-- Pseudo-division of a `UniPoly` by `X`, which shifts all non-constant coefficients to the left by one. -/
 def divX (p : UniPoly R) : UniPoly R := ⟨p.coeffs.extract 1 p.size⟩
 
+theorem ext {p q : UniPoly R} (h : p.coeffs = q.coeffs) : p = q := by
+  cases p; cases q; simp at h; rw [h]
+
+@[simp] theorem zero_def : (0 : UniPoly R) = ⟨#[]⟩ := rfl
+
+-- What is going on with the unfolding??
+@[simp] theorem add_comm (p q : UniPoly R) : p + q = q + p := by
+  simp [instHAdd, instAdd, add, List.matchSize]
+  refine Array.ext' ?_
+  simp [Array.data_zipWith]
+  rw [List.zipWith_comm _ _ _]
+  congr; ext a b; rename_i inst;
+  have : ∀ (a b : R), Add.add a b = a + b := fun a b => rfl
+  rw [this, this]; simp [inst.add_comm]
+
+@[simp] theorem zero_add (p : UniPoly R) : 0 + p = p := by
+  simp [instHAdd, instAdd, add, List.matchSize]
+  refine UniPoly.ext (Array.ext' ?_)
+  simp [Array.data_zipWith, List.zipWith]
+  sorry
+
+@[simp] theorem add_assoc (p q r : UniPoly R) : p + q + r = p + (q + r) := by
+  simp [instHAdd, instAdd, add, List.matchSize]
+  refine Array.ext' ?_
+  simp [Array.data_zipWith]
+  sorry
+
+-- TODO: define `SemiRing` structure on `UniPoly`
+-- instance : AddCommMonoid (UniPoly R) := {
+--   add_assoc := fun p q r => by simp [instHAdd, instAdd, add]
+--   zero_add := sorry
+--   add_zero := sorry
+--   add_comm := sorry
+--   nsmul := sorry
+-- }
+
+
+
 end Operations
 
 
@@ -203,6 +250,10 @@ instance instSetoidUniPoly: Setoid (UniPoly R) where
 
 /-- The quotient of `UniPoly R` by `UniPoly.equiv`. This will be shown to be equivalent to `Polynomial R`. -/
 def QuotientUniPoly := Quotient (@instSetoidUniPoly R _)
+
+-- TODO: show that operations on `UniPoly` descend to `QuotientUniPoly`
+
+
 
 end Equiv
 
