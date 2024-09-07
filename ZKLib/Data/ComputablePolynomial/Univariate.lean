@@ -1,157 +1,168 @@
--- This file is from Bolton Bailey
+/-
+Copyright (c) 2024 Quang Dao. All rights reserved.
+Released under Apache 2.0 license as described in the file LICENSE.
+Authors: Quang Dao
+-/
 
-import Mathlib.Algebra.Ring.Defs
-import Mathlib.Data.Finset.Basic
-import Mathlib.Probability.Distributions.Uniform
-import Mathlib.Algebra.Ring.InjSurj
 import Mathlib.Algebra.Tropical.Basic
-import Mathlib.Algebra.Polynomial.Degree.Definitions
-import Lean.Data.RBMap
+import Mathlib.RingTheory.Polynomial.Basic
+import ZKLib.Data.MathOperations
 
-def List.matchLength (a : List α) (b : List α) (unit : α) : List α × List α :=
-  if a.length < b.length then
-    (a ++ .replicate (b.length - a.length) unit, b)
-  else
-    (a, b ++ .replicate (a.length - b.length) unit)
+/-!
+  # Univariate Polynomials with Efficient Operations
+
+  Note: this file was originally taken from Bolton Bailey, but has been heavily modified to fit our needs.
+-/
 
 section Polynomial
 
-/-- A type analogous to `Polynomial` that supports computable operations. This polynomial is represented internally as a list of coefficients. For example the list `[1,2,3]` represents the polynomial `1 + 2x + 3x^2`.
+/-- A type analogous to `Polynomial` that supports computable operations. This polynomial is represented internally as an Array of coefficients.
+
+For example the Array `#[1,2,3]` represents the polynomial `1 + 2x + 3x^2`. Two arrays may represent the same polynomial via zero-padding, for example `#[1,2,3] = #[1,2,3,0,0,0,...]`.
  -/
-def Polynomial' (R : Type) := List R
+structure UniPoly (R : Type _) [Semiring R] where
+  mk::
+  coeffs : Array R
+deriving Inhabited, DecidableEq, Repr
 
-instance inhabitedPolynomial' (R : Type) [Inhabited R] : Inhabited (Polynomial' R) := ⟨[Inhabited.default]⟩
-instance (R : Type) [DecidableEq R] : DecidableEq (Polynomial' R) := List.hasDecEq
+namespace UniPoly
 
-def Polynomial'.mk {R : Type} [Semiring R] (l : List R) : Polynomial' R := l
+variable {R : Type _} [Semiring R]
 
-def Polynomial'.toList {R : Type} [Semiring R] (p : Polynomial' R) : List R := p
+/-- Another way to access `coeffs` -/
+def toArray (p : UniPoly R) : Array R := p.coeffs
 
-/-- Evaluates a polynomial at a given value. -/
-def Polynomial'.eval {R : Type} [Zero R] [Add R] [Mul R] [HPow R ℕ R] (r : R) (p : Polynomial' R) : R :=
-  (p.enum.map (fun ⟨i, a⟩ => a * r ^ i)).sum
+/-- The size of the underlying array. This may not correspond to the degree of the corresponding polynomial if the array has leading zeroes. -/
+def size (p : UniPoly R) : Nat := p.coeffs.size
 
-def Polynomial'.eval₂ {R S₁ : Type} [Semiring R] [Semiring S] (f : R → S) (x : S) (p : Polynomial' R) : S :=
-  (p.enum.map (fun ⟨i, a⟩ => f a * x ^ i)).sum
+/-- The constant polynomial `C r`. -/
+def C (r : R) : UniPoly R := ⟨#[r]⟩
 
+/-- The variable `X`. -/
+def X : UniPoly R := ⟨#[0, 1]⟩
 
-def Polynomial'.C {R : Type} [Semiring R] (r : R) : Polynomial' R := [r]
+/-- Evaluates a `UniPoly` at a given value, using a ring homomorphism `f: R →+* S`. -/
+def eval₂ [Semiring S] (f : R →+* S) (x : S) (p : UniPoly R) : S :=
+  p.coeffs.zipWithIndex.foldl (fun acc ⟨a, i⟩ => acc + f a * x ^ i) 0
 
-def Polynomial'.X {R : Type} [Semiring R] : Polynomial' R := [0, 1]
+/-- Evaluates a `UniPoly` at a given value. -/
+def eval (x : R) (p : UniPoly R) : R :=
+  p.eval₂ (RingHom.id R) x
 
-def Polynomial'.add {R : Type} [Semiring R] (p q : Polynomial' R) : Polynomial' R :=
-  let ⟨p', q'⟩ := List.matchLength p q 0
-  List.zipWith (· + ·) p' q'
+/-- Addition of two `UniPoly`s. Defined as the pointwise sum of the underlying coefficient arrays (properly padded with zeroes). -/
+def add (p q : UniPoly R) : UniPoly R :=
+  let ⟨p', q'⟩ := Array.matchSize p.coeffs q.coeffs 0
+  .mk (Array.zipWith p' q' (· + ·) )
 
-def Polynomial'.smul {R : Type} [Semiring R] (r : R) (p : Polynomial' R) : Polynomial' R :=
-  List.map (fun a => r * a) p
+/-- Scalar multiplication of `UniPoly`. -/
+def smul (r : R) (p : UniPoly R) : UniPoly R :=
+  .mk (Array.map (fun a => r * a) p.coeffs)
 
-def Polynomial'.nsmul {R : Type} [Semiring R] (n : ℕ) (p : Polynomial' R) : Polynomial' R :=
-  List.map (fun a => n * a) p
+/-- Negation of a `UniPoly`. -/
+def neg [Ring R] (p : UniPoly R) : UniPoly R := p.smul (-1)
 
-def Polynomial'.zsmul {R : Type} [Ring R] (n : ℤ) (p : Polynomial' R) : Polynomial' R :=
-  List.map (fun a => n * a) p
+/-- Subtraction of two `UniPoly`s. -/
+def sub [Ring R] (p q : UniPoly R) : UniPoly R := p.add q.neg
 
-def Polynomial'.mul {R : Type} [Semiring R] (p q : Polynomial' R) : Polynomial' R :=
-  (p.enum).foldl (fun a ⟨n, b⟩ => a.add (Polynomial'.mk (((List.replicate n (0 : R))) ++ (Polynomial'.smul b q).toList))) []
+/-- Multiplication of a `UniPoly` by `X ^ i`, i.e. pre-pending `i` zeroes to the underlying array of coefficients. -/
+def mulPowX (i : Nat) (p : UniPoly R) : UniPoly R := .mk (Array.replicate i 0 ++ p.coeffs)
 
-def Polynomial'.neg {R : Type} [Ring R] (p : Polynomial' R) : Polynomial' R := List.map (· * -1) p
+/-- Multiplication of a `UniPoly` by `X`, reduces to `mulPowX 1`. -/
+@[reducible] def mulX (p : UniPoly R) : UniPoly R := p.mulPowX 1
 
-def Polynomial'.sub {R : Type} [Ring R] (p q : Polynomial' R) : Polynomial' R := p.add q.neg
+/-- Multiplication of two `UniPoly`s, using the naive `O(n^2)` algorithm. -/
+def mul (p q : UniPoly R) : UniPoly R :=
+  p.coeffs.zipWithIndex.foldl (fun acc ⟨a, i⟩ => acc.add <| (smul a q).mulPowX i) (C 0)
 
-def Polynomial'.pow {R : Type} [Semiring R] (p : Polynomial' R) (n : Nat) : Polynomial' R := List.foldl (fun a b => a.mul p) (Polynomial'.C 1) (List.replicate n p) -- TODO more complicated than it needs to be
+/-- Exponentiation of a `UniPoly` by a natural number `n` via repeated multiplication. See `powBySquare` for a more efficient algorithm using repeated squaring. -/
+def pow (p : UniPoly R) (n : Nat) : UniPoly R := (mul p)^[n] (C 1)
 
-instance (R : Type) [Semiring R] : Inhabited (Polynomial' R) := ⟨[]⟩
+/-- More efficient exponentiation of a `UniPoly` using repeated squaring. -/
+def powBySquare (p : UniPoly R) (n : Nat) : UniPoly R := (mul p)^[n]₂ (C 1)
 
+instance : Zero (UniPoly R) := ⟨UniPoly.mk #[]⟩
+instance : One (UniPoly R) := ⟨UniPoly.C 1⟩
+instance : Add (UniPoly R) := ⟨UniPoly.add⟩
+instance : SMul R (UniPoly R) := ⟨UniPoly.smul⟩
+-- instance [Ring R] : SMul ℤ (UniPoly R) := ⟨UniPoly.zsmul⟩
+instance [Ring R] : Neg (UniPoly R) := ⟨UniPoly.neg⟩
+instance [Ring R] : Sub (UniPoly R) := ⟨UniPoly.sub⟩
+instance : Mul (UniPoly R) := ⟨UniPoly.mul⟩
+instance : Pow (UniPoly R) Nat := ⟨UniPoly.pow⟩
+instance : NatCast (UniPoly R) := ⟨fun n => UniPoly.C (n : R)⟩
+instance [Ring R] : IntCast (UniPoly R) := ⟨fun n => UniPoly.C (n : R)⟩
 
-instance {R : Type} [Semiring R] : Zero (Polynomial' R) := ⟨[]⟩
-instance {R : Type} [Semiring R] : One (Polynomial' R) := ⟨Polynomial'.C 1⟩
-instance {R : Type} [Semiring R] : Add (Polynomial' R) := ⟨Polynomial'.add⟩
-instance {R : Type} [Semiring R] : Mul (Polynomial' R) := ⟨Polynomial'.mul⟩
-instance {R : Type} [Ring R] : Neg (Polynomial' R) := ⟨Polynomial'.neg⟩
-instance {R : Type} [Ring R] : Sub (Polynomial' R) := ⟨Polynomial'.sub⟩
-instance {R : Type} [Semiring R] : Pow (Polynomial' R) Nat := ⟨Polynomial'.pow⟩
-instance {R : Type} [Semiring R] : SMul ℕ (Polynomial' R) := ⟨Polynomial'.nsmul⟩
-instance {R : Type} [Ring R] : SMul ℤ (Polynomial' R) := ⟨Polynomial'.zsmul⟩
-instance {R : Type} [Semiring R] : NatCast (Polynomial' R) := ⟨fun n => Polynomial'.C (n : R)⟩
-instance {R : Type} [Ring R] : IntCast (Polynomial' R) := ⟨fun n => Polynomial'.C (n : R)⟩
+/-- Convert a `UniPoly` to a `Polynomial`. -/
+noncomputable def toPoly (p : UniPoly R) : Polynomial R :=
+  p.eval₂ Polynomial.C Polynomial.X
 
-
-noncomputable def Polynomial'.toPoly {R : Type} [Semiring R] (p : Polynomial' R) : Polynomial R :=
-  Polynomial'.eval₂
-    (R := R) (S₁ := Polynomial R)
-    (fun r : R => Polynomial.C r) (Polynomial.X) p
-
-def Polynomial'.degreeBound {R : Type} [Semiring R] (p : Polynomial' R) : WithBot Nat :=
-  match p.length with
+/-- Return a bound on the degree of a `UniPoly` as the size of the underlying array (and `⊥` if the array is empty). -/
+def degreeBound (p : UniPoly R) : WithBot Nat :=
+  match p.coeffs.size with
   | 0 => ⊥
   | .succ n => n
 
-def Polynomial'.natDegreeBound {R : Type} [Semiring R] (p : Polynomial' R) : Nat :=
+/-- Convert `degreeBound` to a natural number by sending `⊥` to `0`. -/
+def natDegreeBound (p : UniPoly R) : Nat :=
   (degreeBound p).getD 0
 
-def Polynomial'.leadingCoeff {R : Type} [Zero R] (p : Polynomial' R) : R :=
-  match p with
-  | [] => 0
-  | a :: [] => a
-  | _ :: as => leadingCoeff as
+/-- Remove leading zeroes from a `UniPoly`. Requires `BEq` to check if the coefficients are zero. -/
+def trim [BEq R] (p : UniPoly R) : UniPoly R := ⟨p.coeffs.popWhile (fun a => a == 0)⟩
 
-def Polynomial'.Monic {R : Type} [One R] (p : Polynomial' R) : Prop :=
-  match p with
-  | [] => False
-  | a :: [] => a = 1
-  | _ :: as => Monic as
+/-- Return the degree of a `UniPoly` as size of the underlying trimmed array. -/
+def degree [BEq R] (p : UniPoly R) : Nat := p.trim.size
 
-def Polynomial'.trim {R : Type} [Semiring R] (p : Polynomial' R) : Polynomial' R :=
-  match p with
-  | [] => []
-  | _ :: [] => []
-  | a :: as => a :: trim as
+/-- Return the leading coefficient of a `UniPoly` as the last coefficient of the trimmed array, or `0` if the trimmed array is empty. -/
+def leadingCoeff [BEq R] (p : UniPoly R) : R := p.trim.coeffs.getLastD 0
 
+/-- Check if a `UniPoly` is monic, i.e. its leading coefficient is 1. -/
+def monic [BEq R] (p : UniPoly R) : Bool := p.leadingCoeff == 1
 
-def Polynomial'.divModByMonic_aux {R : Type} [Field R] (p : Polynomial' R) (q : Polynomial' R) :
-    Polynomial' R × Polynomial' R :=
-  go (p.length - q.length) p q
+/-- Division and modulus of `p : UniPoly R` by a monic `q : UniPoly R`. -/
+def divModByMonicAux [BEq R] [Field R] (p : UniPoly R) (q : UniPoly R) :
+    UniPoly R × UniPoly R :=
+  go (p.size - q.size) p q
 where
-  go : Nat -> Polynomial' R -> Polynomial' R -> Polynomial' R × Polynomial' R
-  | 0, p, q => ⟨0, p⟩
+  go : Nat → UniPoly R → UniPoly R → UniPoly R × UniPoly R
+  | 0, p, _ => ⟨0, p⟩
   | n+1, p, q =>
-      let k := p.length - q.length -- k should equal n, this is technically unneeded
-      let q' := C p.leadingCoeff * (q * Polynomial'.X.pow k)
+      let k := p.coeffs.size - q.coeffs.size -- k should equal n, this is technically unneeded
+      let q' := C p.leadingCoeff * (q * X.pow k)
       let p' := (p - q').trim
       let (e, f) := go n p' q
       -- p' = q * e + f
       -- Thus p = p' + q' = q * e + f + p.leadingCoeff * q * X^n = q * (e + p.leadingCoeff * X^n) + f
       ⟨e + C p.leadingCoeff * X^k, f⟩
 
+/-- Division of `p : UniPoly R` by a monic `q : UniPoly R`. -/
+def divByMonic [BEq R] [Field R] (p : UniPoly R) (q : UniPoly R) :
+    UniPoly R :=
+  (divModByMonicAux p q).1
 
+/-- Modulus of `p : UniPoly R` by a monic `q : UniPoly R`. -/
+def modByMonic [BEq R] [Field R] (p : UniPoly R) (q : UniPoly R) :
+    UniPoly R :=
+  (divModByMonicAux p q).2
 
+/-- Division of two `UniPoly`s. -/
+def div [BEq R] [Field R] (p q : UniPoly R) : UniPoly R := (C (q.leadingCoeff)⁻¹ • p).divByMonic (C (q.leadingCoeff)⁻¹ * q)
 
-def Polynomial'.divByMonic {R : Type} [Field R] (p : Polynomial' R) (q : Polynomial' R) :
-    Polynomial' R :=
-  (divModByMonic_aux p q).1
+/-- Modulus of two `UniPoly`s. -/
+def mod [BEq R] [Field R] (p q : UniPoly R) : UniPoly R := (C (q.leadingCoeff)⁻¹ • p).modByMonic (C (q.leadingCoeff)⁻¹ * q)
 
-def Polynomial'.modByMonic {R : Type} [Field R] (p : Polynomial' R) (q : Polynomial' R) :
-    Polynomial' R :=
-  (divModByMonic_aux p q).2
+instance [BEq R] [Field R] : Div (UniPoly R) := ⟨UniPoly.div⟩
+instance [BEq R] [Field R] : Mod (UniPoly R) := ⟨UniPoly.mod⟩
 
-def Polynomial'.div {R : Type} [Field R] (p q : Polynomial' R) : Polynomial' R := (C (q.leadingCoeff)⁻¹ • p).divByMonic (C (q.leadingCoeff)⁻¹ * q)
-
-def Polynomial'.mod {R : Type} [Field R] (p q : Polynomial' R) : Polynomial' R := (C (q.leadingCoeff)⁻¹ • p).modByMonic (C (q.leadingCoeff)⁻¹ * q)
-
-
-instance {R : Type} [Field R] : Div (Polynomial' R) := ⟨Polynomial'.div⟩
-instance {R : Type} [Field R] : Mod (Polynomial' R) := ⟨Polynomial'.mod⟩
-
-def Polynomial'.divX {R : Type} [Semiring R] (p : Polynomial' R) : Polynomial' R := p.toList.tail
+end UniPoly
 
 -- unique polynomial of degree n that has nodes at ω^i for i = 0, 1, ..., n-1
-def Lagrange.nodal' {F : Type} (n : ℕ) (ω : F) : Polynomial' F := [] -- XXX TODO implement
+def Lagrange.nodal' {F : Type} [Semiring F] (n : ℕ) (ω : F) : UniPoly F := .mk (Array.range n |>.map (fun i => ω^i))
 
 /--
 This function produces the polynomial which is of degree n and is equal to r i at ω^i for i = 0, 1, ..., n-1.
 -/
-def Lagrange.interpolate' {F : Type} [Semiring F] (n : ℕ) (ω : F) (r : Fin n → F) : Polynomial' F := [] -- XXX TODO implement
+def Lagrange.interpolate' {F : Type} [Semiring F] (n : ℕ) (ω : F) (r : Fin n → F) : UniPoly F := sorry
+  -- .mk (Array.finRange n |>.map (fun i => r i))
 
 
 section Tropical
@@ -177,23 +188,23 @@ def TropicallyBoundPoly (R) [Semiring R] : Subsemiring (Polynomial R × Tropical
   zero_mem' := Polynomial.degree_zero.le
 
 
-noncomputable def Polynomial'.toTropicallyBoundPolynomial {R : Type} [Semiring R] (p : Polynomial' R) :
+noncomputable def UniPoly.toTropicallyBoundPolynomial {R : Type} [Semiring R] (p : UniPoly R) :
     Polynomial R × Tropical (OrderDual (WithBot ℕ)) :=
-  (Polynomial'.toPoly p, Tropical.trop (OrderDual.toDual (Polynomial'.degreeBound p)))
+  (UniPoly.toPoly p, Tropical.trop (OrderDual.toDual (UniPoly.degreeBound p)))
 
 def degBound (b: WithBot ℕ) : ℕ := match b with
   | ⊥ => 0
   | some n => n + 1
 
-def TropicallyBoundPolynomial.toPolynomial' {R : Type} [Semiring R] (p : Polynomial R × Tropical (OrderDual (WithBot ℕ))) :
-    Polynomial' R :=
+def TropicallyBoundPolynomial.toUniPoly {R : Type} [Semiring R] (p : Polynomial R × Tropical (OrderDual (WithBot ℕ))) :
+    UniPoly R :=
   match p with
-  | (p, n) => List.range (degBound (n.untrop : WithBot ℕ)) |>.map (fun i => p.coeff i)
+  | (p, n) => UniPoly.mk (Array.range (degBound n.untrop) |>.map (fun i => p.coeff i))
 
-noncomputable def Equiv.Polynomial'.TropicallyBoundPolynomial {R : Type} [Semiring R] :
-    Polynomial' R ≃+* Polynomial R × Tropical (OrderDual (WithBot ℕ)) where
-      toFun := Polynomial'.toTropicallyBoundPolynomial
-      invFun := TropicallyBoundPolynomial.toPolynomial'
+noncomputable def Equiv.UniPoly.TropicallyBoundPolynomial {R : Type} [Semiring R] :
+    UniPoly R ≃+* Polynomial R × Tropical (OrderDual (WithBot ℕ)) where
+      toFun := UniPoly.toTropicallyBoundPolynomial
+      invFun := TropicallyBoundPolynomial.toUniPoly
       left_inv := by sorry
       right_inv := by sorry
       map_mul' := by sorry

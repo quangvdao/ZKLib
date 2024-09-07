@@ -5,60 +5,11 @@ Authors: Quang Dao
 -/
 
 import ZKLib.ToVCVio.Oracle
-import Batteries.Data.Array.Monadic
+import ZKLib.Data.MathOperations
 
 /-!
   # Merkle Trees as a vector commitment
 -/
-
-namespace List
-
-def test_mapM {m : Type u → Type v} [Monad m] [LawfulMonad m] {α : Type w} {β : Type u} (as : List α) (f : α → m β) :=
-    (as.mapM f)
-
--- @[simp] theorem length_mapM {m : Type u → Type v} [Monad m] [LawfulMonad m] {α : Type w} {β : Type u} (as : List α) (f : α → m β) :
---     SatisfiesM (fun res => res.length = as.length) (as.mapM f) := by
---   induction as with
---   | nil => simp [List.mapM, List.mapM.loop, SatisfiesM]; use pure ⟨ [], by simp⟩ ; simp
---   | cons _ as ih => simp [List.mapM, List.mapM.loop, ih]
-
-end List
-
-#check Array.size_mapM
-
--- TODO: add `range` lemmas to `Array`, similar to `List.range` lemmas
-
-namespace Array
-
-@[simp]
-theorem mem_range {m n : Nat} : m ∈ range n ↔ m < n := sorry
-
-def finRange (n : Nat) : Array (Fin n) := Array.ofFn (fun i => i)
-
-end Array
-
-namespace Mathlib
-
-namespace Vector
-
-def interleave {n : Nat} (xs : Vector α n) (ys : Vector α n) : Vector α (2 * n) := sorry
-
--- def pairwise {α : Type} {n : Nat} (v : Vector α (2 * n)) : Vector (α × α) n :=
---   Vector.ofFn (fun i =>
---     let j := 2 * i
---     (v.get ⟨j, by omega; exact i.isLt⟩,
---      v.get ⟨j + 1, by simp [Nat.mul_two, Nat.lt_succ]; exact i.isLt⟩))
-
-def chunkPairwise {α : Type} : {n : Nat} → Vector α (2 * n) → Vector (α × α) n
-  | 0, Vector.nil => Vector.nil
-  | n + 1, xs => by
-    have : 2 * (n + 1) = 2 * n + 2 := by ring
-    rw [this] at xs
-    exact ⟨xs.head, xs.tail.head⟩ ::ᵥ chunkPairwise xs.tail.tail
-
-end Vector
-
-end Mathlib
 
 -- instance : Fintype (BitVec n) := inferInstanceAs (Fin (2 ^ n))
 

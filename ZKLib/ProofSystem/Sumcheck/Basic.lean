@@ -11,6 +11,7 @@ import ZKLib.Relation.Sumcheck
 # The Sumcheck Protocol, abstract version
 
 We define the sumcheck protocol using Mathlib's types for polynomials, which are noncomputable. Other files will deal with implementations of the protocol, and we will prove that those implementations are instances of the abstract protocol (or maybe that their soundness can be derived from the soundness of this abstract protocol)
+
 -/
 
 namespace Sumcheck
@@ -26,14 +27,12 @@ open Sumcheck.Abstract
 structure SamplingSet (R : Type _) where
   pred : R → Prop
   decPred : DecidablePred pred
-  nonempty : Nonempty (Subtype pred)
+  inhabited : Inhabited (Subtype pred)
 
-attribute [instance] SamplingSet.decPred SamplingSet.nonempty
-
-variable {R : Type _} [CommSemiring R] [Fintype R] [Nonempty R]
+variable {R : Type _} [CommSemiring R] [Fintype R] [Inhabited R]
 
 /-- Evaluate the first variable of a multivariate polynomial -/
-def boundFirstVar (n : ℕ) (p : MvPolynomial (Fin (n + 1)) R) (r : R) : MvPolynomial (Fin n) R := (finSuccEquiv R n p).eval (C r)
+def evalFirstVar (n : ℕ) (p : MvPolynomial (Fin (n + 1)) R) (r : R) : MvPolynomial (Fin n) R := (finSuccEquiv R n p).eval (C r)
 
 variable (index : Index R) (samplingSet : SamplingSet R)
 
@@ -54,7 +53,7 @@ def proverRound : IOR.ProverRound (spec index samplingSet) where
   samplePrvRand := fun i => _
   -- This gets really annoying because Lean cannot automatically infer the type of `state`
   -- Consider not (ab)using dependent types
-  prove := fun i stmt state _ ⟨chal, _⟩ => ⟨ sumFinsetExceptFirst state index.domain , boundFirstVar (index.nVars - i) state chal ⟩
+  prove := fun i stmt state _ ⟨chal, _⟩ => ⟨ sumFinsetExceptFirst state index.domain , evalFirstVar (index.nVars - i) state chal ⟩
 
 def prover : IOR.Prover (spec index samplingSet) where
   toProverRound := proverRound index samplingSet

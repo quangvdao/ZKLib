@@ -51,15 +51,25 @@ def runWithOracle (f : Oracle spec) : OracleComp spec α → α
   | pure' _ x => x
   | queryBind' i q _ oa => runWithOracle f (oa (f i q))
 
-@[simp] theorem SatisfiesM_Option_eq' : SatisfiesM (m := Option) p x ↔ ∀ a, x = some a → p a :=
-  ⟨by revert x; intro
-    | some x', y, z, w =>
-      simp_all,
-    -- | some _, ⟨some ⟨_, h⟩, rfl⟩, _, rfl => exact h,
-   fun h => match x with | some a => ⟨some ⟨a, h _ rfl⟩, rfl⟩ | none => ⟨none, rfl⟩⟩
 
-end OracleComp
+-- Oracle with bounded use; returns `default` if the oracle is used more than `bound` times.
+-- We could then have the range be an `Option` type, so that `default` is `none`.
+def boundedUseOracle {ι : Type} [DecidableEq ι] {spec : OracleSpec ι} (bound : ι → ℕ) :
+    spec →[ι → ℕ]ₛₒ spec := fun i query queryCount =>
+  if queryCount i > bound i then
+    return ⟨default, queryCount⟩
+  else
+    countingOracle i query queryCount
 
+-- Single use oracle
+@[reducible]
+def singleUseOracle {ι : Type} [DecidableEq ι] {spec : OracleSpec ι} :
+    spec →[ι → ℕ]ₛₒ spec :=
+  boundedUseOracle (fun _ ↦ 1)
+
+
+set_option linter.unusedVariables false in
+/-- `SatisfiesM` for `OracleComp` -/
 @[simp]
 theorem SatisfiesM_OracleComp_eq : SatisfiesM (m := OracleComp spec) p x ↔
     (∀ a, x = pure' _ a → p a) ∧ (∀ i q oa, x = queryBind' i q _ oa → ∀ a, SatisfiesM (m := OracleComp spec) p (oa a)) where
@@ -76,6 +86,19 @@ theorem SatisfiesM_OracleComp_eq : SatisfiesM (m := OracleComp spec) p x ↔
       | queryBind' i' q' _ oa' =>
         simp [map_bind] at hx'
         obtain ⟨ hi, hq, hoa ⟩ := hx'
-        -- exact ⟨ oa' q, hx' ⟩
-        sorry
-  mpr := sorry
+        subst hi hoa hq h'
+        refine ⟨ oa' a, by simp ⟩
+  -- For some reason `h` is marked as unused variable
+  -- Probably due to `simp_all`
+  mpr := fun h => match x with
+    | pure' _ a => by
+      simp_all
+      exact ⟨ pure' _ ⟨a , h⟩, by simp ⟩
+    | queryBind' i q _ oa => by
+      simp_all
+      have hBind' := h i q rfl
+      simp at hBind'
+      have h' := fun a => Classical.choose_spec (hBind' a)
+      exact ⟨ queryBind' i q _ (fun a =>Classical.choose (hBind' a)), by simp [map_bind, h'] ⟩
+
+end OracleComp

@@ -10,6 +10,7 @@ import Mathlib.Topology.UnitInterval
 import VCVio
 import ZKLib.Data.HList
 import ZKLib.Relation.Basic
+import ZKLib.ToVCVio.Oracle
 
 /-!
 # Formalism of Interactive Oracle Reductions
@@ -38,8 +39,11 @@ IOP" [BCG20] (and other kinds of IOPs) from our definition.
 
 -/
 
+instance instDecidableEqOption [DecidableEq α] : DecidableEq (Option α) := inferInstance
+
 namespace IOR
 
+open OracleComp
 section Format
 
 /--
@@ -59,13 +63,20 @@ class ValidOracleize (O : Oracleize n Message) where
   range_inhabited : ∀ i, Inhabited (O.Response i)
   range_fintype : ∀ i, Fintype (O.Response i)
 
+class ValidChallenge (C : Fin n → Type) where
+  fintype : ∀ i, Fintype (C i)
+  decidableEq : ∀ i, DecidableEq (C i)
+  inhabited : ∀ i, Inhabited (C i)
+  selectable : ∀ i, SelectableType (C i)
+
 /-- The specification of an Interactive Oracle Reduction -/
 structure ProtocolSpec where
   numRounds : ℕ+
   Message : Fin numRounds → Type -- Message type for each round
   Challenge : Fin numRounds → Type -- Challenge type for each round
   Oracle : Oracleize numRounds Message -- Oracle for each round, derived from the message
-  validOracle : ValidOracleize Oracle -- Oracle satisfies the `ValidOracleize` conditions
+  validChallenge : ValidChallenge Challenge -- Challenges can be sampled from
+  validOracle : ValidOracleize Oracle -- Oracles satisfy the `ValidOracleize` conditions
 
 def ChallengePMF (spec : ProtocolSpec) := ∀ i, PMF (spec.Challenge i)
 
@@ -89,6 +100,16 @@ def Transcript.toChallenges (transcript : Transcript spec) : Challenges spec := 
 -- TODO: re-org this structure
 structure ProverSpec (spec : ProtocolSpec)
 
+/-- Oracle for the prover to query the verifier's challenge in round `i`.
+The prover may query only once, after which the challenge oracle returns `none`. -/
+def oracleChallengeSpec (spec : ProtocolSpec) (i : Fin spec.numRounds) : OracleSpec Unit where
+  domain := fun _ => Unit
+  range := fun _ => Option (spec.Challenge i)
+  domain_decidableEq' := fun _ => decEq
+  range_decidableEq' := fun _ => @instDecidableEqOption _ (spec.validChallenge.decidableEq i)
+  range_inhabited' := fun _ => inferInstance
+  range_fintype' := fun _ => @instFintypeOption _ (spec.validChallenge.fintype i)
+
 /--
   The prover function for each round of the IOR, disregarding the witness input and output.
 -/
@@ -109,11 +130,10 @@ structure ProverWithOracle (spec : ProtocolSpec) (oSpec : OracleSpec ι) (relIn 
 
 
 /-- The full prover, including the witness input and output -/
-structure Prover (spec : ProtocolSpec) (relIn : Relation) (relOut : Relation) extends ProverRound spec relIn where
+structure Prover (spec : ProtocolSpec) (relIn : Relation) extends ProverRound spec relIn where
   fromWitnessIn : relIn.Witness → PrvState 0
-  toWitnessOut : PrvState spec.numRounds → Transcript spec → relOut.Witness
 
-def verifierOracleSpec (spec : ProtocolSpec) : OracleSpec (Fin spec.numRounds) where
+def oracleMessageSpec (spec : ProtocolSpec) : OracleSpec (Fin spec.numRounds) where
   domain := fun i => spec.Oracle.Query i
   range := fun i => spec.Oracle.Response i
   domain_decidableEq' := spec.validOracle.domain_decidableEq
@@ -124,13 +144,12 @@ def verifierOracleSpec (spec : ProtocolSpec) : OracleSpec (Fin spec.numRounds) w
 /-- The public-coin verifier of an IOR, which returns a boolean indicating whether the reduction is
   valid. It is itself an oracle computation that may query any of the oracles sent by the prover. -/
 structure Verifier (spec : ProtocolSpec) (relIn : Relation) where
-  verify : relIn.Statement → OracleComp (verifierOracleSpec spec) Bool
-  -- verify : relIn.Statement → Transcript spec → relOut.Statement
+  verify : relIn.Statement → OracleComp (oracleMessageSpec spec) Bool
 
 
 /-- An IOR protocol consists of an honest prover and an honest verifier, to reduce a relation
   `RelIn` to relation `RelOut` -/
-structure Protocol (spec : ProtocolSpec) (relIn : Relation) (relOut : Relation) extends Prover spec relIn relOut, Verifier spec relIn
+structure Protocol (spec : ProtocolSpec) (relIn : Relation) (relOut : Relation) extends Prover spec relIn, Verifier spec relIn
 
 
 /-- Define family of IOR specifications parameterized by `Index` -/
@@ -222,7 +241,7 @@ noncomputable section
 
 section Execution
 
--- def runFirstRound (prover : Prover spec relIn relOut) (stmtIn : relIn.Statement) (witIn : relIn.Witness) (sampleCh : ChallengePMF spec) : PMF (PartialTranscript spec 1 × prover.PrvState 1) := do
+-- def runFirstRound (prover : Prover spec relIn) (stmtIn : relIn.Statement) (witIn : relIn.Witness) (sampleCh : ChallengePMF spec) : PMF (PartialTranscript spec 1 × prover.PrvState 1) := do
 --   let newRand ← prover.sampleRand 0
 --   let challenge ← sampleCh 0
 --   let state := prover.fromWitnessIn witIn
@@ -237,7 +256,7 @@ section Execution
 --   return ⟨partialTrans, newState'⟩
 
 
-def runProverAux (prover : Prover spec relIn relOut)
+def runProverAux (prover : Prover spec relIn)
     (stmtIn : relIn.Statement) (witIn : relIn.Witness)
     (sampleCh : ChallengePMF spec) (i : Fin (spec.numRounds + 1)) :
     PMF (PartialTranscript spec i × prover.PrvState i) := do
@@ -277,7 +296,7 @@ decreasing_by
 /--
   Running the IOR prover in the protocol; returns the transcript along with the final prover's state
 -/
-def runProver (prover : Prover spec relIn relOut) (sampleCh : ChallengePMF spec)
+def runProver (prover : Prover spec relIn) (sampleCh : ChallengePMF spec)
     (stmtIn : relIn.Statement) (witIn : relIn.Witness) :
     PMF (Transcript spec × prover.PrvState spec.numRounds) := do
   let ⟨transcript, state⟩ ← runProverAux prover stmtIn witIn sampleCh spec.numRounds
@@ -288,9 +307,9 @@ def runVerifier (verifier : Verifier spec relIn)
     PMF Bool := do
   -- TODO: implement this
   -- First run the prover to get oracles, then run the verifier as an oracle computation, answering each query with the corresponding oracle
-  let oracles := verifierOracleSpec spec
+  let oracles := oracleMessageSpec spec
   let oracleComp := verifier.verify stmtIn
-  let decision := oracleComp.runDeterministic messages.toOracles
+  let decision := oracleComp.simulate' transcript.toMessages.toOracles
   return decision
 
 /--
@@ -298,7 +317,7 @@ def runVerifier (verifier : Verifier spec relIn)
 
   Returns a probability distribution over the prover's end private state and a verifier's output statement.
 -/
-def runProtocolWithTranscript (prover : Prover spec relIn relOut) (verifier : Verifier spec relIn)
+def runProtocolWithTranscript (prover : Prover spec relIn) (verifier : Verifier spec relIn)
     (sampleCh : ChallengePMF spec) (stmtIn : relIn.Statement) (witIn : relIn.Witness) :
     PMF (Output spec × Transcript spec) := do
   let (transcript, state) ← runProver prover sampleCh stmtIn witIn
@@ -306,7 +325,7 @@ def runProtocolWithTranscript (prover : Prover spec relIn relOut) (verifier : Ve
   return ⟨⟨stmtOut, prover.toWitnessOut state⟩, transcript⟩
 
 
-def runProtocol (prover : Prover spec relIn relOut) (verifier : Verifier spec relIn)
+def runProtocol (prover : Prover spec relIn) (verifier : Verifier spec relIn)
     (sampleCh : ChallengePMF spec) (stmtIn : relIn.Statement) (witIn : relIn.Witness) : PMF (Output spec) := do
   let result ← runProtocolWithTranscript prover verifier sampleCh stmtIn witIn
   return result.fst
@@ -431,7 +450,7 @@ def roundByRoundSoundness (spec : ProtocolSpec) [ValidOracleize spec.Oracle] (re
     (badFunction : BadFunction spec) (rbrSoundnessBound : Fin spec.numRounds → I) : Prop :=
   ∀ stmtIn ∉ relIn.language,
   ∀ witIn : relIn.Witness,
-  ∀ prover : Prover spec relIn relOut,
+  ∀ prover : Prover spec relIn,
   ∀ i : Fin spec.numRounds,
     let result := runWithTranscript spec prover verifier stmtIn witIn
     let output := Prod.fst <$> result

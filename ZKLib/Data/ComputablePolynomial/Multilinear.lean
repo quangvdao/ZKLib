@@ -23,7 +23,7 @@ import Mathlib.Data.Fin.VecNotation
 
 -- We define multilinear polynomials over rings by their evaluation on the hypercube {0,1}^n (i.e.
 -- the Lagrange basis).
-structure MlPoly (R : Type) where
+structure MlPoly (R : Type) [CommSemiring R] where
   evals : Array R
   nVars : ℕ
   isValid : evals.size = 2 ^ nVars
