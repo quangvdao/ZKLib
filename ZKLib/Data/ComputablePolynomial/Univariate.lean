@@ -35,11 +35,15 @@ def toArray (p : UniPoly R) : Array R := p.coeffs
 /-- The size of the underlying array. This may not correspond to the degree of the corresponding polynomial if the array has leading zeroes. -/
 def size (p : UniPoly R) : Nat := p.coeffs.size
 
+@[simp] theorem size_eq_size (p : UniPoly R) : p.size = p.coeffs.size := rfl
+
 /-- The constant polynomial `C r`. -/
 def C (r : R) : UniPoly R := ⟨#[r]⟩
 
 /-- The variable `X`. -/
 def X : UniPoly R := ⟨#[0, 1]⟩
+
+section Operations
 
 /-- Evaluates a `UniPoly` at a given value, using a ring homomorphism `f: R →+* S`. -/
 def eval₂ [Semiring S] (f : R →+* S) (x : S) (p : UniPoly R) : S :=
@@ -74,11 +78,10 @@ def mulPowX (i : Nat) (p : UniPoly R) : UniPoly R := .mk (Array.replicate i 0 ++
 def mul (p q : UniPoly R) : UniPoly R :=
   p.coeffs.zipWithIndex.foldl (fun acc ⟨a, i⟩ => acc.add <| (smul a q).mulPowX i) (C 0)
 
-/-- Exponentiation of a `UniPoly` by a natural number `n` via repeated multiplication. See `powBySquare` for a more efficient algorithm using repeated squaring. -/
+/-- Exponentiation of a `UniPoly` by a natural number `n` via repeated multiplication. -/
 def pow (p : UniPoly R) (n : Nat) : UniPoly R := (mul p)^[n] (C 1)
 
-/-- More efficient exponentiation of a `UniPoly` using repeated squaring. -/
-def powBySquare (p : UniPoly R) (n : Nat) : UniPoly R := (mul p)^[n]₂ (C 1)
+-- TODO: define repeated squaring version of `pow`
 
 instance : Zero (UniPoly R) := ⟨UniPoly.mk #[]⟩
 instance : One (UniPoly R) := ⟨UniPoly.C 1⟩
@@ -118,6 +121,8 @@ def leadingCoeff [BEq R] (p : UniPoly R) : R := p.trim.coeffs.getLastD 0
 /-- Check if a `UniPoly` is monic, i.e. its leading coefficient is 1. -/
 def monic [BEq R] (p : UniPoly R) : Bool := p.leadingCoeff == 1
 
+-- TODO: remove dependence on `BEq` for division and modulus
+
 /-- Division and modulus of `p : UniPoly R` by a monic `q : UniPoly R`. -/
 def divModByMonicAux [BEq R] [Field R] (p : UniPoly R) (q : UniPoly R) :
     UniPoly R × UniPoly R :=
@@ -152,6 +157,54 @@ def mod [BEq R] [Field R] (p q : UniPoly R) : UniPoly R := (C (q.leadingCoeff)�
 
 instance [BEq R] [Field R] : Div (UniPoly R) := ⟨UniPoly.div⟩
 instance [BEq R] [Field R] : Mod (UniPoly R) := ⟨UniPoly.mod⟩
+
+/-- Pseudo-division of a `UniPoly` by `X`, which shifts all non-constant coefficients to the left by one. -/
+def divX (p : UniPoly R) : UniPoly R := ⟨p.coeffs.extract 1 p.size⟩
+
+end Operations
+
+
+section Equiv
+
+/-- An equivalence relation `equiv` on `UniPoly`s where `p ~ q` iff one is a zero-padding of the other. -/
+def equiv (p q : UniPoly R) : Prop :=
+  match p.coeffs.matchSize q.coeffs 0 with
+  | (p', q') => p' = q'
+
+/-- Reflexivity of the equivalence relation. -/
+@[simp] theorem equiv_refl (p : UniPoly R) : equiv p p :=
+  by simp [equiv, List.matchSize]
+
+/-- Symmetry of the equivalence relation. -/
+@[simp] theorem equiv_symm {p q : UniPoly R} : equiv p q → equiv q p :=
+  fun h => by simp [equiv] at *; exact Eq.symm h
+
+open List in
+/-- Transitivity of the equivalence relation. -/
+@[simp] theorem equiv_trans {p q r : UniPoly R} : equiv p q → equiv q r → equiv p r :=
+  fun hpq hqr => by
+    simp_all [equiv, Array.matchSize]
+    have hpq' := (List.matchSize_eq_iff_forall_eq p.coeffs.data q.coeffs.data 0).mp hpq
+    have hqr' := (List.matchSize_eq_iff_forall_eq q.coeffs.data r.coeffs.data 0).mp hqr
+    have hpr' : ∀ (i : Nat), p.coeffs.data.getD i 0 = r.coeffs.data.getD i 0 :=
+      fun i => Eq.trans (hpq' i) (hqr' i)
+    exact (List.matchSize_eq_iff_forall_eq p.coeffs.data r.coeffs.data 0).mpr hpr'
+
+/-- The `UniPoly.equiv` is indeed an equivalence relation. -/
+instance instEquivalenceEquiv : Equivalence (equiv (R := R)) where
+  refl := equiv_refl
+  symm := equiv_symm
+  trans := equiv_trans
+
+/-- The `Setoid` instance for `UniPoly R` induced by `UniPoly.equiv`. -/
+instance instSetoidUniPoly: Setoid (UniPoly R) where
+  r := equiv
+  iseqv := instEquivalenceEquiv
+
+/-- The quotient of `UniPoly R` by `UniPoly.equiv`. This will be shown to be equivalent to `Polynomial R`. -/
+def QuotientUniPoly := Quotient (@instSetoidUniPoly R _)
+
+end Equiv
 
 end UniPoly
 
