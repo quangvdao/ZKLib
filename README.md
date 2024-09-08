@@ -1,26 +1,21 @@
 # A Library for Formally Verified Cryptographic Proof Systems
 
-We provide a formalization of cryptographic proof systems that are compiled from interactive (oracle) proofs via the Fiat-Shamir transform and (polynomial) commitment schemes.
+We provide a generic framework for formally verifying cryptographic proof systems that are compiled from interactive (oracle) proofs via the Fiat-Shamir transform and (polynomial) commitment schemes.
 
-In the first stage of the project, we formalize interactive (oracle) proofs, and prove information-theoretic completeness and soundness for the class of multilinear-based proof systems. In particular, our scope includes the following protocols:
-- Sum-check
-- Spartan
-- GKR and variants
-- Grand Product Argument
-- Lasso Lookup Argument
-- Spice Memory Checking Argument
+In the first stage of the project, we formalize interactive (oracle) proofs, and prove information-theoretic completeness and soundness for the class of multilinear-based proof systems.
 
-In addition, we also plan to formalize the following polynomial commitment schemes, seen as interactive (oracle) proofs:
-- Ligero and follow-ups such as Brakedown and Binius
-- Hyrax
+In particular, we aim to formalize the [sum-check protocol](https://dl.acm.org/doi/10.1145/146585.146605) and [Spartan](https://eprint.iacr.org/2019/550), both as polynomial IOPs. We also plan to formalize the tensor-based polynomial commitment scheme (PCS), underlying [Ligero](https://eprint.iacr.org/2022/1608), [Brakedown](https://eprint.iacr.org/2021/1043), and [Binius](https://eprint.iacr.org/2023/1784), and prove that Spartan when composed with such a PCS forms a complete & sound interactive proof system.
 
-The protocols above form the core components of the Jolt zero-knowledge virtual machine (zkVM). A long-term goal of this project is to fully formalize the Jolt zkVM.
+For each protocol mentioned above, we aim to provide:
 
-For each interactive protocol, we aim to provide:
 - A specification based on (multivariate) polynomials from `Mathlib`,
-- An implementation of the prover and verifier using computable encodings of polynomials, similar to Rust implementations,
-- Proofs of completeness and round-by-round soundness for the specification, proof that the implementation refines the specification.
+- An implementation of the prover and verifier using computable representations of polynomials (see [`Data`](./ZKLib/Data/)), similar to Rust implementations,
+- Proofs of completeness and round-by-round soundness for the specification, and proof that the implementation refines the specification.
+
+In future stages, we plan to extend the set of proof systems formalized using our framework, including other hash-based SNARKs based on univariate PCS (e.g. STARKs with [FRI](https://drops.dagstuhl.de/storage/00lipics/lipics-vol107-icalp2018/LIPIcs.ICALP.2018.14/LIPIcs.ICALP.2018.14.pdf) / [STIR](https://eprint.iacr.org/2024/390)), and other proof systems based on discrete-log or pairings (e.g. [Plonk](https://eprint.iacr.org/2019/953), Spartan with [Hyrax](https://eprint.iacr.org/2017/1132), or [Nova](https://eprint.iacr.org/2021/370)).
 
 ## Roadmap
 
-See [here](./ROADMAP.md).
+See [here](./ROADMAP.md). We plan for the first stage to be completed some time in Q1 of 2025.
+
+We welcome outside contributions to the library! If you're interested in working on any of the items in the [roadmap](./ROADMAP.md), please contact [the authors](mailto:qvd@andrew.cmu.edu) or open an issue.
