@@ -49,8 +49,8 @@ def oracleizePolynomial : Oracleize 1 (fun _ => R[X]) where
 instance : ValidOracleize (oracleizePolynomial (R := R)) where
   domain_decidableEq := inferInstance
   range_decidableEq := inferInstance
-  range_inhabited := fun _ => by simpa [oracleizePolynomial]
-  range_fintype := fun _ => by simpa [oracleizePolynomial]
+  range_inhabited := fun _ => by simpa only [PNat.val_ofNat, oracleizePolynomial]
+  range_fintype := fun _ => by simpa only [PNat.val_ofNat, oracleizePolynomial]
 
 instance instValidChallenge : ValidChallenge (fun (_ : Fin 1) => R) where
   fintype := inferInstance
@@ -74,8 +74,8 @@ def prover : Prover (pSpec (R := R)) emptySpec (relation R index) where
 
   prove := fun i _ state chal => by
     -- Since there is only one round, we can rewrite `i = 0`
-    have : i = 0 := by aesop
-    subst this; simp_all;
+    have : i = 0 := by ext; simp only [Fin.coe_fin_one]
+    subst this; simp
     -- Compute the new state
     let newState := evalFirstVar index.nVars state chal
     -- Compute the message

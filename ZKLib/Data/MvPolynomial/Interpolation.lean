@@ -5,6 +5,7 @@ Authors: Quang Dao
 -/
 
 import Mathlib.Algebra.MvPolynomial.CommRing
+import Mathlib.RingTheory.MvPolynomial.Basic
 import Mathlib.LinearAlgebra.Lagrange
 import Mathlib.Tactic.Common
 import ZKLib.Data.MvPolynomial.Degrees
@@ -47,6 +48,7 @@ theorem eq_zero_of_degreeOf_lt_of_eval_prod_finset_eq_zero (degreeOf_f_lt : ∀ 
   -- Restrict this to f.support, which is finite, then reduce further to univariate case
   sorry
 
+#check MvPolynomial.restrictDegree
 
 end Finset
 
