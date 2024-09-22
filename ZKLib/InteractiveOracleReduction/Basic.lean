@@ -35,28 +35,12 @@ IOP" [BCG20] (and other kinds of IOPs) from our definition.
 
 -/
 
+-- Figure out where to put this instance
 instance instDecidableEqOption [DecidableEq α] : DecidableEq (Option α) := inferInstance
 
-namespace IOR
-
 open OracleComp OracleSpec SubSpec
+
 section Format
-
-/-- Structure that turns messages of an IOR into oracles. -/
-structure Oracleize (n : ℕ+) (Message : Fin n → Type) where
-  Query : Fin n → Type -- Query type for oracle in each round
-  Response : Fin n → Type -- Response type for oracle in each round
-  oracle : ∀ i, Message i → Query i → Response i -- Transforming messages to oracles that take queries and return responses
-
-/--
-  A class to ensure that the oracle queries and responses are finite, decidable, and inhabited.
-  This can then be plugged into the `VCVio` framework.
--/
-class ValidOracleize (O : Oracleize n Message) where
-  domain_decidableEq : ∀ i, DecidableEq (O.Query i)
-  range_decidableEq : ∀ i, DecidableEq (O.Response i)
-  range_inhabited : ∀ i, Inhabited (O.Response i)
-  range_fintype : ∀ i, Fintype (O.Response i)
 
 /--
   A class to ensure that the verifier's challenges are finite, decidable, inhabited, and sampleable.
@@ -67,85 +51,83 @@ class ValidChallenge (C : Fin n → Type) where
   inhabited : ∀ i, Inhabited (C i)
   selectable : ∀ i, SelectableType (C i)
 
-/-- The specification of an Interactive Oracle Reduction -/
-structure ProtocolSpec where
-  numRounds : ℕ+
+/-- Specification of a public-coin interactive protocol -/
+class ProtocolSpec where
+  numRounds : ℕ+ -- Number of rounds
   Message : Fin numRounds → Type -- Message type for each round
   Challenge : Fin numRounds → Type -- Challenge type for each round
-  Oracle : Oracleize numRounds Message -- Oracle for each round, derived from the message
   validChallenge : ValidChallenge Challenge -- Challenges can be sampled from
-  validOracle : ValidOracleize Oracle -- Oracles satisfy the `ValidOracleize` conditions
 
-/-- Spec for the oracles derived from the messages, given to the verifier.
-  The protocol execution will handle the part of turning messages into oracles.
+
+/-- Specification of a public-coin interactive oracle protocol.
+
+  The only difference is that the verifier can only access the prover's messages via oracle queries.
 -/
-def messageOracleSpec (pSpec : ProtocolSpec) : OracleSpec (Fin pSpec.numRounds) where
-  domain := fun i => pSpec.Oracle.Query i
-  range := fun i => pSpec.Oracle.Response i
-  domain_decidableEq' := pSpec.validOracle.domain_decidableEq
-  range_decidableEq' := pSpec.validOracle.range_decidableEq
-  range_inhabited' := pSpec.validOracle.range_inhabited
-  range_fintype' := pSpec.validOracle.range_fintype
+class OracleProtocolSpec extends ProtocolSpec where
+  Query : Fin numRounds → Type -- Query type for oracle in each round
+  Response : Fin numRounds → Type -- Response type for oracle in each round
+  -- Transforming messages to oracles that take queries and return responses
+  oracle : ∀ i, Message i → Query i → Response i
+
+instance : Coe OracleProtocolSpec ProtocolSpec where
+  coe := fun PSpec => PSpec.toProtocolSpec
 
 /-- Spec for the verifier's challenges, invoked in the process of running the protocol -/
-def challengeOracleSpec (pSpec : ProtocolSpec) : OracleSpec (Fin pSpec.numRounds) where
+def challengeOSpec (PSpec : ProtocolSpec) : OracleSpec (Fin PSpec.numRounds) where
   domain := fun _ => Unit
-  range := fun i => pSpec.Challenge i
+  range := fun i => PSpec.Challenge i
   domain_decidableEq' := fun _ => decEq
-  range_decidableEq' := fun i => pSpec.validChallenge.decidableEq i
-  range_inhabited' := fun i => pSpec.validChallenge.inhabited i
-  range_fintype' := fun i => pSpec.validChallenge.fintype i
+  range_decidableEq' := fun i => PSpec.validChallenge.decidableEq i
+  range_inhabited' := fun i => PSpec.validChallenge.inhabited i
+  range_fintype' := fun i => PSpec.validChallenge.fintype i
 
 /-- Vector of message types -/
-def Messages (pSpec : ProtocolSpec) := ∀ i, pSpec.Message i
+@[inline, reducible] def Messages (PSpec : ProtocolSpec) := ∀ i, PSpec.Message i
 
 /-- Vector of challenge types -/
-def Challenges (pSpec : ProtocolSpec) := ∀ i, pSpec.Challenge i
+@[inline, reducible] def Challenges (PSpec : ProtocolSpec) := ∀ i, PSpec.Challenge i
 
 /--
   The type for the IOR transcript, including all message and challenge types
 -/
-def Transcript (pSpec : ProtocolSpec) := ∀ i, pSpec.Message i × pSpec.Challenge i
+structure Transcript (PSpec : ProtocolSpec) where
+  messages : Messages PSpec
+  challenges : Challenges PSpec
 
-/-- Make a transcript from messages and challenges -/
-def Transcript.mk (msgs : Messages pSpec) (chals : Challenges pSpec) : Transcript pSpec := fun i => ⟨ msgs i, chals i ⟩
+set_option pp.universes true
 
-/-- Get the messages from a transcript -/
-def Transcript.toMessages (transcript : Transcript pSpec) : Messages pSpec := fun i => (transcript i).1
+/-- The prover of an interactive protocol
+(it doesn't matter whether the protocol has oracles to messages or not) -/
+class Prover (PSpec : ProtocolSpec) (OSpec : OracleSpec ι) where
+  PrvState : Type
+  loadState {Statement Witness : Type} : Statement → Witness → PrvState
+  prove : (i : Fin PSpec.numRounds) → PSpec.Challenge i → StateT PrvState (OracleComp OSpec) (PSpec.Message i)
 
-/-- Get the challenges from a transcript -/
-def Transcript.toChallenges (transcript : Transcript pSpec) : Challenges pSpec := fun i => (transcript i).2
+/-- The verifier of an interactive protocol (that may read messages in full) -/
+class Verifier (PSpec : ProtocolSpec) (OSpec : OracleSpec ι) where
+  verify : Statement → Transcript PSpec → OracleComp OSpec Bool
 
-/-- Spec for a prover with access to oracles `oSpec` shared with the verifier -/
-structure Prover (spec : ProtocolSpec) (oSpec : OracleSpec ι) (relIn : Relation) where
-  PrvState : Fin (spec.numRounds + 1) → Type
-  fromWitnessIn : relIn.Witness → PrvState 0
-  prove : ∀ (i : Fin spec.numRounds), relIn.Statement → PrvState i
-    → spec.Challenge i → OracleComp oSpec (spec.Message i × (PrvState (i + 1)))
+/-- A list of queries to the prover's messages -/
+@[inline, reducible] def QueryList (PSpec : OracleProtocolSpec) := List ((i : Fin PSpec.numRounds) × (PSpec.Query i))
 
-/-- The public-coin verifier of an IOR, which returns a boolean indicating
-whether the reduction is valid. It is itself an oracle computation
-that may query any of the oracles derived from the messages sent by the prover, or other shared oracles `oSpec` with the prover. -/
-structure Verifier (pSpec : ProtocolSpec) (oSpec : OracleSpec ι) (relIn : Relation) where
-  verify : relIn.Statement → Challenges pSpec → OracleComp (oSpec ++ₒ messageOracleSpec pSpec) Bool
+/-- A list of responses to queries, computed from the prover's messages -/
+@[inline, reducible] def ResponseList (PSpec : OracleProtocolSpec) := List ((i : Fin PSpec.numRounds) × (PSpec.Query i) × (PSpec.Response i))
 
-/-- An IOR protocol consists of an honest prover and an honest verifier.
-Both parties may have access to shared oracles. -/
-structure Protocol (pSpec : ProtocolSpec) (oSpec : OracleSpec ι) (relIn : Relation) extends Prover pSpec oSpec relIn, Verifier pSpec oSpec relIn
+/-- The verifier of an interactive oracle protocol (that may only make queries to the prover's messages) -/
+class OracleVerifier (PSpec : OracleProtocolSpec) (OSpec : OracleSpec ι) where
+  -- Generate a list of queries of the form `(i, query)`,
+  -- where `i` is the round index and `query` is the query to the oracle
+  genQueries : Statement → Challenges PSpec →
+    OracleComp OSpec (QueryList PSpec)
+  -- Verify the proof based on the list of responses
+  verify : Statement → Challenges PSpec → ResponseList PSpec →
+    OracleComp OSpec Bool
 
-/-- Define family of IOR specifications parameterized by `Index` -/
-structure ProtocolSpecFamily where
-  Index : Type
-  ι : Type
-  pSpec : Index → ProtocolSpec
-  oSpec : Index → OracleSpec ι
+class Protocol (PSpec : ProtocolSpec) (OSpec : OracleSpec ι)
+    extends Prover PSpec OSpec, Verifier PSpec OSpec
 
--- /-- Define family of IOR protocols parameterized by `Index` -/
-structure ProtocolFamily extends ProtocolSpecFamily where
-  relIn : Index → Relation
-  relOut : Index → Relation
-  protocol : (index : Index) → Protocol (pSpec index) (oSpec index) (relIn index)
-
+class OracleProtocol (PSpec : OracleProtocolSpec) (OSpec : OracleSpec ι)
+    extends Prover PSpec OSpec, OracleVerifier PSpec OSpec
 
 section Transcript
 
@@ -153,48 +135,53 @@ section Transcript
 
 /-- A partial transcript of the IOR consists of all the messages and challenges
 up to a certain round `i ≤ spec.numRounds` -/
-def PartialTranscript (spec : ProtocolSpec) (i : Fin (spec.numRounds + 1)) :=
-  ∀ j : Fin spec.numRounds, (j.val < i.val) → (spec.Message j × spec.Challenge j)
+structure PartialTranscript (PSpec : ProtocolSpec) (i : Fin (PSpec.numRounds + 1)) where
+  messages : ∀ j : Fin PSpec.numRounds, (j.val < i.val) → (PSpec.Message j)
+  challenges : ∀ j : Fin PSpec.numRounds, (j.val < i.val) → (PSpec.Challenge j)
 
 /-- The empty (partial) transcript, which is the unique element of `PartialTranscript spec 0` -/
-def emptyTranscript : PartialTranscript spec 0 := fun j h => by contradiction
+def emptyTranscript : PartialTranscript PSpec 0 where
+  messages := fun j h => by contradiction
+  challenges := fun j h => by contradiction
 
 /-- Add a new message and challenge for round `i` to a partial transcript up to round `i - 1` -/
-def PartialTranscript.cons (partialTranscript : PartialTranscript spec i)
-    (hLt : i.val < spec.numRounds) (msg : spec.Message i)
-    (challenge : spec.Challenge i) : PartialTranscript spec (i + 1) :=
-  fun j h => by
-    -- TODO: try `Fin.addCases` instead
+def PartialTranscript.cons (partialTranscript : PartialTranscript PSpec i)
+    (hLt : i.val < PSpec.numRounds) (msg : PSpec.Message i)
+    (challenge : PSpec.Challenge i) : PartialTranscript PSpec (i + 1) where
+  messages := fun j h => by
     if h' : j.val < i.val then
-      exact partialTranscript j h'
+      exact partialTranscript.messages j h'
     else
       have : (i + 1).val = i.val + 1 := Fin.val_add_one_of_lt (by aesop)
       rw [this] at h
       simp at *
       have : j = i := by
         refine Fin.eq_of_val_eq ?_
-        rw [Fin.val_cast_of_lt (n := spec.numRounds) hLt]
+        rw [Fin.val_cast_of_lt (n := PSpec.numRounds) hLt]
         exact Nat.eq_of_le_of_lt_succ h' h
-      exact this ▸ ⟨msg, challenge⟩
-
-def Messages.toHList (messages : Messages spec) : HList := HList.ofDVec messages
-
-def Challenges.toHList (challenges : Challenges spec) : HList := HList.ofDVec challenges
-
-/-- Return two `HList`s, one for the messages and one for the challenges -/
-def Transcript.toHList (transcript : Transcript spec) : HList × HList := ⟨ transcript.toMessages.toHList, transcript.toChallenges.toHList ⟩
-
-def Messages.fromHList {spec : ProtocolSpec} (lMessages : HList) (hLen : lMessages.length = spec.numRounds) (h : ∀ i, lMessages[i].1 = spec.Message i) : DVec spec.Message := fun j => ((h j) ▸ lMessages[j].2)
-
-def Challenges.fromHList {spec : ProtocolSpec} (lChallenges : HList) (hLen : lChallenges.length = spec.numRounds) (h : ∀ i, lChallenges[i].1 = spec.Challenge i) : DVec spec.Challenge := fun j => ((h j) ▸ lChallenges[j].2)
-
--- To get `Transcript` from two `HList`s, first convert them to `Messages` and `Challenges` and then make a transcript from that
+      exact this ▸ msg
+  challenges := fun j h => by
+    if h' : j.val < i.val then
+      exact partialTranscript.challenges j h'
+    else
+      have : (i + 1).val = i.val + 1 := Fin.val_add_one_of_lt (by aesop)
+      rw [this] at h
+      simp at *
+      have : j = i := by
+        refine Fin.eq_of_val_eq ?_
+        rw [Fin.val_cast_of_lt (n := PSpec.numRounds) hLt]
+        exact Nat.eq_of_le_of_lt_succ h' h
+      exact this ▸ challenge
 
 def Transcript.toPartial (transcript : Transcript spec) (i : Fin (spec.numRounds + 1)) :
-    PartialTranscript spec i := fun j _ => transcript j
+    PartialTranscript spec i where
+  messages := fun j _ => transcript.messages j
+  challenges := fun j _ => transcript.challenges j
 
 def PartialTranscript.toFull (spec : ProtocolSpec)
-    (partialTranscript : PartialTranscript spec spec.numRounds) : Transcript spec := fun j => partialTranscript j (by simp)
+    (partialTranscript : PartialTranscript spec spec.numRounds) : Transcript spec where
+  messages := fun j => partialTranscript.messages j (by simp)
+  challenges := fun j => partialTranscript.challenges j (by simp)
 
 @[simp]
 theorem Transcript.toPartial_toFull (spec : ProtocolSpec) (transcript : Transcript spec) :
@@ -210,35 +197,34 @@ end Format
 
 section Execution
 
-variable {ι : Type} [DecidableEq ι] {oSpec : OracleSpec ι} {pSpec : ProtocolSpec}
+variable {ι : Type} [DecidableEq ι] {OSpec : OracleSpec ι}
 
 /--
-  Auxiliary function for running the IOR prover in the protocol; given round index `i`, returns the transcript up to that round and the prover's state at that round
+  Auxiliary function for running the prover in an interactive protocol.
+
+  Given round index `i`, returns the partial transcript up to that round and the prover's state at that round
 -/
-def runProverAux (prover : Prover pSpec oSpec relIn) (stmtIn : relIn.Statement)
-    (witIn : relIn.Witness) (i : Fin (pSpec.numRounds + 1)): OracleComp
-        (oSpec ++ₒ challengeOracleSpec pSpec)
-        (PartialTranscript pSpec i × prover.PrvState i) := do
+def runProverAux (prover : Prover PSpec OSpec) (stmt : Statement)
+    (wit : Witness) (i : Fin (PSpec.numRounds + 1)) :
+    OracleComp (OSpec ++ₒ challengeOSpec PSpec)
+        (PartialTranscript PSpec i × prover.PrvState) := do
   if h : i = 0 then
-    -- If `i = 0`, simply return the empty transcript and the initial state
-    let state := prover.fromWitnessIn witIn
-    return ⟨h ▸ emptyTranscript, h ▸ state⟩
+    -- If `i = 0`, simply load the statement and the witness
+    let state := prover.loadState stmt wit
+    -- Return the empty transcript and the state
+    return ⟨h ▸ emptyTranscript, state⟩
   else
     let j := Fin.pred i h
     -- Run the prover up to the `i - 2`-th round
-    let ⟨partialTrans, state⟩ ← runProverAux prover stmtIn witIn j
+    let ⟨partialTrans, state⟩ ← runProverAux prover stmt wit j
     -- Query the verifier's challenge for round `i - 1`
-    let challenge : pSpec.Challenge j
-      ← liftComp (query (spec := challengeOracleSpec pSpec) j ())
+    let challenge : PSpec.Challenge j ← query (Sum.inr j) ()
     -- Run the prover for round `i - 1`
-    let ⟨msg, newState⟩ ← liftComp (prover.prove j stmtIn state challenge)
-    -- Massage the state to match the expected type
-    let newState : prover.PrvState i := by
-      rwa [Fin.coe_eq_castSucc, Fin.coeSucc_eq_succ,
-        Fin.succ_pred] at newState
+    let proverRun := fun state => liftComp (prover.prove j challenge state)
+    let ⟨msg, newState⟩ ← StateT.run proverRun state
     -- Massage the partial transcript to match the expected type
     let partialTransAux := partialTrans.cons (by simp)
-    have partialTransAux : pSpec.Message j → pSpec.Challenge j → PartialTranscript pSpec i := by
+    have partialTransAux : PSpec.Message j → PSpec.Challenge j → PartialTranscript PSpec i := by
       rwa [Fin.coe_eq_castSucc, Fin.coe_castSucc, Fin.cast_val_eq_self,
         Fin.coeSucc_eq_succ, Fin.succ_pred] at partialTransAux
     let partialTrans := partialTransAux msg challenge
@@ -248,220 +234,67 @@ termination_by i.val
 decreasing_by
   -- Can we make this simpler?
   simp_wf
-  refine Fin.lt_iff_val_lt_val.mpr ?_
-  rw [Fin.val_natCast, Nat.mod_eq_of_lt (by omega)]
+  rw [Nat.mod_eq_of_lt (by omega)]
   exact Nat.sub_lt_self (by decide) ((Fin.pos_iff_ne_zero' i).mpr h)
 
 /--
-  Running the IOR prover in the protocol; returns the transcript along with the final prover's state
+  Run the prover in the interactive protocol
+
+  Returns the transcript along with the final prover's state
 -/
-def runProver (prover : Prover pSpec oSpec relIn) (stmtIn : relIn.Statement)
-    (witIn : relIn.Witness) : OracleComp (oSpec ++ₒ challengeOracleSpec pSpec)
-    (Transcript pSpec × prover.PrvState pSpec.numRounds) := do
-  let ⟨transcript, state⟩ ← runProverAux prover stmtIn witIn pSpec.numRounds
+def runProver (prover : Prover PSpec OSpec) (stmt : Statement)
+    (wit : Witness) : OracleComp (OSpec ++ₒ challengeOSpec PSpec)
+    (Transcript PSpec × prover.PrvState) := do
+  let ⟨transcript, state⟩ ← runProverAux prover stmt wit PSpec.numRounds
   return ⟨transcript.toFull, state⟩
 
-/-- Run the verifier on a given transcript, with access to shared oracles `oSpec`
-and the oracles derived from the messages in the transcript.
+/-- Run the (non-oracle) verifier in the interactive protocol
+
+Simply reads the statement and the transcript, and outputs a decision
+-/
+def runVerifier (verifier : Verifier PSpec OSpec)
+    (stmt : Statement) (transcript : Transcript PSpec) :
+    OracleComp OSpec Bool := do
+  let decision ← verifier.verify stmt transcript
+  return decision
+
+/-- Run the oracle verifier in the interactive protocol
+
 Returns the verifier's output and the log of queries made by the verifier.
 -/
-def runVerifier (verifier : Verifier pSpec oSpec relIn)
-    (stmtIn : relIn.Statement) (transcript : Transcript pSpec) :
-    OracleComp oSpec (Bool × QueryLog (messageOracleSpec pSpec)) := do
-  let decisionComp := verifier.verify stmtIn transcript.toChallenges
-  -- Need to convert messages to oracles
-  let oracles := fun i => pSpec.Oracle.oracle i (transcript.toMessages i)
-  have oracles' := loggingOracle (spec := oSpec ++ₒ messageOracleSpec pSpec)
-  -- let decision := simulate
-  -- let abc := statelessOracle
-  sorry
+def runOracleVerifier (verifier : OracleVerifier PSpec OSpec)
+    (stmt : Statement) (transcript : Transcript PSpec) :
+    OracleComp OSpec (Bool × ResponseList PSpec) := do
+  let queries ← verifier.genQueries stmt transcript.challenges
+  let oracles := fun i => PSpec.oracle i (transcript.messages i)
+  let responses ← List.mapM (fun ⟨j, q⟩ => pure ⟨j, q, oracles j q⟩ ) queries
+  let decision ← verifier.verify stmt transcript.challenges responses
+  return ⟨decision, responses⟩
 
 /--
-  An IOR execution between an arbitrary prover and an arbitrary verifier, on a given initial statement and witness.
+  An execution between an arbitrary prover and an arbitrary verifier, on a given initial statement and witness.
 
-  Returns the verifier's decision, the transcript, and the log of all oracle queries (made by each party?)
+  Returns the verifier's decision, the transcript, and the prover's final state
 -/
-def runProtocolAux (protocol : Protocol pSpec oSpec relIn)
-    (stmtIn : relIn.Statement) (witIn : relIn.Witness) : OracleComp
-    (oSpec ++ₒ challengeOracleSpec pSpec) (Bool × Transcript pSpec × QueryLog (messageOracleSpec pSpec)) := do
-  let (transcript, _) ← runProver protocol.toProver stmtIn witIn
-  let (decision, queryLog) ← liftComp (runVerifier protocol.toVerifier stmtIn transcript)
-  return (decision, transcript, queryLog)
+def runProtocol (protocol : Protocol PSpec OSpec)
+    (stmt : Statement) (wit : Witness) : OracleComp
+    (OSpec ++ₒ challengeOSpec PSpec)
+    (Bool × Transcript PSpec × protocol.PrvState) := do
+  let (transcript, state) ← runProver protocol.toProver stmt wit
+  let decision ← liftComp (runVerifier protocol.toVerifier stmt transcript)
+  return (decision, transcript, state)
 
+/-- Run an interactive oracle protocol
 
-def runProtocol (protocol : Protocol pSpec oSpec relIn) (stmtIn : relIn.Statement) (witIn : relIn.Witness) : OracleComp (oSpec ++ₒ challengeOracleSpec pSpec) Bool := do
-  let result ← runProtocolAux protocol stmtIn witIn
-  return result.fst
+Returns the verifier's decision, the transcript, and the log of all oracle queries to the prover's messages, and the prover's final state
+-/
+def runOracleProtocol (protocol : OracleProtocol PSpec OSpec)
+    (stmt : Statement) (wit : Witness) : OracleComp
+    (OSpec ++ₒ challengeOSpec PSpec)
+    (Bool × Transcript PSpec × ResponseList PSpec × protocol.PrvState) := do
+  let (transcript, state) ← runProver protocol.toProver stmt wit
+  let ⟨decision, queries⟩ ←
+    liftComp (runOracleVerifier protocol.toOracleVerifier stmt transcript)
+  return (decision, transcript, queries, state)
 
 end Execution
-
-section SecurityDefinitions
-
-noncomputable section
-
-open unitInterval
-
-variable {ι : Type} [DecidableEq ι] {oSpec : OracleSpec ι} {pSpec : ProtocolSpec} {relIn : Relation}
-
-/- Unit interval embedded into `NNReal` -/
-instance unitInterval.toNNReal : Coe unitInterval NNReal where
-  coe := fun ⟨x, h⟩ => ⟨x, (Set.mem_Icc.mp h).left⟩
-
-section Completeness
-
-/--
-  For all valid statement-witness pair for the input relation `relIn`,
-  the execution between the honest prover and the honest verifier will result in a valid pair for
-  the output relation `relOut`,
-  except with probability `completenessError`
--/
-def completeness (protocol : Protocol pSpec oSpec relIn) (completenessError : I) : Prop :=
-    ∀ stmtIn : relIn.Statement,
-    ∀ witIn : relIn.Witness,
-    relIn.isValid stmtIn witIn = true →
-        let decision := evalDist (runProtocol protocol stmtIn witIn)
-        decision true ≥ 1 - completenessError
-
-
-/-- Perfect completeness when there is no completeness error -/
-def perfectCompleteness (protocol : Protocol pSpec oSpec relIn) : Prop :=
-  completeness protocol 0
-
-end Completeness
-
-
-section Soundness
-
-
-/- We have 6 variants of soundness:
-
-  1. (Regular) soundness
-  2. Knowledge soundness
-  3. State-restoration soundness
-  4. State-restoration knowledge soundness
-  5. Round-by-round soundness
-  6. Round-by-round knowledge soundness
-
-This does not cover other variants such as adaptive versions of the above (seems to have negligible
-difference compared to non-adaptive version in the interactive setting?), or special soundness.
--/
-
-/--
-  For all initial statement `stmtIn` not in the language, all (malicious) provers with initial
-  witness `witIn`, the execution will result in an invalid statement-witness pair for `relOut`
-  except with probability `soundnessBound`.
--/
-def soundness (verifier : Verifier pSpec oSpec relIn) (soundnessBound : ENNReal) : Prop :=
-  ∀ stmtIn ∉ relIn.language,
-  /-
-    Need to quantify over the witness because of the way we defined
-    the type signature of the prover, which always takes in some witness.
-    Think of this as the initializing the state of the prover.
-  -/
-  ∀ witIn : relIn.Witness,
-  ∀ prover : Prover pSpec oSpec relIn,
-    let protocol := Protocol.mk prover verifier
-    let decision := evalDist (runProtocol protocol stmtIn witIn)
-    decision true ≤ soundnessBound
-
-
--- Adaptive soundness? Makes no sense in interactive setting... the most the prover will do is to
--- send the initial statement together with the first message (but this gives no extra power?) The
--- more important question is that is this property necessary for proving adaptive soundness after
--- (strong) Fiat-Shamir?
-
-structure AdaptiveProver (pSpec : ProtocolSpec) (oSpec : OracleSpec ι) (relIn : Relation) extends Prover pSpec oSpec relIn where
-  chooseStatementIn : PrvState 0 → relIn.Statement
-
-/--
-  An extractor is defined to be a deterministic function that takes in the initial statement and the
-  IOR transcript, and returns a corresponding initial witness.
-
-  TODO: when we generalize IOR to the ROM, how do we model the extractor's ability to observe the
-  prover's queries?
--/
-def Extractor :=
-  relIn.Statement → Transcript pSpec → QueryLog (messageOracleSpec pSpec) → relIn.Witness
-
-/--
-  There exists an extractor such that for all
-
-  This is the black-box, deterministic, straightline version of knowledge soundness.
--/
-def knowledgeSoundness (verifier : Verifier pSpec oSpec relIn) (knowledgeBound : ENNReal) : Prop :=
-  ∃ extractor : Extractor,
-  ∀ stmtIn : relIn.Statement,
-  ∀ witIn : relIn.Witness,
-  ∀ prover : Prover pSpec oSpec relIn,
-    let protocol := Protocol.mk prover verifier
-    let result := evalDist (runProtocolAux protocol stmtIn witIn)
-    let decision := Prod.fst <$> result
-    let transcript := Prod.fst <$> Prod.snd <$> result
-    let queryLog := Prod.snd <$> Prod.snd <$> result
-    if decision true > knowledgeBound then
-      let extractedWitIn := (fun tr out => extractor stmtIn tr out) <$> transcript <*> queryLog
-      let validWit := relIn.isValid stmtIn <$> extractedWitIn
-      validWit true ≥ 1 - knowledgeBound
-    else
-      True
-
-
-def BadFunction :=
-  (i : Fin pSpec.numRounds) → relIn.Statement →  PartialTranscript pSpec i → Prop
-
-/--
-  Round-by-round soundness should be defined for each round
--/
-def roundByRoundSoundness (verifier : Verifier pSpec oSpec relIn) (badFunction : @BadFunction pSpec relIn)
-    (rbrSoundnessBound : Fin pSpec.numRounds → I) : Prop :=
-  ∀ stmtIn ∉ relIn.language,
-  ∀ witIn : relIn.Witness,
-  ∀ prover : Prover pSpec oSpec relIn,
-  ∀ i : Fin pSpec.numRounds,
-    let result := evalDist (runProtocolAux (Protocol.mk prover verifier) stmtIn witIn)
-    let decision := Prod.fst <$> result
-    let transcript := Prod.fst <$> Prod.snd <$> result
-    let partialTranscript := (fun tr => tr.toPartial i) <$> transcript
-    -- decision true ≤ (rbrSoundnessBound i)
-    sorry
-    -- let partialTranscript : PartialTranscript spec i := ⟨transcript.messages,
-    -- transcript.challenges⟩
-    -- prob true ≤ soundnessBound
-
-
-end Soundness
-
-
-section ZeroKnowledge
-
--- The simulator should have programming access to the shared oracles `oSpec`
-def Simulator : Type := sorry
-  -- relIn.Statement → PMF (Verifier oSpec)
-
-
-/--
-  We define honest-verifier zero-knowledge as follows:
-  There exists a simulator such that for all (malicious) verifier, the distributions of transcripts
-  generated by the simulator and the interaction between the verifier and the prover are
-  (statistically) indistinguishable.
--/
-def zeroKnowledge (prover : Prover pSpec oSpec relIn) : Prop :=
-  ∃ simulator : Simulator,
-  ∀ verifier : Verifier pSpec oSpec relIn,
-  ∀ stmtIn : relIn.Statement,
-  ∀ witIn : relIn.Witness,
-  relIn.isValid stmtIn witIn = true →
-    let result := runProtocolAux (Protocol.mk prover verifier) stmtIn witIn
-    let transcript := Prod.fst <$> Prod.snd <$> result
-    let simTranscript := simulator
-    -- let prob := spec.relOut.isValid' <$> output
-    sorry
-
-end ZeroKnowledge
-
--- End noncomputable section
-end
-
-end SecurityDefinitions
-
-end IOR
