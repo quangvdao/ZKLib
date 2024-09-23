@@ -1,10 +1,10 @@
--- import ZKLib.InteractiveOracleReduction.Basic
+import ZKLib.InteractiveOracleReduction.Basic
 import VCVio
 
 /-!
-  # (Oracle) Commitment Schemes
+  # Oracle Commitment Schemes
 
-  An (oracle) commitment scheme for a given oracle `Oracle : {D : Data} → Input → Output`
+  A commitment scheme for a given oracle `Oracle : {D : Data} → Input → Output`
   parameterized by some data `D` consists of two main operations:
 
   - `commit` which commits to the data `D`
@@ -13,89 +13,52 @@ import VCVio
     witness, and `input`, `output` are the statement.
 -/
 
+namespace Commitment
 
--- For now, define commitment schemes without oracles
--- For commitment schemes with oracles, we will need to define `commit`, `prove`, and `verify`
--- as `OracleComp` types
+open OracleSpec OracleComp
 
-structure CommitmentSpec (R : Type) where
+-- We may not be able to say that the opening of a commitment scheme is an IOP for some relation, because that relation may require querying oracles to determine validity.
+
+structure Spec where
   Data : Type
-  Randomness : Type
   Query : Type
   Response : Type
-  OpeningFunction : Data → Query → Response
   Commitment : Type
-  Proof : Type
+  eval : Data → Query → Response
+  n : ℕ
+  Opening : ProtocolSpec n
 
-structure CommitmentScheme (R : Type) extends CommitmentSpec R where
-  commit : Data → Randomness → Commitment
-  prove : Data → Randomness → Commitment → Query → Response → Proof
-  verify : Commitment → Query → Response → Proof → Bool
+structure Commit (CSpec : Spec) (OSpec : OracleSpec ι) (State : Type) where
+  commit : CSpec.Data → StateT State (OracleComp OSpec) CSpec.Commitment
 
+structure Prover (CSpec : Spec) (OSpec : OracleSpec ι) (State : Type) extends ProverRound CSpec.Opening OSpec State where
+  loadState : CSpec.Data → CSpec.Query → State
 
-structure ListCommitmentSpec (R : Type) extends CommitmentSpec R where
-  Datum : Type
-  hData : Data = List Datum
+structure Scheme (CSpec : Spec) (OSpec : OracleSpec ι) (State : Type) extends
+    Prover CSpec OSpec State,
+    Verifier CSpec.Opening OSpec (CSpec.Commitment × CSpec.Query × CSpec.Response)
 
-structure ListCommitmentScheme (R : Type) extends ListCommitmentSpec R, CommitmentScheme R
-
--- @[simp]
--- lemma ListCommitmentSpec.hData_eq (cs : ListCommitmentSpec R) : cs.Data = List cs.Datum := cs.hData
-
-
-
-variable {R : Type} [Mul R] [Inhabited R]
-
-def test : CommitmentSpec R where
-  Data := R
-  Randomness := R
-  Query := R
-  Response := R
-  OpeningFunction := fun data query => data * query
-  Commitment := R
-  Proof := R
-
-def testListCom : ListCommitmentSpec R where
-  Datum := R
-  Data := List R
-  Randomness := R
-  Query := R
-  Response := R
-  OpeningFunction := fun data query => List.foldl (fun x y => x * y) query data
-  Commitment := R
-  Proof := R
-  hData := rfl
-
--- Lean only reduces definitional equality, not propositional equality
-def MyNat := Nat
-
-def exampleFunction (n : Nat) : MyNat := n
-
-#check exampleFunction 5
+-- /-- The opening relation for a commitment scheme.
+-- Shows that `c` is a commitment to some `data`, whose oracle representation takes in `query` and outputs `response`. -/
+-- def relation (oSpec : OracleSpec ι) (cSpec : Spec oSpec) : OracleRelation oSpec where
+--   Statement := cSpec.Commitment × cSpec.Query × cSpec.Response
+--   Witness := cSpec.Data
+--   isValid := fun ⟨commitment, query, response⟩ data =>
+--     (cSpec.eval data query = response ∧ commitment = ·) <$> cSpec.commit data
 
 
-namespace test
+section Security
 
-structure CommitmentSpec where
-  Data : Type
-  Randomness : Type
-  Commitment : Type
+-- Define binding, extractability, hiding
 
-structure ListCommitmentSpec where
-  Datum : Type
-  Randomness : Type
-  Commitment : Type
+def binding (CSpec : Spec) (OSpec : OracleSpec ι) (State : Type) (Statement : Type) (Witness : Type) (Scheme : Scheme CSpec OSpec State) : Prop := sorry
 
-def ListCommitmentSpec.Data (cs : ListCommitmentSpec) : Type := List cs.Datum
+def extractability (CSpec : Spec) (OSpec : OracleSpec ι) (State : Type) (Statement : Type) (Witness : Type) (Scheme : Scheme CSpec OSpec State) : Prop := sorry
 
-def ListCommitmentSpec.toCommitmentSpec (cs : ListCommitmentSpec) : CommitmentSpec :=
-  {
-    Data := cs.Data
-    Randomness := cs.Randomness
-    Commitment := cs.Commitment
-  }
+def hiding' (CSpec : Spec) (OSpec : OracleSpec ι) (State : Type) (Statement : Type) (Witness : Type) (Scheme : Scheme CSpec OSpec State) : Prop := sorry
 
-instance : Coe ListCommitmentSpec CommitmentSpec where
-  coe := ListCommitmentSpec.toCommitmentSpec
 
-end test
+end Security
+
+
+end Commitment
