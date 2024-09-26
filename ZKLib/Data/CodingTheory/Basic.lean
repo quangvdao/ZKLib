@@ -5,6 +5,7 @@ Authors: Quang Dao
 -/
 
 import Mathlib.InformationTheory.Hamming
+import Mathlib.LinearAlgebra.Lagrange
 
 /-!
   # Basic Definitions for Codes
@@ -15,13 +16,14 @@ import Mathlib.InformationTheory.Hamming
 -/
 
 
+section CodingTheory
 
-namespace CodingTheory
+open Finset Function
 
-universe u
+variable {ι : Type*} [Fintype ι] {R : Type*} [CommSemiring R]
 
-variable {F : Type u} [Field F]
+-- A linear code is a linear map from `R ^ k` to `R ^ n`
 
-
+#check FiniteDimensional.finrank
 
 end CodingTheory

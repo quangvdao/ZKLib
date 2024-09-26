@@ -21,9 +21,9 @@ open OracleSpec OracleComp
 
 structure Spec where
   Data : Type
+  Commitment : Type
   Query : Type
   Response : Type
-  Commitment : Type
   eval : Data → Query → Response
   n : ℕ
   Opening : ProtocolSpec n
