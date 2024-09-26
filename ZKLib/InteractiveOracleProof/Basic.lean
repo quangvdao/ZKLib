@@ -9,23 +9,24 @@ import ZKLib.ToVCVio.Oracle
 import ZKLib.Data.Math.Fin
 
 /-!
-# Formalism of Interactive Oracle Reductions
+# Interactive Oracle Proofs
 
-We define (public-coin) interactive oracle reductions (IORs). This is an interactive protocol
+We define (public-coin) interactive oracle proofs (IOPs). This is an interactive protocol
 between a prover and a verifier with the following format:
 
-  - At the beginning, the prover and verifier both hold a public statement x (and potentially have
-    access to some public parameters pp). The prover may also hold some private state which in
-    particular may contain a witness w to the statement x.
+  - At the beginning, the prover and verifier both hold a public statement `x` (and potentially have
+    access to some public parameters `pp`). The prover may also hold some private state which in
+    particular may contain a witness `w` to the statement `x`.
 
   - In each round, the verifier sends some random challenges, and the prover sends back responses to
-    the challenges. The responses are received as oracles by the verifier. The verifier only sees
-    some abstract representation of the responses, and is only allowed to query these oracles in
-    specific ways (i.e. point queries, polynomial evaluation queries, tensor queries).
+    the challenges. The responses are received as oracles by the verifier. The verifier is only
+    allowed to query these oracles in specific ways.
 
-  - At each step, the verifier may make oracle queries and perform some checks on the responses so
-    far. At the end of the interaction, the verifier outputs a new statement, and the prover outputs
-    a new witness.
+  - At the end of the interaction, the verifier outputs a decision.
+
+Along the way, we also define Interactive Proofs (IPs) as a special kind of IOPs where
+the verifier can see the full messages. Our formalization also allows both prover and verifier
+to have access to some shared oracle.
 
 Note: the definition of IORs as defined above generalizes those found in the literature. When the
 output relation is the Boolean relation (where `StatementOut = Bool`), then we recover a generalized
@@ -292,32 +293,36 @@ section Execution
 
 variable {ι : Type} [DecidableEq ι] {oSpec : OracleSpec ι} {n : ℕ} {pSpec : ProtocolSpec n} {PrvState : Type} {Statement Witness : Type}
 
+def simulateSwap {α : Type} (so : spec →[σ]ₛₒ specₜ) (s : σ) :
+    (oa : OracleComp spec α) → OracleComp specₜ (σ × α) :=
+  fun oa => Prod.swap <$> simulate so s oa
+
 /--
   Auxiliary function for running the prover in an interactive protocol.
 
-  Given round index `i`, returns the partial transcript up to that round and the prover's state at that round
+  Given round index `i`, returns the transcript up to that round, the log of oracle queries made by the prover to `oSpec` up to that round, and the prover's state after that round.
 -/
 def runProverAux [∀ i, Sampleable (pSpec.Challenge i)]
     (prover : Prover pSpec oSpec PrvState Statement Witness)
     (stmt : Statement) (wit : Witness) (i : Fin (n + 1)) :
       OracleComp (oSpec ++ₒ challengeOracle pSpec)
-        (Transcript (pSpec.take i (by omega)) × PrvState) := by
+        (Transcript (pSpec.take i (by omega)) × QueryLog oSpec × PrvState) := by
   induction i using Fin.induction with
   | zero => simp; exact
     (do
-      let state ← liftComp (prover.load stmt wit)
-      return ⟨emptyTranscript, state⟩)
+      let ⟨state, queryLog⟩ ← liftComp (simulate loggingOracle ∅ (prover.load stmt wit))
+      return ⟨emptyTranscript, queryLog, state⟩)
   | succ j ih => simp at ih ⊢; exact
     (do
-      let ⟨transcript, state⟩ ← ih
+      let ⟨transcript, queryLog, state⟩ ← ih
       let challenge : pSpec.Challenge j ← query (Sum.inr j) ()
-      let proverRun := fun state => liftComp ((prover.prove j challenge) state)
-      let ⟨msg, newState⟩ ← StateT.run proverRun state
+      let ⟨⟨msg, newState⟩, newQueryLog⟩ ← liftComp
+        (simulate loggingOracle queryLog ((prover.prove j challenge) state))
       let newTranscript := transcript.snoc msg challenge
       let newTranscript : Transcript (pSpec.take (j + 1) (by omega)) := by
         simp only [ProtocolSpec.append_take] at newTranscript
         exact newTranscript
-      return ⟨newTranscript, newState⟩)
+      return ⟨newTranscript, newQueryLog, newState⟩)
 
 /--
   Run the prover in the interactive protocol
@@ -328,7 +333,7 @@ def runProver [∀ i, Sampleable (pSpec.Challenge i)]
     (prover : Prover pSpec oSpec PrvState Statement Witness)
     (stmt : Statement) (wit : Witness) : OracleComp
     (oSpec ++ₒ challengeOracle pSpec)
-    (Transcript pSpec × PrvState) := do
+    (Transcript pSpec × QueryLog oSpec × PrvState) := do
   return ← runProverAux prover stmt wit ⟨n, by omega⟩
 
 /-- Run the (non-oracle) verifier in the interactive protocol
@@ -345,7 +350,8 @@ def runVerifier (verifier : Verifier pSpec oSpec Statement)
 
 Returns the verifier's output and the log of queries made by the verifier.
 -/
-def runOracleVerifier [O : ∀ i, ToOracle (pSpec.Message i)] (verifier : OracleVerifier pSpec oSpec Statement)
+def runOracleVerifier [O : ∀ i, ToOracle (pSpec.Message i)]
+    (verifier : OracleVerifier pSpec oSpec Statement)
     (stmt : Statement) (transcript : Transcript pSpec) :
     OracleComp oSpec (Bool × ResponseList pSpec) := do
   let queries ← verifier.genQueries stmt transcript.challenges
@@ -355,32 +361,34 @@ def runOracleVerifier [O : ∀ i, ToOracle (pSpec.Message i)] (verifier : Oracle
   return ⟨decision, responses⟩
 
 /--
-  An execution between an arbitrary prover and an arbitrary verifier, on a given initial statement and witness.
+  An execution of an interactive protocol on a given initial statement and witness.
 
-  Returns the verifier's decision, the transcript, and the prover's final state
+  Returns the verifier's decision, the protocol transcript, the log of prover's queries to `oSpec`,
+  and the prover's final state
 -/
 def runProtocol [∀ i, Sampleable (pSpec.Challenge i)]
 (protocol : Protocol pSpec oSpec PrvState Statement Witness)
     (stmt : Statement) (wit : Witness) : OracleComp
     (oSpec ++ₒ challengeOracle pSpec)
-    (Bool × Transcript pSpec × PrvState) := do
-  let (transcript, state) ← runProver protocol.prover stmt wit
+    (Bool × Transcript pSpec × QueryLog oSpec × PrvState) := do
+  let (transcript, queryLog, state) ← runProver protocol.prover stmt wit
   let decision ← liftComp (runVerifier protocol.verifier stmt transcript)
-  return (decision, transcript, state)
+  return (decision, transcript, queryLog, state)
 
 /-- Run an interactive oracle protocol
 
-Returns the verifier's decision, the transcript, and the log of all oracle queries to the prover's messages, and the prover's final state
+Returns the verifier's decision, the transcript, the log of all verifier's oracle queries
+to the prover's messages, the log of all prover's queries to `oSpec`, and the prover's final state
 -/
 def runOracleProtocol [∀ i, Sampleable (pSpec.Challenge i)]
     [∀ i, ToOracle (pSpec.Message i)]
     (protocol : OracleProtocol pSpec oSpec PrvState Statement Witness)
     (stmt : Statement) (wit : Witness) : OracleComp
     (oSpec ++ₒ challengeOracle pSpec)
-    (Bool × Transcript pSpec × ResponseList pSpec × PrvState) := do
-  let (transcript, state) ← runProver protocol.prover stmt wit
+    (Bool × Transcript pSpec × ResponseList pSpec × QueryLog oSpec × PrvState) := do
+  let (transcript, queryLog, state) ← runProver protocol.prover stmt wit
   let ⟨decision, queries⟩ ←
     liftComp (runOracleVerifier protocol.verifier stmt transcript)
-  return (decision, transcript, queries, state)
+  return (decision, transcript, queries, queryLog, state)
 
 end Execution

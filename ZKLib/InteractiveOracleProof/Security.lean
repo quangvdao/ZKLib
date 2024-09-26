@@ -132,6 +132,19 @@ def knowledgeSoundness (verifier : Verifier pSpec oSpec Statement)
     else
       True
 
+
+/-- Version of `challengeOracle` that requires querying with the statement and prior messages.
+
+This is a stepping stone toward the Fiat-Shamir transform. -/
+@[simps]
+def challengeOracle' (pSpec : ProtocolSpec n) (Statement : Type) [DecidableEq Statement] [∀ i, DecidableEq (pSpec.Message i)] [∀ i, Sampleable (pSpec.Challenge i)] : OracleSpec (Fin n) where
+  domain := fun i => Statement × (∀ j : Fin i, (pSpec.take i (by omega)).Message j)
+  range := fun i => pSpec.Challenge i
+  domain_decidableEq' := fun _ => decEq
+  range_decidableEq' := fun _ => Sampleable.toDecidableEq
+  range_inhabited' := fun _ => Sampleable.toInhabited
+  range_fintype' := fun _ => Sampleable.toFintype
+
 -- def StateRestorationProver extends Prover pSpec oSpec PrvState Statement Witness where
 
 def stateRestorationSoundness (verifier : Verifier pSpec oSpec Statement)
