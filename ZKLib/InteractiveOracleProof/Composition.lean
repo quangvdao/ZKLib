@@ -4,7 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Quang Dao
 -/
 
-import ZKLib.InteractiveOracleReduction.Security
+import ZKLib.InteractiveOracleProof.Security
 import ZKLib.Data.Math.Fin
 
 /-!

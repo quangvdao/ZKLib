@@ -1,5 +1,5 @@
 import ZKLib.CommitmentScheme.Basic
-import ZKLib.InteractiveOracleReduction.Composition
+import ZKLib.InteractiveOracleProof.Composition
 
 /-!
   # Composition of an Interactive (Oracle) Protocol with Commitment Schemes

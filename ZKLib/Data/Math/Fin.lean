@@ -43,10 +43,10 @@ theorem addCases'_right {m n : ℕ} {motive : Fin m → Sort u} {motive' : Fin n
   symm; exact cast_heq _ (right i)
 
 
-/-- Take the first `m` elements of a finite vector -/
+/-- Take the first `m` elements of an `n`-tuple, where `m ≤ n` -/
 def take {n : ℕ} {α : Fin n → Sort u} (v : (i : Fin n) → α i) (m : ℕ) (h : m ≤ n) :
-    (i : Fin m) → α (Fin.castLE (by omega) i) :=
-  fun i => v (Fin.castLE (by omega) i)
+    (i : Fin m) → α (Fin.castLE h i) :=
+  fun i => v (Fin.castLE h i)
 
 /-- Take the first `m` elements of a finite vector.
 
@@ -68,8 +68,6 @@ theorem take_zero {n : ℕ} {α : Fin n → Sort u} (v : (i : Fin n) → α i) :
 theorem take_self {n : ℕ} {α : Fin n → Sort u} (v : (i : Fin n) → α i) :
     take v n (by omega) = v := by ext i; simp [take]
 
-#check Fin.snoc
-
 theorem take_succ {n : ℕ} {α : Fin n → Type u} (v : (i : Fin n) → α i) (m : ℕ) (h : m < n) :
     take v m.succ (by omega) = @Fin.snoc m (fun i => α (Fin.castLE (by omega) i))
       (take v m (by omega)) (v ⟨m, h⟩) := by
@@ -84,8 +82,7 @@ theorem take_succ {n : ℕ} {α : Fin n → Type u} (v : (i : Fin n) → α i) (
     | last => simp [take, snoc, castLT]; congr
     | cast i _ => simp [snoc_cast_add]
 
-
-theorem take_ofFn {n : ℕ} {α : Type u} (v : Fin n → α) (m : ℕ) (h : m ≤ n) : List.ofFn (take v m h) = (List.ofFn v).take m := by
+theorem take_List_ofFn {n : ℕ} {α : Type u} (v : Fin n → α) (m : ℕ) (h : m ≤ n) : List.ofFn (take v m h) = (List.ofFn v).take m := by
   induction m with
   | zero => simp [take_zero]
   | succ m ih =>
@@ -94,6 +91,12 @@ theorem take_ofFn {n : ℕ} {α : Type u} (v : Fin n → α) (m : ℕ) (h : m �
     · rw [←(ih (by omega))]; congr
     · have hLt : m < n := by omega
       simp [take, List.getElem?_ofFn, List.ofFnNthVal, hLt, castLE]
+
+theorem take_init {n : ℕ} {α : Fin (n + 1) → Type u} (v : (i : Fin (n + 1)) → α i) :
+    take v n (Nat.le_add_right n 1) = init v := by
+  ext i
+  simp only [take, init]
+  congr
 
 /-
 List.take_succ.{u_1} {α : Type u_1} {l : List α} {n : ℕ} : List.take (n + 1) l = List.take n l ++ l[n]?.toList

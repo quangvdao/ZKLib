@@ -1,4 +1,4 @@
-import ZKLib.InteractiveOracleReduction.Basic
+import ZKLib.InteractiveOracleProof.Basic
 import VCVio
 
 /-!

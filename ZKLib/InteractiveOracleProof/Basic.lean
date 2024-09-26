@@ -251,16 +251,18 @@ infixl : 65 " ++ₚ " => ProtocolSpec.append
 @[simp]
 theorem ProtocolSpec.snoc_eq_append {Message Challenge : Type} {pSpec : ProtocolSpec m} :
     pSpec.snoc Message Challenge = pSpec ++ₚ .mkSingle Message Challenge := by
-  ext i <;> simp [ProtocolSpec.append, ProtocolSpec.snoc, Fin.snoc_eq_append] <;> congr <;> unfold Fin.cons <;> ext j
-  · have : j = 0 := by aesop
-    subst this ; simp
-  · have : j = 0 := by aesop
-    subst this ; simp
+  ext i <;> simp [ProtocolSpec.append, ProtocolSpec.snoc, Fin.snoc_eq_append] <;>
+  congr <;> unfold Fin.cons <;> ext j
+  · have h : j = 0 := by aesop
+    subst h ; simp
+  · have h : j = 0 := by aesop
+    subst h ; simp
 
 @[simp]
 theorem ProtocolSpec.append_take {pSpec : ProtocolSpec n} (m : Fin n) :
     (pSpec.take m (by omega) ++ₚ .mkSingle (pSpec.Message m) (pSpec.Challenge m)) = pSpec.take (m + 1) (by omega) := by
-  ext i <;> simp only [append] <;> rw [Fin.take_succ] <;> simp [Fin.snoc_eq_append] <;> congr <;> unfold Fin.cons <;> ext j
+  ext i <;> simp only [append] <;> rw [Fin.take_succ] <;>
+  simp [Fin.snoc_eq_append] <;> congr <;> unfold Fin.cons <;> ext j
   · have : j = 0 := by aesop
     subst this ; simp
   · have : j = 0 := by aesop
