@@ -7,7 +7,7 @@ Authors: Quang Dao
 import Mathlib.Algebra.MvPolynomial.Equiv
 
 /-!
-  # Sum of `MvPolynomial` over some variables taking values in a finite set
+  # Auxiliary functions for sum-check over multivariate polynomials
 -/
 
 noncomputable section
@@ -21,6 +21,13 @@ def Fin.sumCommEquiv (m : ℕ) (n : ℕ) : Fin (m + n) ≃ Sum (Fin n) (Fin m) :
 namespace MvPolynomial
 
 variable {R : Type _} [CommSemiring R] {σ : Type*}
+
+/-- Evaluate the first variable of a multivariate polynomial -/
+def evalFirstVar (n : ℕ+) (p : MvPolynomial (Fin n) R) (r : R) : MvPolynomial (Fin (n - 1)) R := by
+  have p : MvPolynomial (Fin ((n : Nat) - 1 + 1)) R := by
+    have : n - 1 + 1 = (n : ℕ) := @Nat.sub_add_cancel n.1 1 (n.2)
+    exact this ▸ p
+  exact (finSuccEquiv R (n - 1) p).eval (C r)
 
 /-- Embedding of `R` to `MvPolynomial (Fin m) R` -/
 def CEmbedding : R ↪ MvPolynomial (Fin m) R := ⟨C, C_injective (Fin m) R⟩
@@ -36,14 +43,14 @@ def finOneEquiv : MvPolynomial (Fin 1) R ≃ₐ[R] Polynomial R :=
 
   `\sum_{x_m,\dots,x_{m+n-1} \in D} p(X_0,\dots,X_{m-1},x_m,\dots,x_{m+n-1})`
 -/
-def sumPartial (m : ℕ) (n : ℕ) (D : Finset R) : MvPolynomial (Fin (m + n)) R →ₗ[R] MvPolynomial (Fin m) R where
+def sumPartial (m : ℕ) (n : ℕ) (D : Fin n → Finset R) : MvPolynomial (Fin (m + n)) R →ₗ[R] MvPolynomial (Fin m) R where
   toFun := fun p =>
     -- Swap the last `n` variables and the first `m` variables
     let p1 := rename (Fin.sumCommEquiv m n) p
     -- Split into a polynomial over `n` variables, with coefficients in `MvPolynomial (Fin m) R`
     let p2 := sumAlgEquiv R (Fin n) (Fin m) p1
-    -- Product domain `D ^ n`
-    let prod_D := Fintype.piFinset (fun _ => Finset.map CEmbedding D)
+    -- Product domain `D 0 × D 1 × ... × D (n - 1)`
+    let prod_D := Fintype.piFinset (fun i => Finset.map CEmbedding (D i))
     -- Perform the partial sum via summing the evaluations
     ∑ x in prod_D, eval x p2
 
@@ -51,22 +58,22 @@ def sumPartial (m : ℕ) (n : ℕ) (D : Finset R) : MvPolynomial (Fin (m + n)) R
   map_smul' := fun r p => by simp [smul_eq_C_mul, mul_sum]
 
 /-- Special case of `sumPartialFinset` when `m = 0`. Directly returns `R` -/
-def sumAll (n : ℕ) (D : Finset R) : MvPolynomial (Fin n) R →ₗ[R] R := by
+def sumAll (n : ℕ) (D : Fin n → Finset R) : MvPolynomial (Fin n) R →ₗ[R] R := by
   rw [← Nat.zero_add n]
   exact (isEmptyAlgEquiv R (Fin 0)).toLinearMap.comp (sumPartial 0 n D)
 
 /-- Special case of `sumPartialFinset` when `m = 1`. Directly returns `R[X]` -/
-def sumExceptFirst (n : ℕ) (D : Finset R) : MvPolynomial (Fin (n + 1)) R →ₗ[R] Polynomial R := by
+def sumExceptFirst (n : ℕ) (D : Fin n → Finset R) : MvPolynomial (Fin (n + 1)) R →ₗ[R] Polynomial R := by
   rw [Nat.add_comm n 1]
   exact finOneEquiv.toLinearMap.comp (sumPartial 1 n D)
 
-/-- Change `sumFinsetExceptFirst` to handle `n : ℕ+`-/
-def sumExceptFirst' (n : ℕ+) (D : Finset R) : MvPolynomial (Fin n) R →ₗ[R] Polynomial R := by
-  have : n.1 - 1 + 1 = (n : ℕ) := @Nat.sub_add_cancel n.1 1 (n.2)
-  exact this ▸ sumExceptFirst (n.1 - 1) D
+/-- Variant of `sumFinsetExceptFirst` where we replace `n` with `n - 1` -/
+def sumExceptFirst' (n : ℕ) (h : n > 0) (D : Fin (n - 1) → Finset R) : MvPolynomial (Fin n) R →ₗ[R] Polynomial R := by
+  have : n - 1 + 1 = n := @Nat.sub_add_cancel n 1 (gt_iff_lt.mp h)
+  exact this ▸ sumExceptFirst (n - 1) D
 
 @[simp]
-theorem sumExceptFirst'_degree (n : ℕ+) (D : Finset R) (p : MvPolynomial (Fin n) R) : (sumExceptFirst' n D p).degree ≤ p.degreeOf 0 := by
+theorem sumExceptFirst'_degree_le (n : ℕ) (h : n > 0) (D : Fin (n - 1) → Finset R) (p : MvPolynomial (Fin n) R) : (sumExceptFirst' n h D p).degree ≤ p.degreeOf ⟨0, h⟩ := by
   sorry
 
 -- @[simp]

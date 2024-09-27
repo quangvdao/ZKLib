@@ -34,7 +34,7 @@ open scoped NNReal
 -- instance unitInterval.toNNReal : Coe unitInterval NNReal where
 --   coe := fun ⟨x, h⟩ => ⟨x, (Set.mem_Icc.mp h).left⟩
 
-variable {ι : Type} [DecidableEq ι] {oSpec : OracleSpec ι} {n : ℕ} {pSpec : ProtocolSpec n} [∀ i, Sampleable (pSpec.Challenge i)] {PrvState : Type} {Statement Witness : Type}
+variable (pSpec : ProtocolSpec n) {ι : Type} [DecidableEq ι] (oSpec : OracleSpec ι) [∀ i, Sampleable (pSpec.Challenge i)] {PrvState : Type} {Statement Witness : Type}
 
 section Completeness
 
@@ -58,7 +58,7 @@ def completeness (protocol : Protocol pSpec oSpec PrvState Statement Witness)
 /-- Perfect completeness when there is no completeness error -/
 def perfectCompleteness (protocol : Protocol pSpec oSpec PrvState Statement Witness)
     [Relation Statement Witness] : Prop :=
-  completeness protocol 0
+  completeness pSpec oSpec protocol 0
 
 end Completeness
 
@@ -106,7 +106,7 @@ def soundness (verifier : Verifier pSpec oSpec Statement)
   TODO: when we generalize IOR to the ROM, how do we model the extractor's ability to observe the
   prover's queries?
 -/
-def Extractor := Statement → Transcript pSpec → Witness
+def Extractor := Statement → Transcript pSpec → QueryLog oSpec → Witness
 
 /--
   There exists an extractor such that for all
@@ -116,7 +116,7 @@ def Extractor := Statement → Transcript pSpec → Witness
 def knowledgeSoundness (verifier : Verifier pSpec oSpec Statement)
     [RelIn : Relation Statement Witness]
     (knowledgeBound : ENNReal) : Prop :=
-  ∃ extractor : Extractor,
+  ∃ extractor : Extractor pSpec oSpec,
   ∀ stmtIn : Statement,
   ∀ witIn : Witness,
   ∀ prover : Prover pSpec oSpec PrvState Statement Witness,
@@ -124,20 +124,23 @@ def knowledgeSoundness (verifier : Verifier pSpec oSpec Statement)
     let result := evalDist (runProtocol protocol stmtIn witIn)
     let decision := Prod.fst <$> result
     let transcript := Prod.fst <$> Prod.snd <$> result
-    let queryLog := Prod.snd <$> Prod.snd <$> result
+    let queryLog := Prod.fst <$> Prod.snd <$> Prod.snd <$> result
     if decision true > knowledgeBound then
-      let extractedWitIn := (fun tr _ => extractor stmtIn tr) <$> transcript <*> queryLog
+      let extractedWitIn := (fun tr ql => extractor stmtIn tr ql) <$> transcript <*> queryLog
       let validWit := RelIn.isValid stmtIn <$> extractedWitIn
       validWit true ≥ 1 - knowledgeBound
     else
       True
 
+section StateRestoration
+
+variable [DecidableEq Statement] [∀ i, DecidableEq (pSpec.Message i)] [∀ i, Sampleable (pSpec.Challenge i)]
 
 /-- Version of `challengeOracle` that requires querying with the statement and prior messages.
 
 This is a stepping stone toward the Fiat-Shamir transform. -/
 @[simps]
-def challengeOracle' (pSpec : ProtocolSpec n) (Statement : Type) [DecidableEq Statement] [∀ i, DecidableEq (pSpec.Message i)] [∀ i, Sampleable (pSpec.Challenge i)] : OracleSpec (Fin n) where
+def challengeOracle' : OracleSpec (Fin n) where
   domain := fun i => Statement × (∀ j : Fin i, (pSpec.take i (by omega)).Message j)
   range := fun i => pSpec.Challenge i
   domain_decidableEq' := fun _ => decEq
@@ -145,16 +148,25 @@ def challengeOracle' (pSpec : ProtocolSpec n) (Statement : Type) [DecidableEq St
   range_inhabited' := fun _ => Sampleable.toInhabited
   range_fintype' := fun _ => Sampleable.toFintype
 
--- def StateRestorationProver extends Prover pSpec oSpec PrvState Statement Witness where
+class StateRestorationProver extends Prover pSpec oSpec PrvState Statement Witness where
+  stateRestorationQuery : OracleComp (oSpec ++ₒ challengeOracle' pSpec (Statement := Statement)) (PrvState × Statement × Transcript pSpec)
+
+-- def runStateRestorationProver (prover : StateRestorationProver pSpec oSpec PrvState Statement Witness) (stmtIn : Statement) (witIn : Witness) :
+--     OracleComp (oSpec ++ₒ challengeOracle' pSpec (Statement := Statement)) (Transcript pSpec × QueryLog (oSpec ++ₒ challengeOracle' pSpec (Statement := Statement))) := do
+--   let ⟨state, stmt, transcript⟩ ← prover.stateRestorationQuery stmtIn
+--   return ⟨transcript, state⟩
+
 
 def stateRestorationSoundness (verifier : Verifier pSpec oSpec Statement)
     [RelIn : Relation Statement Witness]
     (SRSoundnessBound : ENNReal) : Prop :=
   ∀ stmtIn ∉ RelIn.language,
   ∀ witIn : Witness,
-  ∀ adaptiveProver : AdaptiveProver (PrvState := PrvState),
-    let protocol := Protocol.mk (Witness := Witness) adaptiveProver.toProver verifier
+  ∀ SRProver : StateRestorationProver pSpec oSpec,
+    let protocol := Protocol.mk (PrvState := PrvState) (Witness := Witness) SRProver.toProver verifier
     sorry
+
+end StateRestoration
 
 
 def BadFunction := (i : ℕ) → (h : i ≤ n) → Statement →  Transcript (pSpec.take i h) → Prop
@@ -168,9 +180,9 @@ def roundByRoundSoundness (verifier : Verifier pSpec oSpec Statement)
     (rbrSoundnessBound : Fin n → ℝ≥0) : Prop :=
   ∀ stmtIn ∉ RelIn.language,
   ∀ witIn : Witness,
-  ∀ adaptiveProver : AdaptiveProver (PrvState := PrvState),
+  ∀ prover : Prover pSpec oSpec PrvState Statement Witness,
   ∀ i : Fin n,
-    let protocol := Protocol.mk adaptiveProver.toProver verifier
+    let protocol := Protocol.mk prover verifier
     let result := evalDist (runProtocol protocol stmtIn witIn)
     let decision := Prod.fst <$> result
     let transcript := Prod.fst <$> Prod.snd <$> result
@@ -224,19 +236,19 @@ noncomputable section
 open OracleComp OracleSpec
 open scoped NNReal
 
-variable {ι : Type} [DecidableEq ι] {oSpec : OracleSpec ι} {pSpec : ProtocolSpec n} [∀ i, ToOracle (pSpec.Message i)] [∀ i, Sampleable (pSpec.Challenge i)] {PrvState : Type} {Statement : Type} {Witness : Type}
+variable (pSpec : ProtocolSpec n) {ι : Type} [DecidableEq ι] (oSpec : OracleSpec ι) [∀ i, ToOracle (pSpec.Message i)] [∀ i, Sampleable (pSpec.Challenge i)] {PrvState : Type} {Statement : Type} {Witness : Type}
 
 def completeness (oracleProtocol : OracleProtocol pSpec oSpec PrvState Statement Witness)
     [Relation Statement Witness] (completenessError : ℝ≥0) : Prop :=
-  Protocol.completeness oracleProtocol.toProtocol completenessError
+  Protocol.completeness pSpec oSpec oracleProtocol.toProtocol completenessError
 
 def perfectCompleteness (oracleProtocol : OracleProtocol pSpec oSpec PrvState Statement Witness)
     [Relation Statement Witness] : Prop :=
-  Protocol.perfectCompleteness oracleProtocol.toProtocol
+  Protocol.perfectCompleteness pSpec oSpec oracleProtocol.toProtocol
 
 def soundness (verifier : OracleVerifier pSpec oSpec Statement)
     [RelIn : Relation Statement Witness] (soundnessBound : ENNReal) : Prop :=
-  Protocol.soundness verifier.toVerifier (PrvState := PrvState) (RelIn := RelIn) soundnessBound
+  Protocol.soundness pSpec oSpec verifier.toVerifier (PrvState := PrvState) (RelIn := RelIn) soundnessBound
 
 -- def knowledgeSoundness (oracleProtocol : OracleProtocol OpSpec oSpec Statement Witness)
 --     [Relation Statement Witness] (knowledgeBound : ENNReal) : Prop :=

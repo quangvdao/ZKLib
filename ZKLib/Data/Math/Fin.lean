@@ -15,7 +15,7 @@ import Mathlib.Data.Matrix.Reflection
 namespace Fin
 
 /-- Version of `Fin.addCases` that splits the motive into two dependent vectors, and maps the result type through some function `φ`. -/
-def addCases' {m n : ℕ} {motive : Fin m → Sort u} {motive' : Fin n → Sort u}
+def addCases_fun {m n : ℕ} {motive : Fin m → Sort u} {motive' : Fin n → Sort u}
     {φ : Sort u → Sort v} (left : (i : Fin m) → φ (motive i)) (right : (j : Fin n) → φ (motive' j))
         (i : Fin (m + n)) : φ (addCases motive motive' i) := by
   refine addCases ?_ ?_ i <;> intro j <;> simp
@@ -23,24 +23,44 @@ def addCases' {m n : ℕ} {motive : Fin m → Sort u} {motive' : Fin n → Sort 
   · exact right j
 
 @[simp]
-theorem addCases'_left {m n : ℕ} {motive : Fin m → Sort u} {motive' : Fin n → Sort u}
+theorem addCases_fun_left {m n : ℕ} {motive : Fin m → Sort u} {motive' : Fin n → Sort u}
     {φ : Sort u → Sort v} (left : (i : Fin m) → φ (motive i)) (right : (j : Fin n) → φ (motive' j))
         (i : Fin m) : (@addCases_left _ _ (fun _ => Sort u) motive _ _) ▸
-            (addCases' left right (Fin.castAdd n i)) = left i := by
-  simp [addCases']; symm
+            (addCases_fun left right (Fin.castAdd n i)) = left i := by
+  simp [addCases_fun]; symm
   apply eq_of_heq
   refine (heq_eqRec_iff_heq _ _ (left i)).mpr ?_
   symm; exact cast_heq _ (left i)
 
 @[simp]
-theorem addCases'_right {m n : ℕ} {motive : Fin m → Sort u} {motive' : Fin n → Sort u}
+theorem addCases_fun_right {m n : ℕ} {motive : Fin m → Sort u} {motive' : Fin n → Sort u}
     {φ : Sort u → Sort v} (left : (i : Fin m) → φ (motive i)) (right : (j : Fin n) → φ (motive' j))
         (i : Fin n) : (@addCases_right _ _ (fun _ => Sort u) _ motive' _) ▸
-            (addCases' left right (Fin.natAdd m i)) = right i := by
-  simp [addCases']; symm
+            (addCases_fun left right (Fin.natAdd m i)) = right i := by
+  simp [addCases_fun]; symm
   apply eq_of_heq
   refine (heq_eqRec_iff_heq _ _ (right i)).mpr ?_
   symm; exact cast_heq _ (right i)
+
+/-- Version of `Fin.addCases_fun` with `φ = id`. -/
+def addCases' {m n : ℕ} {motive : Fin m → Sort u} {motive' : Fin n → Sort u}
+    (left : (i : Fin m) → motive i) (right : (j : Fin n) → motive' j)
+        (i : Fin (m + n)) : addCases motive motive' i :=
+  Fin.addCases_fun (φ := id) left right i
+
+@[simp]
+theorem addCases'_left {m n : ℕ} {motive : Fin m → Sort u} {motive' : Fin n → Sort u}
+    (left : (i : Fin m) → motive i) (right : (j : Fin n) → motive' j)
+        (i : Fin m) : (@addCases_left _ _ (fun _ => Sort u) motive _ _) ▸
+            (addCases' left right (Fin.castAdd n i)) = left i :=
+  addCases_fun_left (φ := id) left right i
+
+@[simp]
+theorem addCases'_right {m n : ℕ} {motive : Fin m → Sort u} {motive' : Fin n → Sort u}
+    (left : (i : Fin m) → motive i) (right : (j : Fin n) → motive' j)
+        (i : Fin n) : (@addCases_right _ _ (fun _ => Sort u) _ motive' _) ▸
+            (addCases' left right (Fin.natAdd m i)) = right i :=
+  addCases_fun_right (φ := id) left right i
 
 
 /-- Take the first `m` elements of an `n`-tuple, where `m ≤ n` -/
@@ -92,11 +112,25 @@ theorem take_List_ofFn {n : ℕ} {α : Type u} (v : Fin n → α) (m : ℕ) (h :
     · have hLt : m < n := by omega
       simp [take, List.getElem?_ofFn, List.ofFnNthVal, hLt, castLE]
 
+@[simp]
 theorem take_init {n : ℕ} {α : Fin (n + 1) → Type u} (v : (i : Fin (n + 1)) → α i) :
     take v n (Nat.le_add_right n 1) = init v := by
   ext i
   simp only [take, init]
   congr
+
+@[simp]
+theorem take_append_eq_self {n m : ℕ} {α : Type u} (v : (i : Fin n) → α) (w : (i : Fin m) → α) :
+    take (Fin.append v w) n (Nat.le_add_right n m) = v := by
+  ext i
+  simp [take, append, addCases]
+  congr 1
+
+-- theorem take_addCases_eq_self {n m : ℕ} {α : Fin n → Sort u} {β : Fin m → Sort u} (v : (i : Fin n) → α i) (w : (i : Fin m) → β i) :
+--     take (Fin.addCases' v w) n (Nat.le_add_right n m) = v := by
+--   ext i
+--   simp only [take, append]
+--   congr
 
 /-
 List.take_succ.{u_1} {α : Type u_1} {l : List α} {n : ℕ} : List.take (n + 1) l = List.take n l ++ l[n]?.toList

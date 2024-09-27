@@ -4,7 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Quang Dao
 -/
 
-import ZKLib.Data.MvPolynomial.PartialSum
+import ZKLib.Data.MvPolynomial.Sumcheck
 import ZKLib.Relation.Basic
 
 /-!
@@ -22,7 +22,7 @@ The witness of the sumcheck protocol is a multivariate polynomial $p(x_1, \dots,
 The statement of the sumcheck protocol is a value $T \in R$, supposed to be the sum of the polynomial over the domain $D^n$.
 
 The sumcheck relation states that the following holds:
-$$ \sum_{y \in D^n} p(y) = T. $$
+`∑ y in D ^ n, p(y) = T`.
 
 ## TODOs
 
@@ -46,31 +46,34 @@ namespace Spec
 
 open MvPolynomial
 
-variable (R : Type _) [CommSemiring R]
+-- Move this to `ProofSystem/Sumcheck/Basic.lean` for now, so that I don't have to back and forth.
 
-structure Index where
-  nVars : ℕ+
-  degrees : Fin nVars → ℕ
-  domain : Finset R
+-- variable (R : Type _) [CommSemiring R]
 
-structure Statement (index : Index R) where
-  target : R
+-- structure Index where
+--   n : ℕ+
+--   degrees : Fin n → ℕ
+--   domain : Finset R
 
-structure Witness (index : Index R) where
-  poly : MvPolynomial (Fin index.nVars) R
-  -- hDeg : ∀ i, poly.degreeOf i ≤ index.degrees i
+-- structure Statement (index : Index R) where
+--   poly : MvPolynomial (Fin index.n) R
+--   target : R
 
-def relation (index : Index R) : Relation where
-  Statement := Statement R index
-  Witness := Witness R index
-  isValid := fun stmt wit =>
-    sumAll index.nVars index.domain wit.poly = stmt.target
-      ∧ ∀ i : Fin index.nVars, wit.poly.degreeOf i ≤ index.degrees i
+-- -- structure Witness (index : Index R) where
+--   -- hDeg : ∀ i, poly.degreeOf i ≤ index.degrees i
 
-/-- The sumcheck relation -/
-def relationFamily : RelationFamily where
-  Index := Index R
-  Relation := relation R
+-- /-- The sumcheck relation -/
+-- def relation (index : Index R) : Relation (Statement R index) Unit where
+--   isValid := fun stmt _ =>
+--     sumAll index.n index.domain stmt.poly = stmt.target
+--       ∧ ∀ i : Fin index.n, stmt.poly.degreeOf i ≤ index.degrees i
+
+-- -- TODO: define intermediate relations for each round `i` of sum-check
+-- structure IntermediateStatement (index : Index R) (i : Fin index.n) where
+--   poly : MvPolynomial (Fin (index.n - i)) R
+--   target : R
+--   messages : Fin i → Polynomial R
+--   challenges : Fin i → R
 
 end Spec
 

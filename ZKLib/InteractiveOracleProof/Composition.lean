@@ -17,26 +17,37 @@ import ZKLib.Data.Math.Fin
 
 section Composition
 
-def ProverRound.append (P1 : ProverRound PSpec OSpec PrvState)
-  (P2 : ProverRound PSpec' OSpec PrvState) :
+@[simp]
+theorem ProtocolSpec.take_append_eq_self {PSpec : ProtocolSpec n} {PSpec' : ProtocolSpec m} :
+    (PSpec ++ₚ PSpec').take n (by omega) = PSpec := by
+  simp [ProtocolSpec.append, ProtocolSpec.take]
+
+def ProverRound.append (P : ProverRound PSpec OSpec PrvState)
+  (P' : ProverRound PSpec' OSpec PrvState) :
   ProverRound (PSpec ++ₚ PSpec') OSpec PrvState where
   prove := fun i => by
-    refine Fin.addCases ?_ ?_ i <;> intro j c <;> simp [ProtocolSpec.append]
-    · simp [ProtocolSpec.append] at c
-      exact P1.prove j c
-    · simp [ProtocolSpec.append] at c
-      exact P2.prove j c
+    refine Fin.addCases ?_ ?_ i <;> intro j c <;>
+    simp [ProtocolSpec.append] at c ⊢
+    · exact P.prove j c
+    · exact P'.prove j c
 
--- def Prover.append (P : Prover PSpec OSpec PrvState Statement Witness) (P' : Prover PSpec' OSpec PrvState Statement Witness) : Prover (PSpec ++ₚ PSpec') OSpec PrvState Statement Witness where
---   loadState := fun ⟨stmt, wit⟩ => ⟨P.loadState stmt wit, P'.loadState stmt wit⟩
---   prove := ProverRound.append P.prove P'.prove
+def Prover.append (P : Prover PSpec OSpec PrvState Statement Witness) (P' : ProverRound PSpec' OSpec PrvState) : Prover (PSpec ++ₚ PSpec') OSpec PrvState Statement Witness where
+  load := P.load
+  toProverRound := ProverRound.append P.toProverRound P'
 
--- def Verifier.append {PSpec : ProtocolSpec n} {PSpec' : ProtocolSpec m}
---   (V : Verifier PSpec OSpec Statement) (V' : Verifier PSpec' OSpec Statement) : Verifier (PSpec ++ₚ PSpec') OSpec Statement where
---   verify := fun stmt transcript => do
---     let ⟨t1, t2⟩ ← V.verify stmt transcript.restrictFirst m
---     let ⟨t2, t2⟩ ← V'.verify stmt transcript.restrictLast (n - m)
---     return Fin.addCases t1 t2
+/-- Composition of verifiers. Return the conjunction of the decisions of the two verifiers. -/
+def Verifier.append {PSpec : ProtocolSpec n} {PSpec' : ProtocolSpec m}
+    (V : Verifier PSpec OSpec Statement) (V' : Verifier PSpec' OSpec Statement) : Verifier (PSpec ++ₚ PSpec') OSpec Statement where
+  verify := fun stmt transcript => do
+    let firstTranscript : Transcript PSpec := by
+      have := transcript.take n (by omega)
+      simp at this; exact this
+    let decision ← V.verify stmt firstTranscript
+    let secondTranscript : Transcript PSpec' := by
+      have := transcript.rtake m (by omega)
+      sorry
+    let decision' ← V'.verify stmt secondTranscript
+    return decision ∧ decision'
 
 
 -- Define composition of multiple protocols via recursion
@@ -52,5 +63,3 @@ section Security
 -- Show that composition preserves security properties such as completeness and (all variants of) soundness.
 
 end Security
-
-end Protocol
