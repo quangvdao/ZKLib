@@ -54,7 +54,6 @@ def completeness (protocol : Protocol pSpec oSpec PrvState Statement Witness)
       let decision := evalDist (Prod.fst <$> runProtocol protocol stmtIn witIn)
       decision True ≥ 1 - completenessError
 
-
 /-- Perfect completeness when there is no completeness error -/
 def perfectCompleteness (protocol : Protocol pSpec oSpec PrvState Statement Witness)
     [Relation Statement Witness] : Prop :=

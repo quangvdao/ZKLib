@@ -8,25 +8,43 @@ import ZKLib.InteractiveOracleProof.Basic
 import ZKLib.Relation.Sumcheck
 
 /-!
-# The Sumcheck Protocol
+# The Sum-check Protocol
 
-We define the sumcheck protocol using Mathlib's types for polynomials, which are noncomputable. Other files will deal with implementations of the protocol, and we will prove that those implementations are instances of the abstract protocol (or maybe that their soundness can be derived from the soundness of this abstract protocol).
+We define the sum-check protocol as a series of Interactive Oracle Reductions (IORs), where the
+underlying polynomials are represented using Mathlib's noncomputable types `Polynomial` and
+`MvPolynomial`.
 
-We will split the sum-check protocol into the following stages:
+Other files will deal with implementations of the protocol, and we will prove that those
+implementations derive security from that of the abstract protocol.
 
-0. Before the protocol starts, we assume that the prover has already sent the multivariate polynomial `P`, so that it can be in the statement of the relation.
+We split the sum-check protocol into the following stages:
 
-1. For round `0`, the verifier sends nothing, and the prover sends the univariate polynomial `p_0` for the first sum-check round.
+0. Before the protocol starts, we assume that the prover has already sent the multivariate
+   polynomial `P`, so that it can be in the statement of the relation.
 
-The verifier checks that `p_0` satisfies `∑ x in domain, p_0.eval x = T`, where `T` is the target value of sum-check.
+1. For round `0`, the verifier sends nothing, and the prover sends the univariate polynomial `p_0`
+   for the first sum-check round.
 
-2. For round `i = 1` to `n - 1`, the verifier sends a challenge `r_{i-1} : R`, and the prover sends back the univariate polynomial `p_i` for that round.
+The verifier checks that `p_0` satisfies `∑ x in domain, p_0.eval x = T`, where `T` is the target
+value of sum-check.
 
-The verifier then checks that `p_i` satisfies `∑ x in domain, p_i.eval x = p_{i - 1}.eval r_{i-1}`, where `p_{i-1}` is the polynomial from the previous round (added to the current round's statement).
+2. For round `i = 1` to `n - 1`, the verifier sends a challenge `r_{i-1} : R`, and the prover sends
+   back the univariate polynomial `p_i` for that round.
 
-3. In the last round `i = n`, the verifier sends a challenge `r_n : R`, and the prover does not send anything.
+The verifier then checks that `p_i` satisfies `∑ x in domain, p_i.eval x = p_{i - 1}.eval r_{i-1}`,
+where `p_{i-1}` is the polynomial from the previous round (added to the current round's statement).
 
-The verifier checks that `p_{n-1}` satisfies `∑ x in domain, p_{n-1}.eval x = P.eval (fun i => r_i)`.
+3. In the last round `i = n`, the verifier sends a challenge `r_n : R`, and the prover does not send
+   anything.
+
+The verifier checks that `p_{n-1}` satisfies `∑ x in domain, p_{n-1}.eval x = P.eval (fun i => r_i)`
+
+Note that to represent sum-check as a series of IORs, we will need to implicitly constrain the
+degree of the polynomials via using subtypes, such as `Polynomial.degreeLE` and
+`MvPolynomial.degreeOf`. This is because the oracle verifier only gets oracle access to evaluating
+the polynomials, but does not see the polynomials in the clear. When this is compiled to an
+interactive proof, the corresponding polynomial commitment schemes will enforce that the declared
+degree bound holds, via letting the (non-oracle) verifier perform explicit degree checks.
 
 -/
 

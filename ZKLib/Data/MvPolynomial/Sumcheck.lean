@@ -17,7 +17,6 @@ open BigOperators Finset Fintype
 /-- Equivalence that splits `Fin (m + n)` to `Fin m` and `Fin n`, then swaps the two -/
 def Fin.sumCommEquiv (m : ℕ) (n : ℕ) : Fin (m + n) ≃ Sum (Fin n) (Fin m) := (@finSumFinEquiv m n).symm.trans (Equiv.sumComm (Fin m) (Fin n))
 
-
 namespace MvPolynomial
 
 variable {R : Type _} [CommSemiring R] {σ : Type*}

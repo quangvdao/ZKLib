@@ -5,7 +5,7 @@ Authors: Quang Dao
 -/
 
 import ZKLib.Relation.Basic
-import ZKLib.ToVCVio.Oracle
+import VCVio
 import ZKLib.Data.Math.Fin
 
 /-!
@@ -101,8 +101,8 @@ def challengeOracle (pSpec : ProtocolSpec n) [∀ i, Sampleable (pSpec.Challenge
 -/
 @[ext]
 structure Transcript (pSpec : ProtocolSpec n) where
-  messages : ∀ i, pSpec.Message i
-  challenges : ∀ i, pSpec.Challenge i
+  messages : ∀ i, pSpec.Message i -- (i : Fin n) → pSpec.Message i
+  challenges : ∀ i, pSpec.Challenge i -- (i : Fin n) → pSpec.Challenge i
 
 @[inline, reducible]
 def emptyTranscript : Transcript emptyPSpec where
@@ -262,7 +262,7 @@ theorem ProtocolSpec.snoc_eq_append {Message Challenge : Type} {pSpec : Protocol
 @[simp]
 theorem ProtocolSpec.append_take {pSpec : ProtocolSpec n} (m : Fin n) :
     (pSpec.take m (by omega) ++ₚ .mkSingle (pSpec.Message m) (pSpec.Challenge m)) = pSpec.take (m + 1) (by omega) := by
-  ext i <;> simp only [append] <;> rw [Fin.take_succ] <;>
+  ext i <;> simp only [append] <;> rw [Fin.take_succ_eq_snoc] <;>
   simp [Fin.snoc_eq_append] <;> congr <;> unfold Fin.cons <;> ext j
   · have : j = 0 := by aesop
     subst this ; simp

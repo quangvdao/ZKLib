@@ -31,6 +31,8 @@ section MvPolynomialDetermination
 
 universe u v
 
+#check Polynomial.degreeLE
+
 variable {σ : Type u} [Fintype σ] {R : Type v} [CommRing R] [IsDomain R] {f g : MvPolynomial σ R}
 
 section Finset

@@ -6,7 +6,7 @@ Authors: Quang Dao
 
 import Mathlib.Algebra.Tropical.Basic
 import Mathlib.RingTheory.Polynomial.Basic
-import ZKLib.Data.Misc.MathOperations
+import ZKLib.Data.Math.MathOperations
 
 /-!
   # Univariate Polynomials with Efficient Operations

@@ -4,8 +4,9 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Quang Dao
 -/
 
-import ZKLib.ToVCVio.Oracle
-import ZKLib.Data.Misc.MathOperations
+-- import ZKLib.ToVCVio.Oracle
+import VCVio
+import ZKLib.Data.Math.MathOperations
 -- import ZKLib.CommitmentScheme.Basic
 
 /-!
@@ -42,7 +43,7 @@ def singleHash (left : α) (right : α) : OracleComp (oracleSpec α) α := do
   let out ← query () ⟨left, right⟩
   return out
 
-/-- Cache for Merkle tree. Indexed by `j : Fin (n + 1)`. -/
+/-- Cache for Merkle tree. Indexed by `j : Fin (n + 1)`, i.e. `j = 0, 1, ..., n`. -/
 def Cache (n : ℕ) := (j : Fin (n + 1)) → Vector α (2 ^ j.val)
 
 /-- Add a base layer to the cache -/
@@ -62,9 +63,11 @@ def buildLayer (n : ℕ) (h : n > 0) (leaves : Vector α (2 ^ n)) :
   -- Rewrite `leaves` as `2 ^ (n - 1) * 2`
   have leaves : Vector α (2 ^ (n - 1) * 2) := by
     rwa [this] at leaves
+  -- Pair up the leaves to form pairs
   let pairs : Vector (α × α) (2 ^ (n - 1)) :=
     Vector.ofFn (fun i =>
       (leaves.get ⟨2 * i, by omega⟩, leaves.get ⟨2 * i + 1, by omega⟩))
+  -- Hash each pair to get the next layer
   let hashes : Vector α (2 ^ (n - 1)) ←
     Vector.mmap (fun ⟨left, right⟩ => query () ⟨left, right⟩) pairs
   return hashes
