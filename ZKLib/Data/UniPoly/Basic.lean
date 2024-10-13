@@ -179,7 +179,7 @@ theorem ext {p q : UniPoly R} (h : p.coeffs = q.coeffs) : p = q := by
 @[simp] theorem add_comm (p q : UniPoly R) : p + q = q + p := by
   simp [instHAdd, instAdd, add, List.matchSize]
   refine Array.ext' ?_
-  simp [Array.data_zipWith]
+  simp [Array.toList_zipWith]
   rw [List.zipWith_comm _ _ _]
   congr; ext a b; rename_i inst;
   have : ∀ (a b : R), Add.add a b = a + b := fun a b => rfl
@@ -188,13 +188,13 @@ theorem ext {p q : UniPoly R} (h : p.coeffs = q.coeffs) : p = q := by
 @[simp] theorem zero_add (p : UniPoly R) : 0 + p = p := by
   simp [instHAdd, instAdd, add, List.matchSize]
   refine UniPoly.ext (Array.ext' ?_)
-  simp [Array.data_zipWith, List.zipWith]
+  simp [Array.toList_zipWith, List.zipWith]
   sorry
 
 @[simp] theorem add_assoc (p q r : UniPoly R) : p + q + r = p + (q + r) := by
   simp [instHAdd, instAdd, add, List.matchSize]
   refine Array.ext' ?_
-  simp [Array.data_zipWith]
+  simp [Array.toList_zipWith]
   sorry
 
 -- TODO: define `SemiRing` structure on `UniPoly`
@@ -231,11 +231,11 @@ open List in
 @[simp] theorem equiv_trans {p q r : UniPoly R} : equiv p q → equiv q r → equiv p r :=
   fun hpq hqr => by
     simp_all [equiv, Array.matchSize]
-    have hpq' := (List.matchSize_eq_iff_forall_eq p.coeffs.data q.coeffs.data 0).mp hpq
-    have hqr' := (List.matchSize_eq_iff_forall_eq q.coeffs.data r.coeffs.data 0).mp hqr
-    have hpr' : ∀ (i : Nat), p.coeffs.data.getD i 0 = r.coeffs.data.getD i 0 :=
+    have hpq' := (List.matchSize_eq_iff_forall_eq p.coeffs.toList q.coeffs.toList 0).mp hpq
+    have hqr' := (List.matchSize_eq_iff_forall_eq q.coeffs.toList r.coeffs.toList 0).mp hqr
+    have hpr' : ∀ (i : Nat), p.coeffs.toList.getD i 0 = r.coeffs.toList.getD i 0 :=
       fun i => Eq.trans (hpq' i) (hqr' i)
-    exact (List.matchSize_eq_iff_forall_eq p.coeffs.data r.coeffs.data 0).mpr hpr'
+    exact (List.matchSize_eq_iff_forall_eq p.coeffs.toList r.coeffs.toList 0).mpr hpr'
 
 /-- The `UniPoly.equiv` is indeed an equivalence relation. -/
 instance instEquivalenceEquiv : Equivalence (equiv (R := R)) where

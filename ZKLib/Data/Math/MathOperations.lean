@@ -70,7 +70,7 @@ lemma iterateRec_lt_base {α : Type u} (op : α → α) {h : b ≥ 2} (hk : k < 
 
 theorem iterateRec_eq_iterate {α : Type u} (op : α → α) (n : Nat) :
     Nat.iterateRec op n b h = op^[n] := by
-  induction n using Nat.caseStrongInductionOn with
+  induction n using Nat.caseStrongRecOn with
   | zero => simp
   | ind k ih =>
     unfold Nat.iterateRec
@@ -127,6 +127,7 @@ theorem rightpad_eq_if_rightpad_eq_of_ge (l l' : List α) (m n n' : Nat) (h : n 
     _ = (rightpad n' unit l').length := congrArg length hEq
     _ = max n' l'.length := rightpad_length n' unit l'
   simp [hEq, hLen]
+  sorry
 
 
 @[simp] theorem rightpad_twice_eq_rightpad_max (m n : Nat) (unit : α) (l : List α) :
@@ -237,19 +238,19 @@ theorem range_succ (n : Nat) : range (n + 1) = (range n).push n := by
   simp [range, Nat.fold, flip]
 
 @[simp]
-theorem range_data (n : Nat) : (Array.range n).data = List.range n := by
+theorem range_toList (n : Nat) : (Array.range n).toList = List.range n := by
   induction n with
   | zero => simp only [Array.range]; rfl
   | succ n ih => simp [range_succ, List.range_succ, ih]
 
 @[simp]
 theorem mem_range {m n : Nat} : m ∈ range n ↔ m < n := by
-  exact (Array.mem_data).symm.trans (by simp)
+  exact (Array.mem_toList).symm.trans (by simp)
 
 /-- `Array` version of `List.finRange`. -/
 def finRange (n : Nat) : Array (Fin n) := Array.ofFn (fun i => i)
 
-@[simp] theorem finRange_data (n : Nat) : (finRange n).data = List.finRange n := by sorry
+@[simp] theorem finRange_toList (n : Nat) : (finRange n).toList = List.finRange n := by sorry
 
 end Array
 
