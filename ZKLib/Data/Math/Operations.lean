@@ -21,8 +21,7 @@ namespace Nat
 theorem max_eq_add_sub {m n : Nat} : Nat.max m n = m + (n - m) := by
   by_cases h : n ≤ m
   · simp [Nat.sub_eq_zero_of_le, h]
-  · simp [Nat.max_eq_max, Nat.max_eq_right (Nat.le_of_not_le h), Nat.add_sub_of_le (Nat.le_of_not_le h)]
-
+  · simp only [Nat.max_eq_right (Nat.le_of_not_le h), Nat.add_sub_of_le (Nat.le_of_not_le h)]
 
 -- TODO: add lemmas connecting `log2` and `log`, and `nextPowerOfTwo` and `pow`?
 
@@ -32,13 +31,14 @@ theorem max_eq_add_sub {m n : Nat} : Nat.max m n = m + (n - m) := by
 
 -- @[simp] theorem nextPowerOfTwo_eq_pow_clog (n : Nat) : nextPowerOfTwo n = 2 ^ (clog2 n) := by
 
--- Note: `iterateRec` is not as efficient as `Nat.iterate`. For the repeated squaring in exponentiation, we need to additionally do memoization of intermediate values.
+-- Note: `iterateRec` is not as efficient as `Nat.iterate`. For the repeated squaring in
+-- exponentiation, we need to additionally do memoization of intermediate values.
 -- TODO: add this
 -- See [Zulip thread](https://leanprover.zulipchat.com/#narrow/stream/217875-Is-there-code-for-X.3F/topic/.E2.9C.94.20Binary.20version.20of.20.60Nat.2Eiterate.60.3F/near/468437958)
 
 /-- Iterate a binary operation `op` for `n` times by decomposing `n` in base `b`,
   then recursively computing the result. -/
-def iterateRec {α : Sort u} (op : α → α) (n : ℕ) (b : ℕ) (h : b ≥ 2) : α → α :=
+def iterateRec {α : Sort*} (op : α → α) (n : ℕ) (b : ℕ) (h : b ≥ 2) : α → α :=
   if n = 0 then id
   else op^[n % b] ∘ (iterateRec op (n / b) b h)^[b]
 termination_by n
@@ -49,7 +49,7 @@ decreasing_by
 
 /-- Special case of `Nat.iterateRec` where the base `b` is binary.
   Corresponds to repeated squaring for exponentiation. -/
-def iterateBin {α : Sort u} (op : α → α) (n : ℕ) : α → α := iterateRec op n 2 (by decide)
+def iterateBin {α : Sort*} (op : α → α) (n : ℕ) : α → α := iterateRec op n 2 (by decide)
 
 notation:max f "^["n"]₂" => Nat.iterateBin f n
 
@@ -58,20 +58,22 @@ end Nat
 namespace Function
 
 @[simp]
-lemma iterateRec_zero {α : Sort u} (op : α → α) : Nat.iterateRec op 0 b h = id := by simp [Nat.iterateRec]
+lemma iterateRec_zero {α : Sort*} {b : ℕ} {h : b ≥ 2} (op : α → α) :
+    Nat.iterateRec op 0 b h = id := by simp [Nat.iterateRec]
 
 @[simp]
-lemma iterateRec_lt_base {α : Type u} (op : α → α) {h : b ≥ 2} (hk : k < b) : Nat.iterateRec op k b h = op^[k] := by
+lemma iterateRec_lt_base {α : Type*} {b k : ℕ} (op : α → α) {h : b ≥ 2} (hk : k < b) :
+    Nat.iterateRec op k b h = op^[k] := by
   unfold Nat.iterateRec
   have h1 : k % b = k := Nat.mod_eq_of_lt (by omega)
   have h2 : k / b = 0 := Nat.div_eq_of_lt (by omega)
   simp [h1, h2]
-  intro hZero ; simp [hZero]
+  intro hZero; simp [hZero]
 
-theorem iterateRec_eq_iterate {α : Type u} (op : α → α) (n : Nat) :
+theorem iterateRec_eq_iterate {α : Type*} {b : ℕ} {h : b ≥ 2} (op : α → α) (n : Nat) :
     Nat.iterateRec op n b h = op^[n] := by
   induction n using Nat.caseStrongRecOn with
-  | zero => simp
+  | zero => simp [Nat.iterateRec]
   | ind k ih =>
     unfold Nat.iterateRec
     have : (k + 1) / b ≤ k := by
@@ -81,12 +83,14 @@ theorem iterateRec_eq_iterate {α : Type u} (op : α → α) (n : Nat) :
     rw [ih ((k + 1) / b) this, ←iterate_mul, ←iterate_add, Nat.mod_add_div' (k + 1) b]
     simp
 
-theorem iterateBin_eq_iterate {α : Type u} (op : α → α) (n : Nat) :
+theorem iterateBin_eq_iterate {α : Type*} (op : α → α) (n : Nat) :
     op^[n]₂ = op^[n] := by simp [Nat.iterateBin, iterateRec_eq_iterate]
 
 end Function
 
 namespace List
+
+variable {α : Type*} {unit : α}
 
 @[simp] theorem leftpad_eq_self (l : List α) (n : Nat) (h : l.length ≥ n) :
     leftpad n unit l = l := by simp [leftpad, Nat.sub_eq_zero_of_le h]
@@ -156,7 +160,8 @@ theorem rightpad_eq_if_rightpad_eq_of_ge (l l' : List α) (m n n' : Nat) (h : n 
 
 
 
-/-- Given two lists of potentially different lengths, right-pads the shorter list with `unit` elements until they are the same length. -/
+/-- Given two lists of potentially different lengths, right-pads the shorter list with `unit`
+  elements until they are the same length. -/
 def matchSize (l₁ : List α) (l₂ : List α) (unit : α) : List α × List α :=
   (l₁.rightpad (l₂.length) unit, l₂.rightpad (l₁.length) unit)
 
@@ -165,15 +170,18 @@ theorem matchSize_comm (l₁ : List α) (l₂ : List α) (unit : α) :
   simp [matchSize]
 
 
-/-- `List.matchSize` returns two equal lists iff the two lists agree at every index `i : Nat` (extended by `unit` if necessary). -/
+/-- `List.matchSize` returns two equal lists iff the two lists agree at every index `i : Nat`
+  (extended by `unit` if necessary). -/
 theorem matchSize_eq_iff_forall_eq (l₁ l₂ : List α) (unit : α) :
-    (fun (x, y) => x = y) (matchSize l₁ l₂ unit) ↔ ∀ i : Nat, l₁.getD i unit = l₂.getD i unit := by sorry
+    (fun (x, y) => x = y) (matchSize l₁ l₂ unit) ↔ ∀ i : Nat, l₁.getD i unit = l₂.getD i unit :=
+  by sorry
     -- TODO: finish this lemma based on `rightpad_getD_eq_getD`
 
 
 
 
-/-- `List.dropWhile` but starting from the last element. Performed by `dropWhile` on the reversed list, followed by a reversal. -/
+/-- `List.dropWhile` but starting from the last element. Performed by `dropWhile` on the reversed
+  list, followed by a reversal. -/
 def dropLastWhile (p : α → Bool) (l : List α) : List α :=
   (l.reverse.dropWhile p).reverse
 
@@ -183,10 +191,15 @@ end List
 
 namespace Array
 
-/-- Checks if an array of elements from a type `R` is a boolean array, i.e., if every element is either `0` or `1`. -/
-def isBoolean {R : Type _} [Zero R] [One R] (a : Array R) : Prop := ∀ i : Fin a.size, a.get i = 0 ∨ a.get i = 1
+variable {α : Type*} {unit : α}
 
-/-- Interpret an array as the binary representation of a number, sending `0` to `0` and `≠ 0` to `1`. -/
+/-- Checks if an array of elements from a type `R` is a boolean array, i.e., if every element is
+  either `0` or `1`. -/
+def isBoolean {R : Type _} [Zero R] [One R] (a : Array R) : Prop :=
+    ∀ i : Fin a.size, a.get i = 0 ∨ a.get i = 1
+
+/-- Interpret an array as the binary representation of a number, sending `0` to `0` and `≠ 0` to
+  `1`. -/
 def toNum {R : Type _} [Zero R] [DecidableEq R] (a : Array R) : ℕ :=
   (a.map (fun r => if r = 0 then 0 else 1)).reverse.foldl (fun acc elem => (acc * 2) + elem) 0
 
@@ -216,11 +229,14 @@ def matchSize (a : Array α) (b : Array α) (unit : α) : Array α × Array α :
 --   simp [matchSize, List.matchSize]
 
 
-/-- Right-pads an array with `unit` elements until its length is a power of two. Returns the padded array and the number of elements added. -/
+/-- Right-pads an array with `unit` elements until its length is a power of two. Returns the padded
+  array and the number of elements added. -/
 def rightpadPowerOfTwo (unit : α) (a : Array α) : Array α :=
   a.rightpad (2 ^ (Nat.clog 2 a.size)) unit
 
-@[simp] theorem rightpadPowerOfTwo_size (unit : α) (a : Array α) : (a.rightpadPowerOfTwo unit).size = 2 ^ (Nat.clog 2 a.size) := by simp [rightpadPowerOfTwo, Nat.le_pow_iff_clog_le]
+@[simp] theorem rightpadPowerOfTwo_size (unit : α) (a : Array α) :
+    (a.rightpadPowerOfTwo unit).size = 2 ^ (Nat.clog 2 a.size) := by
+  simp [rightpadPowerOfTwo, Nat.le_pow_iff_clog_le]
 
 /-- Get the last element of an array, assuming the array is non-empty. -/
 def getLast (a : Array α) (h : a.size > 0) : α :=
@@ -230,8 +246,8 @@ def getLast (a : Array α) (h : a.size > 0) : α :=
 def getLastD (a : Array α) (v₀ : α) : α := a.getD (a.size - 1) v₀
 
 
-@[simp] theorem popWhile_nil_or_last_false (p : α → Bool) (as : Array α) (h : (as.popWhile p).size > 0) :
-    ¬ (p <| (as.popWhile p).getLast h) := sorry
+@[simp] theorem popWhile_nil_or_last_false (p : α → Bool) (as : Array α)
+    (h : (as.popWhile p).size > 0) : ¬ (p <| (as.popWhile p).getLast h) := sorry
 
 
 theorem range_succ (n : Nat) : range (n + 1) = (range n).push n := by
@@ -258,6 +274,8 @@ namespace Mathlib
 
 namespace Vector
 
+variable {α : Type*}
+
 def interleave {n : Nat} (xs : Vector α n) (ys : Vector α n) : Vector α (2 * n) := sorry
 
 -- def pairwise {α : Type} {n : Nat} (v : Vector α (2 * n)) : Vector (α × α) n :=
@@ -276,3 +294,17 @@ def chunkPairwise {α : Type} : {n : Nat} → Vector α (2 * n) → Vector (α �
 end Vector
 
 end Mathlib
+
+/-- Equivalence between `α` and the sum of `{a // p a}` and `{a // ¬ p a}` -/
+@[simps]
+def subtypeSumComplEquiv {α : Type*} {p : α → Prop} [DecidablePred p] :
+    {a // p a} ⊕ {a // ¬ p a} ≃ α where
+  toFun := fun x => match x with
+    | Sum.inl a => a.1
+    | Sum.inr a => a.1
+  invFun := fun x =>
+    if h : p x then Sum.inl ⟨x, h⟩ else Sum.inr ⟨x, h⟩
+  left_inv := fun x => match x with
+    | Sum.inl a => by simp [a.2]
+    | Sum.inr a => by simp [a.2]
+  right_inv := fun x => by simp; split_ifs <;> simp

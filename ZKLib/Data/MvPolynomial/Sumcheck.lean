@@ -5,6 +5,7 @@ Authors: Quang Dao
 -/
 
 import Mathlib.Algebra.MvPolynomial.Equiv
+import ZKLib.Data.MvPolynomial.Notation
 
 /-!
   # Auxiliary functions for sum-check over multivariate polynomials
@@ -20,21 +21,41 @@ def Fin.sumCommEquiv (m : ℕ) (n : ℕ) : Fin (m + n) ≃ Sum (Fin n) (Fin m) :
 
 namespace MvPolynomial
 
-variable {R : Type _} [CommSemiring R] {σ : Type*} {m : ℕ}
+open scoped Polynomial
+
+variable {R : Type _} [CommSemiring R] {σ : Type*} {m n : ℕ}
 
 /-- Evaluate the first variable of a multivariate polynomial -/
-def evalFirstVar (n : ℕ+) (p : MvPolynomial (Fin n) R) (r : R) : MvPolynomial (Fin (n - 1)) R := by
-  have p : MvPolynomial (Fin ((n : Nat) - 1 + 1)) R := by
-    have : n - 1 + 1 = (n : ℕ) := @Nat.sub_add_cancel n.1 1 (n.2)
-    exact this ▸ p
+def evalFirstVar (p : MvPolynomial (Fin n) R) (r : R) (pos : n > 0) :
+    MvPolynomial (Fin (n - 1)) R := by
+  have : n = n - 1 + 1 := by omega
+  rw [this] at p
   exact (finSuccEquiv R (n - 1) p).eval (C r)
 
-/-- Embedding of `R` to `MvPolynomial (Fin m) R` -/
-def CEmbedding : R ↪ MvPolynomial (Fin m) R := ⟨C, C_injective (Fin m) R⟩
+/-- `C : R →+* MvPolynomial σ R` as an embedding -/
+def CEmbedding : R ↪ MvPolynomial σ R := ⟨C, C_injective σ R⟩
 
 /-- Equivalence between `MvPolynomial (Fin 1) R` and `Polynomial R` -/
 def finOneEquiv : MvPolynomial (Fin 1) R ≃ₐ[R] Polynomial R :=
   (finSuccEquiv R 0).trans (Polynomial.mapAlgEquiv (isEmptyAlgEquiv R (Fin 0)))
+
+def test (p : ℕ[X Fin 2]) := ∑ x ∈ {0, 1}, evalFirstVar p x (by norm_num)
+
+def testTuple (p : ℕ[X Fin 2]) := ∑ x ∈ {0, 1} ^ᶠ 2, eval x p
+
+example : testTuple (X 0 + X 1) = (0 + 0) + (0 + 1) + (1 + 0) + (1 + 1) := by
+  simp [testTuple]
+  exact rfl
+
+/-- Partial evaluation of multivariate polynomials given a mapping to a sum type `σ → σ₁ ⊕ σ₂`
+and a partial evaluation point `x : σ₁ → R` -/
+def peval {σ σ₁ σ₂ : Type*} (x : σ₁ → R) (f : σ → σ₁ ⊕ σ₂) :
+    MvPolynomial σ R →+* MvPolynomial σ₂ R where
+  toFun := fun p => eval (C ∘ x) ((sumAlgEquiv R σ₁ σ₂).toFun (rename f p))
+  map_one' := by simp
+  map_mul' := by simp
+  map_zero' := by simp
+  map_add' := by simp
 
 /--
   An `R`-linear mapping that sends
@@ -53,7 +74,7 @@ def sumPartial (m : ℕ) (n : ℕ) (D : Fin n → Finset R) :
     -- Product domain `D 0 × D 1 × ... × D (n - 1)`
     let prod_D := Fintype.piFinset (fun i => Finset.map CEmbedding (D i))
     -- Perform the partial sum via summing the evaluations
-    ∑ x in prod_D, eval x p2
+    ∑ x ∈ prod_D, eval x p2
 
   map_add' := fun p q => by simp [sum_add_distrib]
   map_smul' := fun r p => by simp [smul_eq_C_mul, mul_sum]

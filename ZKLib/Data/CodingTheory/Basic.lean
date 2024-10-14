@@ -10,17 +10,22 @@ import Mathlib.LinearAlgebra.Lagrange
 /-!
   # Basics of Coding Theory
 
-  We define a general code `C` to be a subset of `n → R` for some finite index set `n` and some target type `R`.
+  We define a general code `C` to be a subset of `n → R` for some finite index set `n` and some
+  target type `R`.
 
-  We can then specialize this notion to various settings. For `[CommSemiring R]`, we define a linear code to be a linear subspace of `n → R`. We also define the notion of generator matrix and (parity) check matrix.
+  We can then specialize this notion to various settings. For `[CommSemiring R]`, we define a linear
+  code to be a linear subspace of `n → R`. We also define the notion of generator matrix and
+  (parity) check matrix.
 
   ## Main Definitions
 
-  - `codeDist C`: The Hamming distance of a code `C`, defined as the infimum (in `ℕ∞`) of the Hamming distances between any two distinct elements of `C`. This is noncomputable.
+  - `codeDist C`: The Hamming distance of a code `C`, defined as the infimum (in `ℕ∞`) of the
+    Hamming distances between any two distinct elements of `C`. This is noncomputable.
 
   - `codeDist' C`: A computable version of `codeDist C`, assuming `C` is a `Fintype`.
 
-  We define the block length, rate, and distance of `C`. We prove simple properties of linear codes such as the singleton bound.
+  We define the block length, rate, and distance of `C`. We prove simple properties of linear codes
+  such as the singleton bound.
 -/
 
 
@@ -29,17 +34,16 @@ variable {n : Type*} [Fintype n] {R : Type*} [DecidableEq R]
 section Distance
 
 -- Notation for Hamming distance
-/-
-⊢ {ι : Type u_2} →
-  {β : ι → Type u_3} → [inst : Fintype ι] → [inst : (i : ι) → DecidableEq (β i)] → ((i : ι) → β i) → ((i : ι) → β i) → ℕ
--/
 notation "Δ₀(" u ", " v ")" => hammingDist u v
 
 notation "‖" u "‖₀" => hammingNorm u
 
-/-- The Hamming distance of a code `C` is the minimum Hamming distance between any two distinct elements of the code.
+/-- The Hamming distance of a code `C` is the minimum Hamming distance between any two distinct
+  elements of the code.
 
-We formalize this as the infimum `sInf` over all `d : ℕ` such that there exist `u v : n → R` in the code with `u ≠ v` and `hammingDist u v ≤ d`. If none exists, then we define the distance to be `0`. -/
+We formalize this as the infimum `sInf` over all `d : ℕ` such that there exist `u v : n → R` in the
+code with `u ≠ v` and `hammingDist u v ≤ d`. If none exists, then we define the distance to be `0`.
+-/
 noncomputable def codeDist (C : Set (n → R)) : ℕ :=
   sInf {d | ∃ u ∈ C, ∃ v ∈ C, u ≠ v ∧ Δ₀( u, v ) ≤ d}
 
@@ -111,7 +115,7 @@ theorem distFromCode_eq_top_iff_empty (u : n → R) (C : Set (n → R)) : Δ₀(
   · intro h; subst h; simp
 
 @[simp]
-theorem distFromCode_of_mem (C : Set (n → R)) (h : u ∈ C) : Δ₀(u, C) = 0 := by
+theorem distFromCode_of_mem (C : Set (n → R)) {u : n → R} (h : u ∈ C) : Δ₀(u, C) = 0 := by
   simp only [distFromCode]
   apply ENat.sInf_eq_zero.mpr
   simp [h]
@@ -125,8 +129,8 @@ theorem distFromCode_eq_zero_iff_mem (C : Set (n → R)) (u : n → R) : Δ₀(u
     simp
   · intro h; exact distFromCode_of_mem C h
 
-theorem distFromCode_eq_of_lt_half_codeDist (C : Set (n → R)) (u : n → R) (hv : v ∈ C) (hw : w ∈ C)
-    (huv : Δ₀(u, v) < ‖C‖₀ / 2) (hvw : Δ₀(u, w) < ‖C‖₀ / 2) : v = w := by
+theorem distFromCode_eq_of_lt_half_codeDist (C : Set (n → R)) (u : n → R) {v w : n → R}
+    (hv : v ∈ C) (hw : w ∈ C) (huv : Δ₀(u, v) < ‖C‖₀ / 2) (hvw : Δ₀(u, w) < ‖C‖₀ / 2) : v = w := by
   apply eq_of_lt_codeDist hv hw
   calc
     Δ₀(v, w) ≤ Δ₀(v, u) + Δ₀(u, w) := by exact hammingDist_triangle v u w
@@ -160,7 +164,7 @@ theorem codeDist'_subsingleton [Subsingleton C] : ‖C‖₀' = ⊤ := by
   simp_all
   exact h
 
-theorem codeDist_eq_codeDist' : ‖C‖₀ = ‖C‖₀'.toNat := by
+theorem codeDist'_eq_codeDist : ‖C‖₀'.toNat = ‖C‖₀ := by
   by_cases h : Subsingleton C
   · simp
   · simp [codeDist, codeDist']
@@ -192,7 +196,8 @@ def codeByGenMatrix (G : Matrix k n R) : Submodule R (n → R) :=
 def codeByCheckMatrix (H : Matrix k n R) : Submodule R (n → R) :=
   LinearMap.ker H.mulVecLin
 
-/-- The Hamming distance of a linear code can also be defined as the minimum Hamming norm of a non-zero vector in the code -/
+/-- The Hamming distance of a linear code can also be defined as the minimum Hamming norm of a
+  non-zero vector in the code -/
 noncomputable def linearCodeDist (C : Submodule R (n → R)) : ℕ :=
   sInf {d | ∃ u ∈ C, u ≠ 0 ∧ hammingNorm u ≤ d}
 
@@ -229,7 +234,5 @@ def interleaveCode (C : Submodule R (n → R)) (ι : Type*) : Submodule R ((ι �
 -- instance : Fintype (interleaveCode C ι) := sorry
 
 example (u0 u1 : n → R) : (Fin 2) × n → R := fun ⟨a, b⟩ => if a = 0 then u0 b else u1 b
-
-example (u : ι → n → R) : ι × n → R := fun ⟨a, b⟩ => u a b
 
 end Linear

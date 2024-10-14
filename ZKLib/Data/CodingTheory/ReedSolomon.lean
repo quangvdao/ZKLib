@@ -13,7 +13,8 @@ import Mathlib.Data.FinEnum
 
   TODO: define the Reed-Solomon code, and prove its properties.
 
-  TODO: define the Berkelamp-Welch algorithm for unique decoding, and Guruswami-Sudan algorithm for list-decoding.
+  TODO: define the Berkelamp-Welch algorithm for unique decoding, and Guruswami-Sudan algorithm for
+  list-decoding.
 -/
 
 
@@ -28,7 +29,8 @@ def evalOnPoints (points : FinEnum F) : F[X] →ₗ[F] (Fin points.card → F) w
   map_add' := fun x y => by simp; congr
   map_smul' := fun m x => by simp; congr
 
-/-- The Reed-Solomon code for polynomials of degree less than `deg` and evaluation points `points`. -/
+/-- The Reed-Solomon code for polynomials of degree less than `deg` and evaluation points `points`.
+  -/
 def code (deg : ℕ) (points : FinEnum F) : Submodule F (Fin points.card → F) :=
   (Polynomial.degreeLT F deg).map (evalOnPoints points)
 

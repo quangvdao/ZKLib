@@ -11,7 +11,8 @@ import Mathlib.Tactic
 /-!
   # Heterogeneous Lists
 
-  We define `HList` as a synonym for `List (Σ α : Type u, α)`, namely a list of types together with a value.
+  We define `HList` as a synonym for `List (Σ α : Type u, α)`, namely a list of types together with
+  a value.
 
   We note some other implementations of `HList`:
   - [Soup](https://github.com/crabbo-rave/Soup/tree/master)
@@ -20,7 +21,7 @@ import Mathlib.Tactic
   Our choice of definition is so that we can directly rely on the existing API for `List`.
 -/
 
-universe u
+universe u v
 
 /-- Heterogeneous list -/
 abbrev HList := List (Σ α : Type u, α)
@@ -40,6 +41,8 @@ macro_rules (kind := hlist)
 /- HList.cons notation -/
 infixr:67 " ::ₕ " => HList.cons
 
+variable {x : (α : Type u) × α} {xs : HList}
+
 @[simp]
 lemma cons_eq_List.cons : x ::ₕ xs = x :: xs := rfl
 
@@ -56,10 +59,12 @@ def getTypes : HList → List (Type u) := List.map (fun x => x.1)
 lemma getTypes_nil : getTypes [] = [] := rfl
 
 @[simp]
-lemma getTypes_cons (x : Σ α : Type u, α) (xs : HList) : getTypes (x :: xs) = x.1 :: xs.getTypes := rfl
+lemma getTypes_cons (x : Σ α : Type u, α) (xs : HList) :
+    getTypes (x :: xs) = x.1 :: xs.getTypes := rfl
 
 @[simp]
-lemma getTypes_hcons (x : Σ α : Type u, α) (xs : HList) : (x ::ₕ xs).getTypes = x.1 :: xs.getTypes := rfl
+lemma getTypes_hcons (x : Σ α : Type u, α) (xs : HList) :
+    (x ::ₕ xs).getTypes = x.1 :: xs.getTypes := rfl
 
 @[simp]
 lemma length_getTypes (l : HList) : l.getTypes.length = l.length := by
@@ -82,9 +87,7 @@ def getValue (l : HList) (i : Fin l.length) := l[i].2
 
 end HList
 
-#check List.get_append
-
-#eval (@List.nil Nat).get
+variable {α : Type u} {n : ℕ}
 
 @[simp]
 lemma List.get_nil (i : Fin 0) (a : α) : [].get i = a := by exact isEmptyElim i
@@ -99,12 +102,14 @@ def DVec {m : Type v} (α : m → Type u) : Type (max u v) := ∀ i, α i
 def HList.toDVec (l : HList) : DVec (m := Fin l.length) (fun i => l[i].1) := fun i => l[i].2
 
 /-- Create an `HList` from a `DVec` -/
-def HList.ofDVec (l : DVec (m := Fin n) α) : HList := (List.finRange n).map fun i => ⟨α i, l i⟩
+def HList.ofDVec {α : Fin n → Type u} (l : DVec (m := Fin n) α) :
+    HList := (List.finRange n).map fun i => ⟨α i, l i⟩
 
 -- /-- Convert a `DVec` to an `HList` -/
 -- def DVec.toHList (l : DVec (m := Fin n) α) : HList := (List.finRange n).map fun i => ⟨α i, l i⟩
 
--- theorem DVec.toHList_getTypes (l : DVec (m := Fin n) α) : l.toHList.getTypes = List.ofFn α := by aesop
+-- theorem DVec.toHList_getTypes (l : DVec (m := Fin n) α) :
+--     l.toHList.getTypes = List.ofFn α := by aesop
 
 
 /-- Equivalent between `HList.getValue` and `HList.toDVec` -/
@@ -191,7 +196,8 @@ instance : HListString (HList []) where
   toString
   | HList.nil => ""
 
-instance [ToString α] (αs : List Type) [HListString (HList αs)] : HListString (HList (α :: αs)) where
+instance [ToString α] (αs : List Type) [HListString (HList αs)] :
+    HListString (HList (α :: αs)) where
   toString
   | HList.cons x xs =>
     match xs with
@@ -215,7 +221,8 @@ def test : HList [Nat, String, Nat] :=
 --   | ⟨0, _⟩, f, a::as => (f a)::as
 --   | ⟨n+1, h⟩, f, a::as => a::(as.mapNthNoMetaEval ⟨n, Nat.lt_of_succ_lt_succ h⟩ f)
 
--- def mapNth (n : Fin' αs.length) (f : (αs.get' n) → β) (h : HList αs) : HList (αs.replaceAt n β) :=
+-- def mapNth (n : Fin' αs.length) (f : (αs.get' n) → β) (h : HList αs) :
+--     HList (αs.replaceAt n β) :=
 --   let typeSig : List Type := αs.replaceAt n β
 --   the (HList typeSig) (h.mapNthNoMetaEval n f)
 

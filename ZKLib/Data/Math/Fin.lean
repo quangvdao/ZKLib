@@ -16,7 +16,10 @@ namespace Fin
 
 open Function
 
-/-- Version of `Fin.addCases` that splits the motive into two dependent vectors, and maps the result type through some function `φ`. -/
+universe u v
+
+/-- Version of `Fin.addCases` that splits the motive into two dependent vectors, and maps the result
+  type through some function `φ`. -/
 def addCases_fun {m n : ℕ} {motive : Fin m → Sort u} {motive' : Fin n → Sort u}
     {φ : Sort u → Sort v} (left : (i : Fin m) → φ (motive i)) (right : (j : Fin n) → φ (motive' j))
         (i : Fin (m + n)) : φ (addCases motive motive' i) := by
@@ -160,7 +163,8 @@ theorem take_init {α : Fin (n + 1) → Sort*} (v : (i : Fin (n + 1)) → α i) 
   simp only [take, init]
   congr
 
-theorem take_List_ofFn {n : ℕ} {α : Type u} (v : Fin n → α) (m : ℕ) (h : m ≤ n) : List.ofFn (take v m h) = (List.ofFn v).take m := by
+theorem take_List_ofFn {n : ℕ} {α : Type u} (v : Fin n → α) (m : ℕ) (h : m ≤ n) :
+    List.ofFn (take v m h) = (List.ofFn v).take m := by
   induction m with
   | zero => simp [take_zero]
   | succ m ih =>
@@ -177,7 +181,8 @@ theorem take_append_eq_self {n m : ℕ} {α : Type u} (v : (i : Fin n) → α) (
   simp [take, append, addCases]
   congr 1
 
--- theorem take_addCases_eq_self {n m : ℕ} {α : Fin n → Sort u} {β : Fin m → Sort u} (v : (i : Fin n) → α i) (w : (i : Fin m) → β i) :
+-- theorem take_addCases_eq_self {n m : ℕ} {α : Fin n → Sort u} {β : Fin m → Sort u}
+--     (v : (i : Fin n) → α i) (w : (i : Fin m) → β i) :
 --     take (Fin.addCases' v w) n (Nat.le_add_right n m) = v := by
 --   ext i
 --   simp only [take, append]
@@ -189,8 +194,8 @@ def rtake {n : ℕ} {α : Fin n → Sort u} (v : (i : Fin n) → α i) (m : ℕ)
   fun i => v (Fin.cast (by omega) (Fin.natAdd (n - m) i))
 
 @[simp]
-theorem rtake_def {n : ℕ} {α : Fin n → Sort u} (v : (i : Fin n) → α i) (m : ℕ) (h : m ≤ n) (i : Fin m) :
-    rtake v m h i = v (Fin.cast (by omega) (Fin.natAdd (n - m) i)) := rfl
+theorem rtake_def {n : ℕ} {α : Fin n → Sort u} (v : (i : Fin n) → α i) (m : ℕ) (h : m ≤ n)
+    (i : Fin m) : rtake v m h i = v (Fin.cast (by omega) (Fin.natAdd (n - m) i)) := rfl
 
 @[simp]
 theorem rtake_zero {n : ℕ} {α : Sort u} (v : Fin n → α) :
@@ -202,7 +207,8 @@ theorem rtake_self {n : ℕ} {α : Sort u} (v : Fin n → α) :
 
 -- @[simp]
 -- theorem rtake_succ {n : ℕ} {α : Sort u} (v : Fin n → α) (m : Fin (n + 1)) :
---     rtake v (Fin.succ m) = Fin.addCases (v (Fin.cast (by omega) (Fin.natAdd (n - m) m))) (rtake (v ∘ Fin.succ) m) := by
+--     rtake v (Fin.succ m) = Fin.addCases (v (Fin.cast (by omega) (Fin.natAdd (n - m) m)))
+--       (rtake (v ∘ Fin.succ) m) := by
 --   ext i <;> simp [rtake, Fin.natAdd]
 
 -- @[simp]
