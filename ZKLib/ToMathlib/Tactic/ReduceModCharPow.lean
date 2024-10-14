@@ -39,7 +39,7 @@ open Qq
 
 namespace Tactic
 
-namespace ReduceModChar
+namespace ReduceModCharPow
 
 open Mathlib.Meta.NormNum
 
@@ -333,6 +333,6 @@ elab_rules : tactic
     (← (← getMainGoal).getNondepPropHyps).forM (reduceModCharHyp (expensive := true))
     reduceModCharTarget (expensive := true)
 
-end ReduceModChar
+end ReduceModCharPow
 
 end Tactic

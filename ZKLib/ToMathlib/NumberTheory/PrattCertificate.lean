@@ -399,7 +399,7 @@ theorem ZMod.bla : ∀ {n c : ℕ} (a : ZMod n), c = 1 → IsNat (a ^ (n - 1)) c
 def verifyEqOne (n a' : Q(ℕ)) (a : Q(ZMod $n)) (_ : Q(($a' : ZMod $n) = $a)) :
     MetaM Q($a ^ ($n - 1) = 1) := do
   let p : Q(ZMod $n) := q($a ^ ($n - 1))
-  let .isNat _ c hc ← Tactic.ReduceModChar.normIntNumeral n p q(CommRing.toRing) q(ZMod.charP $n) | failure
+  let .isNat _ c hc ← Tactic.ReduceModCharPow.normIntNumeral n p q(CommRing.toRing) q(ZMod.charP $n) | failure
   assumeInstancesCommute
   haveI : $p =Q $a ^ ($n - 1) := ⟨⟩
   haveI : $c =Q 1 := ⟨⟩
@@ -445,7 +445,7 @@ def verifyNeOne (n a' q : Q(ℕ)) (a : Q(ZMod $n)) (_ : Q(($a' : ZMod $n) = $a))
     MetaM Q($a ^ (($n - 1) / $q) ≠ 1) := do
   -- return q(sorry)
   let p : Q(ZMod $n) := q($a ^ (($n - 1) / $q))
-  let .isNat _ c hc ← Tactic.ReduceModChar.normIntNumeral n p q(CommRing.toRing) q(ZMod.charP $n) | failure
+  let .isNat _ c hc ← Tactic.ReduceModCharPow.normIntNumeral n p q(CommRing.toRing) q(ZMod.charP $n) | failure
   -- have npd : Q(ℕ) := mkRawNatLit ((n.natLit! - 1) / q.natLit!)
   -- haveI : $npd =Q ($n - 1) / $q := ⟨⟩
   -- let ⟨c, pc⟩ := evalNatPowMod a' npd n
