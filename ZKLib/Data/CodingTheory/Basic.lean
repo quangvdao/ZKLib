@@ -24,23 +24,39 @@ import Mathlib.LinearAlgebra.Lagrange
 -/
 
 
-section CodingTheory
-
 variable {n : Type*} [Fintype n] {R : Type*} [DecidableEq R]
 
 section Distance
+
+-- Notation for Hamming distance
+/-
+⊢ {ι : Type u_2} →
+  {β : ι → Type u_3} → [inst : Fintype ι] → [inst : (i : ι) → DecidableEq (β i)] → ((i : ι) → β i) → ((i : ι) → β i) → ℕ
+-/
+notation "Δ₀(" u ", " v ")" => hammingDist u v
+
+notation "‖" u "‖₀" => hammingNorm u
 
 /-- The Hamming distance of a code `C` is the minimum Hamming distance between any two distinct elements of the code.
 
 We formalize this as the infimum `sInf` over all `d : ℕ` such that there exist `u v : n → R` in the code with `u ≠ v` and `hammingDist u v ≤ d`. If none exists, then we define the distance to be `0`. -/
 noncomputable def codeDist (C : Set (n → R)) : ℕ :=
-  sInf {d | ∃ u ∈ C, ∃ v ∈ C, u ≠ v ∧ hammingDist u v ≤ d}
+  sInf {d | ∃ u ∈ C, ∃ v ∈ C, u ≠ v ∧ Δ₀( u, v ) ≤ d}
+
+notation "‖" C "‖₀" => codeDist C
+
+/-- The distance from a vector `u` to a code `C` is the minimum Hamming distance between `u`
+and any element of `C`. -/
+noncomputable def distFromCode (u : n → R) (C : Set (n → R)) : ℕ∞ :=
+  sInf {d | ∃ v ∈ C, hammingDist u v ≤ d}
+
+notation "Δ₀(" u ", " C ")" => distFromCode u C
 
 @[simp]
-theorem codeDist_empty : codeDist (∅ : Set (n → R)) = 0 := by simp [codeDist]
+theorem codeDist_empty : ‖ (∅ : Set (n → R) ) ‖₀ = 0 := by simp [codeDist]
 
 @[simp]
-theorem codeDist_subsingleton {C : Set (n → R)} [Subsingleton C] : codeDist C = 0 := by
+theorem codeDist_subsingleton {C : Set (n → R)} [Subsingleton C] : ‖C‖₀ = 0 := by
   simp only [codeDist]
   have {d : ℕ} : (∃ u ∈ C, ∃ v ∈ C, u ≠ v ∧ hammingDist u v ≤ d) = False := by
     have h := @Subsingleton.allEq C _
@@ -63,9 +79,60 @@ theorem codeDist_le_card (C : Set (n → R)) : codeDist C ≤ Fintype.card n := 
     simp
     refine ⟨u, And.intro hu ⟨v, And.intro hv ⟨huv, hammingDist_le_card_fintype⟩⟩⟩
 
-/-- If `u` and `v` are two codewords of `C` with distance at most `codeDist C / 2`, then they are the same. -/
-theorem eq_of_le_half_codeDist {C : Set (n → R)} {u v : n → R} (hu : u ∈ C) (hv : v ∈ C)
-    (huv : hammingDist u v ≤ codeDist C / 2) : u = v := by sorry
+/-- If `u` and `v` are two codewords of `C` with distance less than `codeDist C`,
+then they are the same. -/
+theorem eq_of_lt_codeDist {C : Set (n → R)} {u v : n → R} (hu : u ∈ C) (hv : v ∈ C)
+    (huv : Δ₀(u, v) < ‖C‖₀) : u = v := by
+  simp only [codeDist] at huv
+  by_contra hNe
+  push_neg at hNe
+  revert huv
+  simp
+  refine Nat.sInf_le ?_
+  simp only [Set.mem_setOf_eq]
+  refine ⟨u, And.intro hu ⟨v, And.intro hv ⟨hNe, le_rfl⟩⟩⟩
+
+@[simp]
+theorem distFromCode_of_empty (u : n → R) : Δ₀(u, (∅ : Set (n → R))) = ⊤ := by
+  simp [distFromCode]
+
+theorem distFromCode_eq_top_iff_empty (u : n → R) (C : Set (n → R)) : Δ₀(u, C) = ⊤ ↔ C = ∅ := by
+  apply Iff.intro
+  · simp only [distFromCode]
+    intro h
+    apply Set.eq_empty_iff_forall_not_mem.mpr
+    intro v hv
+    apply sInf_eq_top.mp at h
+    revert h
+    simp
+    refine ⟨Fintype.card n, v, And.intro hv ⟨?_, ?_⟩⟩
+    · norm_num; exact hammingDist_le_card_fintype
+    · norm_num
+  · intro h; subst h; simp
+
+@[simp]
+theorem distFromCode_of_mem (C : Set (n → R)) (h : u ∈ C) : Δ₀(u, C) = 0 := by
+  simp only [distFromCode]
+  apply ENat.sInf_eq_zero.mpr
+  simp [h]
+
+theorem distFromCode_eq_zero_iff_mem (C : Set (n → R)) (u : n → R) : Δ₀(u, C) = 0 ↔ u ∈ C := by
+  apply Iff.intro
+  · simp only [distFromCode]
+    intro h
+    apply ENat.sInf_eq_zero.mp at h
+    revert h
+    simp
+  · intro h; exact distFromCode_of_mem C h
+
+theorem distFromCode_eq_of_lt_half_codeDist (C : Set (n → R)) (u : n → R) (hv : v ∈ C) (hw : w ∈ C)
+    (huv : Δ₀(u, v) < ‖C‖₀ / 2) (hvw : Δ₀(u, w) < ‖C‖₀ / 2) : v = w := by
+  apply eq_of_lt_codeDist hv hw
+  calc
+    Δ₀(v, w) ≤ Δ₀(v, u) + Δ₀(u, w) := by exact hammingDist_triangle v u w
+    _ = Δ₀(u, v) + Δ₀(u, w) := by simp only [hammingDist_comm]
+    _ < ‖C‖₀ / 2 + ‖C‖₀ / 2 := by omega
+    _ ≤ ‖C‖₀ := by omega
 
 section Computable
 
@@ -76,14 +143,16 @@ def codeDist' (C : Set (n → R)) [Fintype C] : ℕ∞ :=
   Finset.min <| ((@Finset.univ (C × C) _).filter (fun p => p.1 ≠ p.2)).image
     (fun ⟨u, v⟩ => hammingDist u.1 v.1)
 
+notation "‖" C "‖₀'" => codeDist' C
+
 variable {C : Set (n → R)} [Fintype C]
 
 @[simp]
-theorem codeDist'_empty : codeDist' (∅ : Set (n → R)) = ⊤ := by
+theorem codeDist'_empty : ‖(∅ : Set (n → R))‖₀' = ⊤ := by
   simp [codeDist']
 
 @[simp]
-theorem codeDist'_subsingleton [Subsingleton C] : codeDist' C = ⊤ := by
+theorem codeDist'_subsingleton [Subsingleton C] : ‖C‖₀' = ⊤ := by
   simp [codeDist']
   apply Finset.min_eq_top.mpr
   simp [Finset.filter_eq_empty_iff]
@@ -91,7 +160,7 @@ theorem codeDist'_subsingleton [Subsingleton C] : codeDist' C = ⊤ := by
   simp_all
   exact h
 
-theorem codeDist_eq_codeDist' : codeDist C = (codeDist' C).toNat:= by
+theorem codeDist_eq_codeDist' : ‖C‖₀ = ‖C‖₀'.toNat := by
   by_cases h : Subsingleton C
   · simp
   · simp [codeDist, codeDist']
@@ -100,6 +169,11 @@ theorem codeDist_eq_codeDist' : codeDist C = (codeDist' C).toNat:= by
     -- apply (ENat.toNat_eq_iff this).mp
     -- apply Finset.min_eq_top.mp
     -- simp [this]
+
+def distFromCode' (C : Set (n → R)) [Fintype C] (u : n → R) : ℕ∞ :=
+  Finset.min <| (@Finset.univ C _).image (fun v => hammingDist u v.1)
+
+notation "Δ₀'(" u ", " C ")" => distFromCode' C u
 
 end Computable
 
@@ -137,22 +211,19 @@ theorem codeDist_eq_linearCodeDist (C : Submodule R (n → R)) :
     -- refine ⟨u, And.intro hu ⟨v, And.intro hv ⟨huv, ?_⟩⟩⟩
     sorry
 
+section Computable
+
+variable [DecidableEq n] [Fintype R]
+
 /-- A computable version of the Hamming distance of a linear code `C`. -/
-def linearCodeDist' (C : Submodule R (n → R)) [Fintype C] : ℕ∞ :=
+def linearCodeDist' (C : Submodule R (n → R)) [DecidablePred (· ∈ C)] : ℕ∞ :=
   Finset.min <| ((Finset.univ (α := C)).filter (fun v => v ≠ 0)).image (fun v => hammingNorm v.1)
 
-instance [Finite R] (C : Submodule R (n → R)) : Finite C := inferInstance
+end Computable
 
-instance [DecidableEq n] [Fintype R] : Fintype (n → R) := inferInstance
-
--- instance [DecidableEq n] [Fintype R] (C : Submodule R (n → R)) : Fintype C := inferInstance
-
--- The interleaving of a code `C` over index set `ι` is the submodule spanned by `ι × n`-matrices whose rows are elements of `C`
-def codeInterleave (C : Submodule R (n → R)) (ι : Type*) : Submodule R ((ι × n) → R) :=
+/-- The interleaving of a code `C` over index set `ι` is the submodule spanned by `ι × n`-matrices
+whose rows are elements of `C`. -/
+def interleaveCode (C : Submodule R (n → R)) (ι : Type*) : Submodule R ((ι × n) → R) :=
   Submodule.span R {v | ∀ i, ∃ c ∈ C, c = fun j => v (i, j)}
 
-
-
 end Linear
-
-end CodingTheory
