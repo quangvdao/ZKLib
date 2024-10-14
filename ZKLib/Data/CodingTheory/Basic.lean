@@ -226,4 +226,10 @@ whose rows are elements of `C`. -/
 def interleaveCode (C : Submodule R (n → R)) (ι : Type*) : Submodule R ((ι × n) → R) :=
   Submodule.span R {v | ∀ i, ∃ c ∈ C, c = fun j => v (i, j)}
 
+-- instance : Fintype (interleaveCode C ι) := sorry
+
+example (u0 u1 : n → R) : (Fin 2) × n → R := fun ⟨a, b⟩ => if a = 0 then u0 b else u1 b
+
+example (u : ι → n → R) : ι × n → R := fun ⟨a, b⟩ => u a b
+
 end Linear
