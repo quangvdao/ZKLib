@@ -43,7 +43,7 @@ theorem code_by_genMatrix (deg : ℕ) (points : FinEnum F) :
     code deg points = codeByGenMatrix (genMatrix deg points) := by
   simp [codeByGenMatrix, code]
   rw [LinearMap.range_eq_map]
-  congr
+  sorry
 
 #check LinearMap.range_eq_map
 

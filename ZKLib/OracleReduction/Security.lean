@@ -1,4 +1,4 @@
-import ZKLib.InteractiveOracleProof.Basic
+import ZKLib.OracleReduction.Basic
 
 /-!
   # Security Definitions for IOR

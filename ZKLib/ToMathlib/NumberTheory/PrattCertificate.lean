@@ -298,7 +298,7 @@ structure PrimeWithMultiplicity : Type :=
 deriving Repr
 
 def factor' (n : ℕ) : Option (List PrimeWithMultiplicity) := do
-  let facts := List.mergeSort (· ≤ ·) (← factor n)
+  let facts := List.mergeSort (← factor n)
   let groups := List.groupBy (· = ·) facts
   return groups.map (fun g => ⟨g[0]!, g.length⟩)
 

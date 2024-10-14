@@ -31,7 +31,7 @@ theorem addCases_fun_left {m n : ℕ} {motive : Fin m → Sort u} {motive' : Fin
             (addCases_fun left right (Fin.castAdd n i)) = left i := by
   simp [addCases_fun]; symm
   apply eq_of_heq
-  refine (heq_eqRec_iff_heq _ _ (left i)).mpr ?_
+  refine heq_eqRec_iff_heq.mpr ?_
   symm; exact cast_heq _ (left i)
 
 @[simp]
@@ -41,7 +41,7 @@ theorem addCases_fun_right {m n : ℕ} {motive : Fin m → Sort u} {motive' : Fi
             (addCases_fun left right (Fin.natAdd m i)) = right i := by
   simp [addCases_fun]; symm
   apply eq_of_heq
-  refine (heq_eqRec_iff_heq _ _ (right i)).mpr ?_
+  refine heq_eqRec_iff_heq.mpr ?_
   symm; exact cast_heq _ (right i)
 
 /-- Version of `Fin.addCases_fun` with `φ = id`. -/
@@ -91,7 +91,7 @@ theorem take_succ_eq_snoc (v : (i : Fin n) → α i) (m : ℕ) (h : m < n) :
   | zero =>
     have h' : i = 0 := by
       ext
-      simp only [Nat.succ_eq_add_one, Nat.reduceAdd, coe_fin_one]
+      simp only [Nat.succ_eq_add_one, Nat.reduceAdd, val_eq_zero]
     subst h'
     simp [take, snoc, castLE]
   | succ m _ =>

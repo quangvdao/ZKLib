@@ -23,11 +23,18 @@ import Mathlib.Data.Fin.VecNotation
 
 -- We define multilinear polynomials over rings by their evaluation on the hypercube {0,1}^n (i.e.
 -- the Lagrange basis).
-structure MlPoly (R : Type) [CommSemiring R] where
+structure MlPoly (R : Type*) (n : ℕ) where
   evals : Array R
-  nVars : ℕ
-  isValid : evals.size = 2 ^ nVars
+  hSize : evals.size = 2 ^ n
 deriving DecidableEq, Repr
+
+-- Alternative definition with coefficients in the monomial basis
+structure MlPoly' (R : Type*) (n : ℕ) where
+  coeffs : Array R
+  hSize : coeffs.size = 2 ^ n
+deriving DecidableEq, Repr
+
+#check Mathlib.Vector
 
 -- variable {R : Type} [DecidableEq R] [Inhabited R] [Ring R]
 
@@ -99,33 +106,21 @@ def unitArray {R : Type} [Inhabited R] [Ring R] (n k : ℕ) : Array R :=
   let initialArray : Array R := Array.mkArray n 0
   initialArray.set! k 1
 
+variable [CommSemiring R] {n : ℕ}
 
-instance inhabited : Inhabited (MlPoly R) :=
-  ⟨{ evals := #[Inhabited.default], nVars := 0, isValid := by simp }⟩
-
--- maybe this can be done way better
--- instance : DecidableEq (MlPoly R) :=
---   fun p q =>
---     if hEvals : p.evals = q.evals then
---       if hNVars : p.nVars = q.nVars then
---         isTrue (by cases p; cases q; simp only at hEvals hNVars; rw [hEvals, hNVars])
---       else
---         isFalse (by intro h; cases h; contradiction)
---     else
---       isFalse (by intro h; cases h; contradiction)
-
+instance inhabited : Inhabited (MlPoly R n) :=
+  ⟨{ evals := Array.mkArray (2 ^ n) 0, hSize := by simp }⟩
 
 -- Automatically pad to the next power of two
-def new (evals : Array R) : MlPoly R :=
+def new (evals : Array R) : MlPoly R (Nat.clog 2 evals.size) :=
   let n : ℕ := Nat.clog 2 evals.size -- upper log base 2
   let padEvals : Array R := (Array.range (2 ^ n)).map
     (λ i => if i < evals.size then evals.get! i else 0)
-  { evals := padEvals, nVars := n, isValid := by simp [padEvals] }
-
+  { evals := padEvals, hSize := by simp [padEvals] }
 
 -- Create a zero polynomial over n variables
-def newZero (n : ℕ) : MlPoly R :=
-  { evals := Array.mkArray (2 ^ n) 0, nVars := n, isValid := by simp }
+def newZero (n : ℕ) : MlPoly R n :=
+  { evals := Array.mkArray (2 ^ n) 0, hSize := by simp }
 
 
 -- Generate the Lagrange basis for evaluation point r
@@ -154,24 +149,22 @@ def lagrangeBasis (r : Array R) : Array R :=
   lagrangeBasisAux r evals ell 0 1
 
 
-def add (p q : MlPoly R) (h : p.nVars = q.nVars) : MlPoly R :=
+def add (p q : MlPoly R n) : MlPoly R n :=
   { evals := p.evals.zip q.evals |>.map (λ (a, b) => a + b),
-    nVars := p.nVars,
-    isValid := by simp [h, p.isValid, q.isValid, Array.size_zip] }
+    hSize := by simp [p.hSize, q.hSize, Array.size_zip] }
 
 
-def scalarMul (r : R) (p : MlPoly R) : MlPoly R :=
-  { evals := p.evals.map (λ a => r * a), nVars := p.nVars, isValid := by simp [p.isValid] }
+def scalarMul (r : R) (p : MlPoly R n) : MlPoly R n :=
+  { evals := p.evals.map (λ a => r * a), hSize := by simp [p.hSize] }
 
 -- Technically this is not the product of two multilinear polynomials, since the result of that
 -- would no longer be multilinear. This is only defining the product of the evaluations.
-def mul (p q : MlPoly R) (h : p.nVars = q.nVars) : MlPoly R :=
+def mul (p q : MlPoly R n) : MlPoly R n :=
   { evals := p.evals.zip q.evals |>.map (λ (a, b) => a * b),
-    nVars := p.nVars,
-    isValid := by simp [h, p.isValid, q.isValid, Array.size_zip] }
+    hSize := by simp [p.hSize, q.hSize, Array.size_zip] }
 
 
-def eval (p : MlPoly R) (x : Array R) (h : x.size = p.nVars) : R :=
+def eval (p : MlPoly R n) (x : Array R) (h : x.size = n) : R :=
   Array.dotProduct p.evals (lagrangeBasis x)
 
 -- Partially evaluate the polynomial at some variables
@@ -191,21 +184,3 @@ example (a b c : Prop) [Decidable a] (h : a) : (if a then b else c) = b := by
   simp_all only [↓reduceIte]
 
 end MlPoly
-
-
-
-
--- Multilinear polynomials, now in the monomial basis
-structure MlPoly' (R : Type) [Inhabited R] [Ring R] where
-  coeffs : Array R
-  nVars : ℕ
-
-namespace MlPoly'
-
-variable {R : Type} [DecidableEq R] [Inhabited R] [Ring R]
-
--- Convert to multilinear polynomial in the monomial basis
--- def fromMlPoly (p : MlPoly R) : MlPoly' R :=
---   { coeffs := evalToMonomial p.evals, nVars := p.nVars }
-
-end MlPoly'

@@ -39,9 +39,7 @@ structure Witness (index : Index R) where
   w : Fin index.witnessSize → R
 
 -- Relation structure for R1CS
-def relation (index : Index R) : Relation where
-  Statement := Statement R index
-  Witness := Witness R index
+instance relation (index : Index R) : Relation (Statement R index) (Witness R index) where
   isValid := fun stmt wit =>
     let z : Fin index.n → R := Fin.append (Fin.append (λ _ => 1) stmt.x) wit.w
     (index.A *ᵥ z) * (index.B *ᵥ z) = (index.C *ᵥ z)
