@@ -41,7 +41,13 @@ def checkMatrix (points : FinEnum F) : Matrix (Fin points.card) (Fin points.card
 
 theorem code_by_genMatrix (deg : ℕ) (points : FinEnum F) :
     code deg points = codeByGenMatrix (genMatrix deg points) := by
-  sorry
+  simp [codeByGenMatrix, code]
+  rw [LinearMap.range_eq_map]
+  congr
+
+#check LinearMap.range_eq_map
+
+#check Basis
 
 
 #check Matrix.vandermonde
