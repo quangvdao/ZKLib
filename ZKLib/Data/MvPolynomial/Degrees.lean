@@ -18,14 +18,13 @@ variable {R : Type u} {S : Type v}
 
 namespace MvPolynomial
 
-variable {σ τ : Type*} {r : R} {e : ℕ} {n m : σ} {s : σ →₀ ℕ}
+variable {σ τ ι : Type*} {r : R} {e : ℕ} {n m : σ} {s : σ →₀ ℕ}
 
 section CommSemiring
 
 variable [CommSemiring R] {p q : MvPolynomial σ R}
 
 section DegreeOf
-
 
 /-
 -- TODO we can prove equality here if R is a domain
@@ -52,14 +51,19 @@ theorem degreeOf_linear_le {a b : R} : degreeOf n (C a + C b * p) ≤ degreeOf n
   rw [max_def]
   split_ifs <;> simp [degreeOf_C_mul_le]
 
-
-theorem degreeOf_sum_le {ι : Type*} [DecidableEq σ] (n : σ) (s : Finset ι) (f : ι → MvPolynomial σ R) :
+theorem degreeOf_sum_le (n : σ) (s : Finset ι) (f : ι → MvPolynomial σ R) :
     degreeOf n (∑ i in s, f i) ≤ s.sup fun i => degreeOf n (f i) := by
   simp_rw [degreeOf_eq_sup]
   exact supDegree_sum_le
 
-
-theorem degreeOf_prod_le {ι : Type*} [DecidableEq σ] (n : σ) (s : Finset ι) (f : ι → MvPolynomial σ R) :
+theorem degreeOf_prod_le (n : σ) (s : Finset ι) (f : ι → MvPolynomial σ R) :
     degreeOf n (∏ i in s, f i) ≤ ∑ i in s, degreeOf n (f i) := by
   simp_rw [degreeOf_eq_sup]
-  classical exact supDegree_prod_le (A := σ →₀ ℕ) (B := ℕ) (D := fun fsupp => fsupp n) (by simp) (by intro a1 a2 ; simp)
+  exact supDegree_prod_le (A := σ →₀ ℕ) (B := ℕ) (D := fun fsupp => fsupp n)
+    (by simp) (by intro a1 a2 ; simp)
+
+end DegreeOf
+
+end CommSemiring
+
+end MvPolynomial

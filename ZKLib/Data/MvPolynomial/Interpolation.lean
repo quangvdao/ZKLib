@@ -13,7 +13,9 @@ import ZKLib.Data.MvPolynomial.Degrees
 /-!
   # Interpolation of multivariate polynomials
 
-  Theory of interpolation for `MvPolynomial` with individual bounds on `degreeOf`. Follows from a combination of the univariate case (see `Lagrange.lean`) and the tensor structure of `MvPolynomial`.
+  Theory of interpolation for `MvPolynomial` with individual bounds on `degreeOf`. Follows from a
+  combination of the univariate case (see `Lagrange.lean`) and the tensor structure of
+  `MvPolynomial`.
 
   ## Main definitions
 
@@ -44,7 +46,9 @@ variable (s : σ → Finset R)
 @[reducible]
 def prodSet : Set (σ → R) := { f : σ → R | ∀ i : σ, f i ∈ s i }
 
-theorem eq_zero_of_degreeOf_lt_of_eval_prod_finset_eq_zero (degreeOf_f_lt : ∀ i : σ, f.degreeOf i < (s i).card) (eval_f : ∀ x ∈ prodSet s, eval x f = 0) : f = 0 := by
+theorem eq_zero_of_degreeOf_lt_of_eval_prod_finset_eq_zero
+    (degreeOf_f_lt : ∀ i : σ, f.degreeOf i < (s i).card)
+    (eval_f : ∀ x ∈ prodSet s, eval x f = 0) : f = 0 := by
   let d := f.support
 
   -- Restrict this to f.support, which is finite, then reduce further to univariate case

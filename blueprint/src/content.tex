@@ -10,13 +10,34 @@
 
 The goal of this project is to formalize Succinct Non-Interactive Arguments of Knowledge (SNARKs) in Lean. Our focus is on SNARKs based on Interactive Oracle Proofs (IOPs). We plan to build a general framework for IOP-based SNARKs that can state specifications of the protocols and prove their security properties in a clean and modular way.
 
-\chapter{Interactive Oracle Reductions}
+\chapter{Oracle Reductions}
 
 \section{Definitions}
 
+\begin{definition}[Interactive Protocol]
+    \label{def:interactive_protocol}
+    \lean{ProtocolSpec}
+    An \emph{$n$-round interactive protocol} between two parties $P, V$ is a sequence of messages $c_0, m_0, \dots, c_n, m_n$ where:
+    \begin{itemize}
+        \item $c_i$ is a challenge sent by $V$ to $P$ in the $i$-th round.
+        \item $m_i$ is a message sent by $P$ to $V$ in the $i$-th round.
+    \end{itemize}
+    Each message $m_i$ and challenge $c_i$ may be of different types. We bundle them all together as a \verb|ProtocolSpec| structure.
+\end{definition}
+
+\begin{definition}[Oracle Reduction]\label{def:oracle_reduction}
+    \lean{Protocol}
+    An \emph{(interactive) oracle reduction} is an interactive protocol with a prover and a verifier.
+\end{definition}
+
+\begin{definition}[Completeness]
+    \label{def:completeness}
+    \lean{completeness}
+\end{definition}
+
 \section{Composition}
 
-\chapter{Oracle Commitment Schemes}
+\chapter{Commitment Schemes}
 
 \section{Definitions}
 
