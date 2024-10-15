@@ -28,7 +28,8 @@ namespace Secp256k1
 notation "BASE_FIELD_CARD" => 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2f
 
 /- Alternative representation -/
-example : BASE_FIELD_CARD = 2 ^ 256 - 2 ^ 32 - 2 ^ 9 - 2 ^ 8 - 2 ^ 7 - 2 ^ 6 - 2 ^ 4 - 1 := by norm_num
+example : BASE_FIELD_CARD = 2 ^ 256 - 2 ^ 32 - 2 ^ 9 - 2 ^ 8 - 2 ^ 7 - 2 ^ 6 - 2 ^ 4 - 1
+  := by norm_num
 
 abbrev BaseField := ZMod BASE_FIELD_CARD
 
@@ -70,7 +71,8 @@ abbrev BaseField := ZMod BASE_FIELD_CARD
 
 theorem BaseField_is_prime : Nat.Prime BASE_FIELD_CARD := by
   refine PrattCertificate'.out (p := BASE_FIELD_CARD) ⟨3, (by reduce_mod_char_pow), ?_⟩
-  refine .split [2, 3, 7, 13441, 205115282021455665897114700593932402728804164701536103180137503955397371]
+  refine .split [2, 3, 7, 13441,
+    205115282021455665897114700593932402728804164701536103180137503955397371]
     (fun r hr => ?_) (by norm_num)
   simp at hr
   rcases hr with hr | hr | hr | hr | hr
@@ -79,9 +81,11 @@ theorem BaseField_is_prime : Nat.Prime BASE_FIELD_CARD := by
   · exact .prime 3 1 _ (by pratt) (by reduce_mod_char_pow; decide) (by norm_num)
   · exact .prime 7 1 _ (by pratt) (by reduce_mod_char_pow; decide) (by norm_num)
   · exact .prime 13441 1 _ (by pratt) (by reduce_mod_char_pow; decide) (by norm_num)
-  · refine .prime 205115282021455665897114700593932402728804164701536103180137503955397371 1 _ ?_ (by reduce_mod_char_pow; decide) (by norm_num)
+  · refine .prime 205115282021455665897114700593932402728804164701536103180137503955397371 1 _ ?_
+      (by reduce_mod_char_pow; decide) (by norm_num)
     · refine PrattCertificate'.out ⟨10, (by reduce_mod_char_pow), ?_⟩
-      refine .split [2, 3, 5, 29 ^ 2, 31, 7723, 132896956044521568488119, 255515944373312847190720520512484175977] (fun r hr => ?_) (by norm_num)
+      refine .split [2, 3, 5, 29 ^ 2, 31, 7723, 132896956044521568488119,
+        255515944373312847190720520512484175977] (fun r hr => ?_) (by norm_num)
       simp at hr
       rcases hr with hr | hr | hr | hr | hr | hr | hr | hr
       all_goals rw [hr]
@@ -91,8 +95,10 @@ theorem BaseField_is_prime : Nat.Prime BASE_FIELD_CARD := by
       · exact .prime 29 2 _ (by pratt) (by reduce_mod_char_pow; decide) (by norm_num)
       · exact .prime 31 1 _ (by pratt) (by reduce_mod_char_pow; decide) (by norm_num)
       · exact .prime 7723 1 _ (by pratt) (by reduce_mod_char_pow; decide) (by norm_num)
-      · exact .prime 132896956044521568488119 1 _ (by pratt) (by reduce_mod_char_pow; decide) (by norm_num)
-      · exact .prime 255515944373312847190720520512484175977 1 _ (by pratt) (by reduce_mod_char_pow; decide) (by norm_num)
+      · exact .prime 132896956044521568488119 1 _ (by pratt)
+          (by reduce_mod_char_pow; decide) (by norm_num)
+      · exact .prime 255515944373312847190720520512484175977 1 _ (by pratt)
+          (by reduce_mod_char_pow; decide) (by norm_num)
 
 instance : Fact (Nat.Prime BASE_FIELD_CARD) := ⟨BaseField_is_prime⟩
 
@@ -108,8 +114,8 @@ abbrev ScalarField := ZMod SCALAR_FIELD_CARD
 
 theorem ScalarField_is_prime : Nat.Prime SCALAR_FIELD_CARD := by
   refine PrattCertificate'.out (p := SCALAR_FIELD_CARD) ⟨7, (by reduce_mod_char_pow), ?_⟩
-  refine .split [2 ^ 6, 3, 149, 631, 107361793816595537, 174723607534414371449, 341948486974166000522343609283189]
-    (fun r hr => ?_) (by norm_num)
+  refine .split [2 ^ 6, 3, 149, 631, 107361793816595537, 174723607534414371449,
+    341948486974166000522343609283189] (fun r hr => ?_) (by norm_num)
   simp at hr
   rcases hr with hr | hr | hr | hr | hr | hr | hr
   all_goals rw [hr]
@@ -119,16 +125,19 @@ theorem ScalarField_is_prime : Nat.Prime SCALAR_FIELD_CARD := by
   · exact .prime 631 1 _ (by pratt) (by reduce_mod_char_pow; decide) (by norm_num)
   · exact .prime 107361793816595537 1 _ (by pratt) (by reduce_mod_char_pow; decide) (by norm_num)
   · exact .prime 174723607534414371449 1 _ (by pratt) (by reduce_mod_char_pow; decide) (by norm_num)
-  · refine .prime 341948486974166000522343609283189 1 _ ?_ (by reduce_mod_char_pow; decide) (by norm_num)
+  · refine .prime 341948486974166000522343609283189 1 _ ?_ (by reduce_mod_char_pow; decide)
+      (by norm_num)
     · refine PrattCertificate'.out ⟨2, (by reduce_mod_char_pow), ?_⟩
-      refine .split [2 ^ 2, 3 ^ 3, 109, 29047611873442575647497758179] (fun r hr => ?_) (by norm_num)
+      refine .split [2 ^ 2, 3 ^ 3, 109, 29047611873442575647497758179] (fun r hr => ?_)
+        (by norm_num)
       simp at hr
       rcases hr with hr | hr | hr | hr
       all_goals rw [hr]
       · exact .prime 2 2 _ (by pratt) (by reduce_mod_char_pow; decide) (by norm_num)
       · exact .prime 3 3 _ (by pratt) (by reduce_mod_char_pow; decide) (by norm_num)
       · exact .prime 109 1 _ (by pratt) (by reduce_mod_char_pow; decide) (by norm_num)
-      · exact .prime 29047611873442575647497758179 1 _ (by pratt) (by reduce_mod_char_pow; decide) (by norm_num)
+      · exact .prime 29047611873442575647497758179 1 _ (by pratt) (by reduce_mod_char_pow; decide)
+          (by norm_num)
 
 instance : Fact (Nat.Prime SCALAR_FIELD_CARD) := ⟨ScalarField_is_prime⟩
 

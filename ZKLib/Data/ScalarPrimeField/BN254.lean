@@ -13,13 +13,15 @@ import ZKLib.ToMathlib.NumberTheory.PrattCertificate
 
 namespace BN254
 
-notation "SCALAR_FIELD_CARD" => 21888242871839275222246405745257275088548364400416034343698204186575808495617
+notation "SCALAR_FIELD_CARD" =>
+  21888242871839275222246405745257275088548364400416034343698204186575808495617
 
 abbrev ScalarField := ZMod SCALAR_FIELD_CARD
 
 theorem ScalarField_is_prime : Nat.Prime SCALAR_FIELD_CARD := by
   refine PrattCertificate'.out (p := SCALAR_FIELD_CARD) ⟨5, (by reduce_mod_char_pow), ?_⟩
-  refine .split [2 ^ 28, 3 ^ 2, 13, 29, 983, 11003, 237073, 405928799, 1670836401704629, 13818364434197438864469338081] (fun r hr => ?_) (by norm_num)
+  refine .split [2 ^ 28, 3 ^ 2, 13, 29, 983, 11003, 237073, 405928799, 1670836401704629,
+    13818364434197438864469338081] (fun r hr => ?_) (by norm_num)
   simp at hr
   rcases hr with hr | hr | hr | hr | hr | hr | hr | hr | hr | hr <;> rw [hr]
   · exact .prime 2 28 _ (by pratt) (by reduce_mod_char_pow; decide) (by norm_num)
@@ -38,7 +40,8 @@ theorem ScalarField_is_prime : Nat.Prime SCALAR_FIELD_CARD := by
       · exact .prime 2 2 _ (by pratt) (by reduce_mod_char_pow; decide) (by norm_num)
       · exact .prime 3 4 _ (by pratt) (by reduce_mod_char_pow; decide) (by norm_num)
       · exact .prime 5156902474397 1 _ (by pratt) (by reduce_mod_char_pow; decide) (by norm_num)
-  · refine .prime 13818364434197438864469338081 1 _ ?_ (by reduce_mod_char_pow; decide) (by norm_num)
+  · refine .prime 13818364434197438864469338081 1 _ ?_ (by reduce_mod_char_pow; decide)
+      (by norm_num)
     · refine PrattCertificate'.out ⟨3, by reduce_mod_char_pow, ?_⟩
       refine .split [2 ^ 5, 5, 823, 1593227, 65865678001877903] (fun r hr => ?_) (by norm_num)
       simp at hr

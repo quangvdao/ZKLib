@@ -69,6 +69,8 @@ inductive PrattPartList : (p : ℕ) → (a : ZMod p) → ℕ → Prop
   | split : {p : ℕ} → {a : ZMod p} → {n : ℕ} → (list : List ℕ) →
       (∀ r ∈ list, PrattPartList p a r) → list.prod = n → PrattPartList p a n
 
+/-- Alternative form of a Pratt certificate for `p`, which may take in Pratt certificates
+  for a list of prime powers `r` less than `p` whose product is equal to `p - 1`. -/
 structure PrattCertificate' (p : ℕ) : Type :=
   a : ZMod p
   pow_eq_one : a ^ (p - 1) = 1
@@ -257,6 +259,7 @@ def deterministicMillerRabin (n : ℕ) : Bool := Id.run do
 
 def g (n : ℕ) (c : ℕ) (x : ℕ) := (x * x + c) % n
 
+/-- Auxiliary function for `rho` that tries to find a factor of `n` -/
 def rho' (n : ℕ) (start : ℕ) (c : ℕ) : Option ℕ := Id.run do
   if n % 2 = 0 then
     return some 2
@@ -297,6 +300,7 @@ structure PrimeWithMultiplicity : Type :=
   multiplicity : ℕ
 deriving Repr
 
+/-- Factor `n` into a list of prime numbers with their multiplicities -/
 def factor' (n : ℕ) : Option (List PrimeWithMultiplicity) := do
   let facts := List.mergeSort (← factor n)
   let groups := List.groupBy (· = ·) facts
@@ -399,7 +403,8 @@ theorem ZMod.bla : ∀ {n c : ℕ} (a : ZMod n), c = 1 → IsNat (a ^ (n - 1)) c
 def verifyEqOne (n a' : Q(ℕ)) (a : Q(ZMod $n)) (_ : Q(($a' : ZMod $n) = $a)) :
     MetaM Q($a ^ ($n - 1) = 1) := do
   let p : Q(ZMod $n) := q($a ^ ($n - 1))
-  let .isNat _ c hc ← Tactic.ReduceModCharPow.normIntNumeral n p q(CommRing.toRing) q(ZMod.charP $n) | failure
+  let .isNat _ c hc ← Tactic.ReduceModCharPow.normIntNumeral n p
+    q(CommRing.toRing) q(ZMod.charP $n) | failure
   assumeInstancesCommute
   haveI : $p =Q $a ^ ($n - 1) := ⟨⟩
   haveI : $c =Q 1 := ⟨⟩
@@ -432,20 +437,23 @@ theorem ZMod.powNeOfPowMod :
     exact (Nat.mod_eq_of_lt hn).symm
 
 theorem ZMod.blub :
-    ∀ {n q c : ℕ} (a : ZMod n), (decide (n ≥ 2) = true) → (decide (c < n) = true) → (decide (c ≠ 1) = true) → IsNat (a ^ ((n - 1) / q)) c → a ^ ((n - 1) / q) ≠ 1
+    ∀ {n q c : ℕ} (a : ZMod n), (decide (n ≥ 2) = true) → (decide (c < n) = true) →
+      (decide (c ≠ 1) = true) → IsNat (a ^ ((n - 1) / q)) c → a ^ ((n - 1) / q) ≠ 1
   | n, q, c, a, hn, hc₁, hc₂, ⟨h⟩ => by
     rw [h]
     intro h'
     apply of_decide_eq_true hc₂
     rw [← Nat.cast_one, CharP.natCast_eq_natCast (ZMod n) n] at h'
-    rw [← Nat.mod_eq_of_lt (of_decide_eq_true hc₁), ← Nat.mod_eq_of_lt (show 1 < n from of_decide_eq_true hn)]
+    rw [← Nat.mod_eq_of_lt (of_decide_eq_true hc₁),
+      ← Nat.mod_eq_of_lt (show 1 < n from of_decide_eq_true hn)]
     exact h'
 
 def verifyNeOne (n a' q : Q(ℕ)) (a : Q(ZMod $n)) (_ : Q(($a' : ZMod $n) = $a)) :
     MetaM Q($a ^ (($n - 1) / $q) ≠ 1) := do
   -- return q(sorry)
   let p : Q(ZMod $n) := q($a ^ (($n - 1) / $q))
-  let .isNat _ c hc ← Tactic.ReduceModCharPow.normIntNumeral n p q(CommRing.toRing) q(ZMod.charP $n) | failure
+  let .isNat _ c hc ← Tactic.ReduceModCharPow.normIntNumeral n p
+    q(CommRing.toRing) q(ZMod.charP $n) | failure
   -- have npd : Q(ℕ) := mkRawNatLit ((n.natLit! - 1) / q.natLit!)
   -- haveI : $npd =Q ($n - 1) / $q := ⟨⟩
   -- let ⟨c, pc⟩ := evalNatPowMod a' npd n
@@ -505,6 +513,7 @@ elab "pratt" : tactic => do
   let u := q(Nat.Prime_of_isNat $pn $cert)
   closeMainGoal (Name.mkSimple "pratt") u
 
+set_option linter.style.setOption false
 set_option trace.profiler true
 set_option profiler true
 
@@ -518,3 +527,5 @@ set_option profiler true
 -- example : Nat.Prime 2860486313 := by pratt
 -- example : Nat.Prime 5463458053 := by pratt
 -- example : Nat.Prime 3367900313 := by pratt
+
+end Tactic

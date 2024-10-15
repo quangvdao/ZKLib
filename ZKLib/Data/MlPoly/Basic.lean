@@ -44,7 +44,7 @@ variable {R : Type} [Mul R] [AddCommMonoid R]
 
 /-- Inner product between two arrays. Do automatic truncation for arrays of different lengths. -/
 def Array.dotProduct (a b : Array R) : R :=
-  a.zip b |>.map (λ (a, b) => a * b) |>.foldl (· + ·) 0
+  a.zip b |>.map (fun (a, b) => a * b) |>.foldl (· + ·) 0
 
 def Array.dotProduct' (a b : Array R) (hEq : a.size = b.size) : R := Array.dotProduct a b
 
@@ -115,7 +115,7 @@ instance inhabited : Inhabited (MlPoly R n) :=
 def new (evals : Array R) : MlPoly R (Nat.clog 2 evals.size) :=
   let n : ℕ := Nat.clog 2 evals.size -- upper log base 2
   let padEvals : Array R := (Array.range (2 ^ n)).map
-    (λ i => if i < evals.size then evals.get! i else 0)
+    (fun i => if i < evals.size then evals.get! i else 0)
   { evals := padEvals, hSize := by simp [padEvals] }
 
 -- Create a zero polynomial over n variables
@@ -150,17 +150,17 @@ def lagrangeBasis (r : Array R) : Array R :=
 
 
 def add (p q : MlPoly R n) : MlPoly R n :=
-  { evals := p.evals.zip q.evals |>.map (λ (a, b) => a + b),
+  { evals := p.evals.zip q.evals |>.map (fun (a, b) => a + b),
     hSize := by simp [p.hSize, q.hSize, Array.size_zip] }
 
 
 def scalarMul (r : R) (p : MlPoly R n) : MlPoly R n :=
-  { evals := p.evals.map (λ a => r * a), hSize := by simp [p.hSize] }
+  { evals := p.evals.map (fun a => r * a), hSize := by simp [p.hSize] }
 
 -- Technically this is not the product of two multilinear polynomials, since the result of that
 -- would no longer be multilinear. This is only defining the product of the evaluations.
 def mul (p q : MlPoly R n) : MlPoly R n :=
-  { evals := p.evals.zip q.evals |>.map (λ (a, b) => a * b),
+  { evals := p.evals.zip q.evals |>.map (fun (a, b) => a * b),
     hSize := by simp [p.hSize, q.hSize, Array.size_zip] }
 
 
@@ -170,17 +170,12 @@ def eval (p : MlPoly R n) (x : Array R) (h : x.size = n) : R :=
 -- Partially evaluate the polynomial at some variables
 -- def bound_top_vars (p : MlPoly R) (x : Array R) : MlPoly R :=
 
-
 -- Theorems about evaluations
 
--- Evaluation at a point in the Boolean hypercube is equal to the corresponding evaluation in the array
--- theorem eval_eq_eval_array (p : MlPoly R) (x : Array Bool) (h : x.size = p.nVars): eval p x.map (fun b => b) = p.evals.get! (x.foldl (fun i elt => i * 2 + elt) 0) := by
---   unfold eval
---   unfold dotProduct
---   simp [↓reduceIte, h]
---   sorry
-
-example (a b c : Prop) [Decidable a] (h : a) : (if a then b else c) = b := by
-  simp_all only [↓reduceIte]
+-- Evaluation at a point in the Boolean hypercube is equal to the corresponding evaluation in the
+-- array
+-- theorem eval_eq_eval_array (p : MlPoly R) (x : Array Bool) (h : x.size = p.nVars): eval p
+-- x.map (fun b => b) = p.evals.get! (x.foldl (fun i elt => i * 2 + elt) 0) := by unfold eval unfold
+-- dotProduct simp [↓reduceIte, h] sorry
 
 end MlPoly

@@ -23,13 +23,15 @@ import ZKLib.ToMathlib.NumberTheory.PrattCertificate
 
 namespace BLS12_377
 
-notation "SCALAR_FIELD_CARD" => 8444461749428370424248824938781546531375899335154063827935233455917409239041
+notation "SCALAR_FIELD_CARD" =>
+  8444461749428370424248824938781546531375899335154063827935233455917409239041
 
 abbrev ScalarField := ZMod SCALAR_FIELD_CARD
 
 theorem ScalarField_is_prime : Nat.Prime SCALAR_FIELD_CARD := by
   refine PrattCertificate'.out (p := SCALAR_FIELD_CARD) ⟨22, (by reduce_mod_char_pow), ?_⟩
-  refine .split [2 ^ 47, 3, 5, 7, 13, 499, 958612291309063373, 9586122913090633729 ^ 2] (fun r hr => ?_) (by norm_num)
+  refine .split [2 ^ 47, 3, 5, 7, 13, 499, 958612291309063373, 9586122913090633729 ^ 2]
+    (fun r hr => ?_) (by norm_num)
   simp at hr
   rcases hr with hr | hr | hr | hr | hr | hr | hr | hr <;> rw [hr]
   · exact .prime 2 47 _ (by pratt) (by reduce_mod_char_pow; decide) (by norm_num)
