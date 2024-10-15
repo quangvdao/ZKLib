@@ -13,10 +13,15 @@ variable {F : Type*} [Field F] [Fintype F] [DecidableEq F] {n : Type*} [Fintype 
 
 variable (C : Submodule F (n → F)) [DecidablePred (· ∈ C)]
 
-def proximityTupleCard (u v : n → F) (d : ℕ) : ℕ :=
+/-- The proximity measure of two vectors `u` and `v` from a code `C` at distance `d` is the number
+  of vectors at distance at most `d` from the linear combination of `u` and `v` with coefficients
+  `r` in `F`. -/
+def proximityMeasure (u v : n → F) (d : ℕ) : ℕ :=
   Fintype.card {r : F | Δ₀'(r • u + (1 - r) • v, C) ≤ d}
 
+/-- A code `C` exhibits proximity gap at distance `d` and cardinality bound `bound` if for every
+      pair of vectors `u` and `v`, whenever the proximity measure for `C u v d` is greater than
+      `bound`, then the distance of `[u | v]` from the interleaved code `C ^⊗ 2` is at most `d`. -/
 def proximityGap (d : ℕ) (bound : ℕ) : Prop :=
-  ∀ u v : n → F, (proximityTupleCard C u v d > bound)
-  → (Δ₀( (fun ⟨a, b⟩ => if a = 0 then u b else v b : Fin 2 × n → F) ,
-          (interleaveCode C (Fin 2) : Set (Fin 2 × n → F)) ) ≤ d)
+  ∀ u v : n → F, (proximityMeasure C u v d > bound)
+    → (Δ₀( u ⋈ v , C ^⋈ Fin 2 ) ≤ d)

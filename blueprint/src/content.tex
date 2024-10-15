@@ -16,7 +16,7 @@ The goal of this project is to formalize Succinct Non-Interactive Arguments of K
 
 \begin{definition}[Interactive Protocol]
     \label{def:interactive_protocol}
-    \lean{ProtocolSpec}
+    % \lean{ProtocolSpec}
     An \emph{$n$-round interactive protocol} between two parties $P, V$ is a sequence of messages $c_0, m_0, \dots, c_n, m_n$ where:
     \begin{itemize}
         \item $c_i$ is a challenge sent by $V$ to $P$ in the $i$-th round.
@@ -26,13 +26,13 @@ The goal of this project is to formalize Succinct Non-Interactive Arguments of K
 \end{definition}
 
 \begin{definition}[Oracle Reduction]\label{def:oracle_reduction}
-    \lean{Protocol}
+    % \lean{Protocol}
     An \emph{(interactive) oracle reduction} is an interactive protocol with a prover and a verifier.
 \end{definition}
 
 \begin{definition}[Completeness]
     \label{def:completeness}
-    \lean{completeness}
+    % \lean{completeness}
 \end{definition}
 
 \section{Composition}
@@ -63,6 +63,11 @@ The goal of this project is to formalize Succinct Non-Interactive Arguments of K
     \lean{MLE}
 \end{definition}
 
+\begin{theorem}[Multilinear Extension is Unique]
+    \label{thm:multilinear_extension_unique}
+    % \lean{MLE-??}
+\end{theorem}
+
 \section{Coding Theory}
 
 \begin{definition}[Code Distance]
@@ -87,7 +92,7 @@ The goal of this project is to formalize Succinct Non-Interactive Arguments of K
 
 \begin{definition}[Interleaved Code]
     \label{def:interleaved_code}
-    \lean{codeInterleave}
+    \lean{interleaveCode}
 \end{definition}
 
 \begin{definition}[Reed-Solomon Code]

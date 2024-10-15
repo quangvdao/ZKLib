@@ -174,6 +174,8 @@ theorem codeDist'_eq_codeDist : ‖C‖₀'.toNat = ‖C‖₀ := by
     -- apply Finset.min_eq_top.mp
     -- simp [this]
 
+/-- Computable version of the distance from a vector `u` to a code `C`, assuming `C` is a `Fintype`.
+  -/
 def distFromCode' (C : Set (n → R)) [Fintype C] (u : n → R) : ℕ∞ :=
   Finset.min <| (@Finset.univ C _).image (fun v => hammingDist u v.1)
 
@@ -226,13 +228,19 @@ def linearCodeDist' (C : Submodule R (n → R)) [DecidablePred (· ∈ C)] : ℕ
 
 end Computable
 
-/-- The interleaving of a code `C` over index set `ι` is the submodule spanned by `ι × n`-matrices
-whose rows are elements of `C`. -/
+/-- The interleaving of a linear code `C` over index set `ι` is the submodule spanned by
+`ι × n`-matrices whose rows are elements of `C`. -/
 def interleaveCode (C : Submodule R (n → R)) (ι : Type*) : Submodule R ((ι × n) → R) :=
   Submodule.span R {v | ∀ i, ∃ c ∈ C, c = fun j => v (i, j)}
 
+notation:20 C "^⋈" ι => interleaveCode C ι
+
 -- instance : Fintype (interleaveCode C ι) := sorry
 
-example (u0 u1 : n → R) : (Fin 2) × n → R := fun ⟨a, b⟩ => if a = 0 then u0 b else u1 b
+/-- Interleave two functions `u v : α → β`. -/
+def Function.interleave₂ {α β : Type*} (u v : α → β) : (Fin 2) × α → β :=
+  Function.uncurry (fun a => if a = 0 then u else v)
+
+notation:20 u "⋈" v => Function.interleave₂ u v
 
 end Linear

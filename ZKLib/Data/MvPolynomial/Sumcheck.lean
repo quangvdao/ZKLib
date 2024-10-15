@@ -53,21 +53,22 @@ variable {σ σ₁ σ₂ : Type*}
 
 /-- Partial evaluation of multivariate polynomials given a mapping to a sum type `σ → σ₁ ⊕ σ₂`
 and a partial evaluation point `x : σ₁ → R` -/
-def peval (x : σ₁ → R) (f : σ → σ₁ ⊕ σ₂) :
-    MvPolynomial σ R →+* MvPolynomial σ₂ R where
+def peval (f : σ → σ₁ ⊕ σ₂) (x : σ₁ → R) : MvPolynomial σ R →+* MvPolynomial σ₂ R where
   toFun := fun p => eval (C ∘ x) ((sumAlgEquiv R σ₁ σ₂).toFun (rename f p))
   map_one' := by simp
   map_mul' := by simp
   map_zero' := by simp
   map_add' := by simp
 
--- theorem peval_support_of_injective {x : σ₁ → R} {f : σ → σ₁ ⊕ σ₂} {p : MvPolynomial σ R} :
---     (peval x f p).support ⊆ p.support.image (sumAlgEquiv R σ₁ σ₂).toFun := by
---   sorry
+theorem degrees_peval {x : σ₁ → R} {f : σ → σ₁ ⊕ σ₂} {p : MvPolynomial σ R} :
+    (peval f x p).degrees ⊆ (p.degrees.map f).map (fun degs => sorry) := by
+  sorry
 
-#check MvPolynomial.support_rename_of_injective
+#check MvPolynomial.degrees_rename
 
 #check MvPolynomial.degrees
+
+def testList {α β : Type*} (l : List (α ⊕ β)) : List α := sorry
 
 end PartialEval
 
@@ -80,7 +81,7 @@ end PartialEval
 -/
 def sumPartial (m : ℕ) (n : ℕ) (D : Fin n → Finset R) :
     MvPolynomial (Fin (m + n)) R →ₗ[R] MvPolynomial (Fin m) R where
-  toFun := fun p => ∑ x ∈ Fintype.piFinset D, peval x (Fin.sumCommEquiv m n) p
+  toFun := fun p => ∑ x ∈ Fintype.piFinset D, peval (Fin.sumCommEquiv m n) x p
   map_add' := fun p q => by simp only [map_add, sum_add_distrib]
   map_smul' := fun r p => by simp [peval, smul_eq_C_mul, mul_sum]
 
