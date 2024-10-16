@@ -14,9 +14,29 @@ The goal of this project is to formalize Succinct Non-Interactive Arguments of K
 
 \section{Definitions}
 
+\begin{definition}[Type Signature of an Interactive Protocol]
+    \label{def:interactive_protocol_type_signature}
+    \lean{ProtocolSpec}
+\end{definition}
+
+\begin{definition}[Type Signature of a Prover]
+    \label{def:prover_type_signature}
+    \lean{Prover}
+\end{definition}
+
+\begin{definition}[Type Signature of a Verifier]
+    \label{def:verifier_type_signature}
+    \lean{Verifier}
+\end{definition}
+
+\begin{definition}[Type Signature of an Oracle Verifier]
+    \label{def:oracle_verifier_type_signature}
+    \lean{OracleVerifier}
+\end{definition}
+
 \begin{definition}[Interactive Protocol]
     \label{def:interactive_protocol}
-    % \lean{ProtocolSpec}
+    \lean{Protocol}
     An \emph{$n$-round interactive protocol} between two parties $P, V$ is a sequence of messages $c_0, m_0, \dots, c_n, m_n$ where:
     \begin{itemize}
         \item $c_i$ is a challenge sent by $V$ to $P$ in the $i$-th round.
@@ -25,17 +45,49 @@ The goal of this project is to formalize Succinct Non-Interactive Arguments of K
     Each message $m_i$ and challenge $c_i$ may be of different types. We bundle them all together as a \verb|ProtocolSpec| structure.
 \end{definition}
 
-\begin{definition}[Oracle Reduction]\label{def:oracle_reduction}
-    % \lean{Protocol}
+\begin{definition}[Interactive Oracle Protocol]\label{def:interactive_oracle_protocol}
+    \lean{OracleProtocol}
     An \emph{(interactive) oracle reduction} is an interactive protocol with a prover and a verifier.
 \end{definition}
 
 \begin{definition}[Completeness]
     \label{def:completeness}
-    % \lean{completeness}
+    \lean{Protocol.completeness}
+\end{definition}
+
+\begin{definition}[Soundness]
+    \label{def:soundness}
+    \lean{Protocol.soundness}
 \end{definition}
 
 \section{Composition}
+
+We define \emph{sequential} composition of two or more interactive protocols.
+
+\begin{definition}[Composition of Two Protocol Type Signatures]
+    \label{def:protocol_spec_composition}
+    \lean{ProtocolSpec.append}
+\end{definition}
+
+\begin{definition}[Composition of Two Provers]
+    \label{def:prover_composition}
+    \lean{Prover.append}
+\end{definition}
+
+\begin{definition}[Composition of Two Verifiers]
+    \label{def:verifier_composition}
+    \lean{Verifier.append}
+\end{definition}
+
+\begin{definition}[Composition of Two Oracle Verifiers]
+    \label{def:oracle_verifier_composition}
+    \lean{OracleVerifier.append}
+\end{definition}
+
+\begin{definition}[Composition of Two Interactive Protocols]
+    \label{def:interactive_protocol_composition}
+    \lean{Protocol.append}
+\end{definition}
 
 \chapter{Commitment Schemes}
 

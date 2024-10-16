@@ -61,25 +61,30 @@ open Polynomial MvPolynomial OracleComp
 --   decPred : DecidablePred pred
 --   inhabited : Inhabited (Subtype pred)
 
-variable (R : Type) [CommSemiring R] [Sampleable R]
 
 /-- Public parameters for the sum-check protocol with `n` rounds -/
-structure Params (n : ℕ) where
+structure Params (R : Type) (n : ℕ) where
   degrees : Fin n → ℕ
   -- Possible generalization in the future: `domain : Fin n → Finset R`
   domain : Finset R
 
+variable {R : Type} [CommSemiring R] [Sampleable R] {n : ℕ} (params : Params R n)
+
 /-- Initial statement for sum-check -/
-structure Statement (params : Params R n) where
+structure Statement where
   -- The multivariate polynomial for sum-check
   poly : MvPolynomial (Fin n) R
   -- The target value for sum-check
   target : R
+  -- The degree bound for the polynomial (will put in the `poly` field directly as a subtype)
+  hPoly : ∀ j : Fin n, poly.degreeOf j ≤ params.degrees j
 
 /-- Statement for the `i`-th round of sum-check -/
-structure StatementRound (params : Params R n) (i : Fin n) where
+structure StatementRound (i : Fin n) where
   -- The multivariate polynomial for sum-check
   poly : MvPolynomial (Fin n) R
+  -- The degree bound for the polynomial (will put in the `poly` field directly as a subtype)
+  hPoly : ∀ j : Fin n, poly.degreeOf j ≤ params.degrees j
   -- The target value for sum-check in each round
   target : R
   -- The message polynomial from the previous round
@@ -88,18 +93,19 @@ structure StatementRound (params : Params R n) (i : Fin n) where
   challenges : Fin i → R
 
 /-- The overall sum-check relation -/
-instance relation (params : Params R n) : Relation (Statement R params) Unit where
+instance relation : Relation (Statement params) Unit where
   isValid := fun stmt _ =>
     sumAll n (fun _ => params.domain) stmt.poly = stmt.target
       ∧ ∀ j : Fin n, stmt.poly.degreeOf j ≤ params.degrees j
 
 /-- The sum-check relation for the `i`-th round -/
-instance relationRound (params : Params R n) (i : Fin n) : Relation (StatementRound R params i) Unit where
+instance relationRound (i : Fin n) :
+    Relation (StatementRound params i) Unit where
   isValid := fun stmt _ =>
     ∑ x ∈ params.domain, stmt.lastMessage.eval x = stmt.target
       ∧ ∀ j : Fin n, stmt.poly.degreeOf j ≤ params.degrees j
 
-variable {n : ℕ} (params : Params R n)
+variable (params : Params R n)
 
 -- Let's try defining a single round as a reduction
 
@@ -140,13 +146,13 @@ def pSpecLast : ProtocolSpec 1 where
 
 /-- Type signature for the sum-check prover's state -/
 @[ext]
-structure PrvState where
+structure PrvState (params : Params R n) where
   poly : MvPolynomial (Fin n) R
   -- { x : MvPolynomial (Fin (n - i)) R // ∀ j, x.degreeOf j ≤ params.degrees (Fin.castAdd i j) }
   chals : List R
 
 /-- Initialization of the sum-check prover -/
-def proverInit : ProverInit (pSpecFirst R) emptySpec (PrvState R (n := n)) (Statement R params) Unit where
+def proverInit : ProverInit pSpecFirst emptySpec (PrvState params) (Statement params) Unit where
   load := fun stmt _ => do return { poly := stmt.poly, chals := [] }
 
 /-- Honest sum-check prover for the first round -/
@@ -224,7 +230,8 @@ def protocolFirst (h : n > 1) : Protocol (pSpecFirst R) emptySpec (PrvState R (n
 
 section Security
 
--- First state the polynomial-only theorems that establish completeness and soundness, then apply them to the protocol
+-- First state the polynomial-only theorems that establish completeness and soundness, then apply
+-- them to the protocol
 
 -- /-- Completeness theorem for sumcheck-/
 -- theorem perfect_completeness : perfectCompleteness (protocol params) := by
@@ -237,7 +244,8 @@ section Security
 -- def badFunction : @BadFunction (pSpec (R := R)) (relation R params) := sorry
 
 -- /-- Round-by-round soundness theorem for sumcheck -/
--- theorem round_by_round_soundness : roundByRoundSoundness (verifier params) (badFunction params) (fun _ => ⟨(1 : ℝ) / Fintype.card R, by simp; sorry⟩) := sorry
+-- theorem round_by_round_soundness : roundByRoundSoundness (verifier params) (badFunction params)
+--     (fun _ => ⟨(1 : ℝ) / Fintype.card R, by simp; sorry⟩) := sorry
 
 end Security
 

@@ -5,6 +5,7 @@ Authors: Quang Dao
 -/
 
 import Mathlib.Algebra.MvPolynomial.Equiv
+import Mathlib.Data.Multiset.Bind
 import ZKLib.Data.MvPolynomial.Notation
 
 /-!
@@ -13,7 +14,7 @@ import ZKLib.Data.MvPolynomial.Notation
 
 noncomputable section
 
-open BigOperators Finset Fintype
+open BigOperators Finset Fintype Finsupp Function
 
 /-- Equivalence that splits `Fin (m + n)` to `Fin m` and `Fin n`, then swaps the two -/
 def Fin.sumCommEquiv (m : ℕ) (n : ℕ) : Fin (m + n) ≃ Sum (Fin n) (Fin m) :=
@@ -39,36 +40,81 @@ def CEmbedding : R ↪ MvPolynomial σ R := ⟨C, C_injective σ R⟩
 def finOneEquiv : MvPolynomial (Fin 1) R ≃ₐ[R] Polynomial R :=
   (finSuccEquiv R 0).trans (Polynomial.mapAlgEquiv (isEmptyAlgEquiv R (Fin 0)))
 
-def test (p : ℕ[X Fin 2]) := ∑ x ∈ {0, 1}, evalFirstVar p x (by norm_num)
-
-def testTuple (p : ℕ[X Fin 2]) := ∑ x ∈ {0, 1} ^ᶠ 2, eval x p
-
-example : testTuple (X 0 + X 1) = (0 + 0) + (0 + 1) + (1 + 0) + (1 + 1) := by
-  simp [testTuple]
-  exact rfl
-
 section PartialEval
+
+theorem support_C {r : R} [h : Decidable (r = 0)] :
+    (@C R σ _ r).support = if r = 0 then ∅ else { 0 } := by
+  rw [←monomial_zero', support_monomial]
+
+theorem support_C_subset {r : R} : (@C R σ _ r).support ⊆ { 0 } := by
+  rw [←monomial_zero']
+  exact support_monomial_subset
 
 variable {σ σ₁ σ₂ : Type*}
 
 /-- Partial evaluation of multivariate polynomials given a mapping to a sum type `σ → σ₁ ⊕ σ₂`
 and a partial evaluation point `x : σ₁ → R` -/
-def peval (f : σ → σ₁ ⊕ σ₂) (x : σ₁ → R) : MvPolynomial σ R →+* MvPolynomial σ₂ R where
-  toFun := fun p => eval (C ∘ x) ((sumAlgEquiv R σ₁ σ₂).toFun (rename f p))
-  map_one' := by simp
-  map_mul' := by simp
-  map_zero' := by simp
-  map_add' := by simp
+def peval (f : σ → σ₁ ⊕ σ₂) (x : σ₁ → R) : MvPolynomial σ R →+* MvPolynomial σ₂ R :=
+  eval₂Hom C (Sum.elim (fun i => C (x i)) X ∘ f)
 
-theorem degrees_peval {x : σ₁ → R} {f : σ → σ₁ ⊕ σ₂} {p : MvPolynomial σ R} :
-    (peval f x p).degrees ⊆ (p.degrees.map f).map (fun degs => sorry) := by
+theorem peval_def (f : σ → σ₁ ⊕ σ₂) (x : σ₁ → R) (p : MvPolynomial σ R) :
+    peval f x p = eval₂ C (Sum.elim (fun i => C (x i)) X ∘ f) p := rfl
+
+theorem peval_eq_eval_sumToIter_rename (f : σ → σ₁ ⊕ σ₂) (x : σ₁ → R) (p : MvPolynomial σ R) :
+    peval f x p = eval (C ∘ x) (sumToIter R σ₁ σ₂ (rename f p)) := by
+  induction p using MvPolynomial.induction_on with
+  | h_C => simp [peval]
+  | h_add p q hp hq => simp only [map_add, hp, hq]
+  | h_X p s hp =>
+      simp [hp]
+      congr
+      simp only [peval, eval₂Hom_X', comp_apply, sumToIter]
+      by_cases h : Sum.isLeft (f s)
+      · have : f s = Sum.inl ((f s).getLeft h) := by simp only [Sum.inl_getLeft]
+        rw [this, Sum.elim_inl]
+        simp only [comp_apply, eval_X]
+      · have h' : Sum.isRight (f s) = true := by exact Sum.not_isLeft.mp h
+        have : f s = Sum.inr ((f s).getRight h') := by simp only [Sum.inr_getRight]
+        rw [this, Sum.elim_inr]
+        simp only [comp_apply, eval_C]
+
+theorem support_peval {x : σ₁ → R} {f : σ → σ₁ ⊕ σ₂} {p : MvPolynomial σ R} :
+    (peval f x p).support ⊆ @Finset.image _ _ (Classical.decEq (σ₂ →₀ ℕ))
+    ((fun x => comapDomain _ x (Injective.injOn Sum.inr_injective)) ∘ (mapDomain f)) p.support := by
+  induction p using MvPolynomial.induction_on'' with
+  | h_C r =>
+    simp [peval, support_C (h := Classical.propDecidable (r = 0))]
+    by_cases h : r = 0 <;> simp [h]
+  | h_add_weak => sorry
+  | h_X p s hp => sorry
+  -- | h_X p s hp =>
+  --   simp [hp]
+  --   apply Finset.image_subset_iff.mpr
+  --   apply Finset.subset_iff.mpr
+  --   intro x hx
+
+attribute [gcongr] Multiset.map_le_map
+attribute [gcongr] Multiset.map_lt_map
+attribute [gcongr] Multiset.filter_le_filter
+attribute [gcongr] Multiset.filterMap_le_filterMap
+
+theorem degrees_eval {τ : Type*} {f : τ → R} {p : R[X σ][X τ]} :
+    (eval (C ∘ f) p).degrees ≤ Multiset.bind p.support.val (fun c => (coeff c p).degrees)  := by
+  rw [eval_eq]
   sorry
 
-#check MvPolynomial.degrees_rename
+#check Multiset.sum_bind
 
-#check MvPolynomial.degrees
-
-def testList {α β : Type*} (l : List (α ⊕ β)) : List α := sorry
+theorem degrees_peval {x : σ₁ → R} {f : σ → σ₁ ⊕ σ₂} {p : MvPolynomial σ R} :
+    (peval f x p).degrees ≤ (p.degrees.map f).filterMap Sum.getRight? := by
+  have : DecidableEq σ₂ := Classical.decEq σ₂
+  induction p using MvPolynomial.induction_on'' with
+  | h_C r => simp [peval, degrees_C]
+  | h_X p n h =>
+    simp only [map_mul]
+    refine le_trans (degrees_mul _ _) ?_
+    sorry
+  | h_add_weak => sorry
 
 end PartialEval
 
@@ -83,7 +129,7 @@ def sumPartial (m : ℕ) (n : ℕ) (D : Fin n → Finset R) :
     MvPolynomial (Fin (m + n)) R →ₗ[R] MvPolynomial (Fin m) R where
   toFun := fun p => ∑ x ∈ Fintype.piFinset D, peval (Fin.sumCommEquiv m n) x p
   map_add' := fun p q => by simp only [map_add, sum_add_distrib]
-  map_smul' := fun r p => by simp [peval, smul_eq_C_mul, mul_sum]
+  map_smul' := fun r p => by simp [peval, smul_eq_C_mul, Finset.mul_sum]
 
 /-- Special case of `sumPartialFinset` when `m = 0`. Directly returns `R` -/
 def sumAll (n : ℕ) (D : Fin n → Finset R) : MvPolynomial (Fin n) R →ₗ[R] R := by

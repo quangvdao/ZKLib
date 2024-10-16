@@ -1,3 +1,9 @@
+/-
+Copyright (c) 2024 Quang Dao. All rights reserved.
+Released under Apache 2.0 license as described in the file LICENSE.
+Authors: Quang Dao
+-/
+
 import ZKLib.OracleReduction.Basic
 import VCVio
 
@@ -17,7 +23,8 @@ namespace Commitment
 
 open OracleSpec OracleComp
 
--- We may not be able to say that the opening of a commitment scheme is an IOP for some relation, because that relation may require querying oracles to determine validity.
+-- We may not be able to say that the opening of a commitment scheme is an IOP for some relation,
+-- because that relation may require querying oracles to determine validity.
 
 structure Spec where
   Data : Type
@@ -28,35 +35,40 @@ structure Spec where
   n : ℕ
   Opening : ProtocolSpec n
 
+variable {ι : Type} [DecidableEq ι]
+
 structure Commit (CSpec : Spec) (OSpec : OracleSpec ι) (State : Type) where
   commit : CSpec.Data → StateT State (OracleComp OSpec) CSpec.Commitment
 
-structure Prover (CSpec : Spec) (OSpec : OracleSpec ι) (State : Type) extends ProverRound CSpec.Opening OSpec State where
+structure Prover (CSpec : Spec) (OSpec : OracleSpec ι) (State : Type)
+    extends ProverRound CSpec.Opening OSpec State where
   loadState : CSpec.Data → CSpec.Query → State
 
 structure Scheme (CSpec : Spec) (OSpec : OracleSpec ι) (State : Type) extends
     Prover CSpec OSpec State,
     Verifier CSpec.Opening OSpec (CSpec.Commitment × CSpec.Query × CSpec.Response)
 
--- /-- The opening relation for a commitment scheme.
--- Shows that `c` is a commitment to some `data`, whose oracle representation takes in `query` and outputs `response`. -/
+-- /-- The opening relation for a commitment scheme. Shows that `c` is a commitment to some `data`,
+-- whose oracle representation takes in `query` and outputs `response`. -/
 -- def relation (oSpec : OracleSpec ι) (cSpec : Spec oSpec) : OracleRelation oSpec where
 --   Statement := cSpec.Commitment × cSpec.Query × cSpec.Response
 --   Witness := cSpec.Data
---   isValid := fun ⟨commitment, query, response⟩ data =>
---     (cSpec.eval data query = response ∧ commitment = ·) <$> cSpec.commit data
+  -- isValid := fun ⟨commitment, query, response⟩ data =>
+  --   (cSpec.eval data query = response ∧ commitment = ·) <$> cSpec.commit data
 
 
 section Security
 
 -- Define binding, extractability, hiding
 
-def binding (CSpec : Spec) (OSpec : OracleSpec ι) (State : Type) (Statement : Type) (Witness : Type) (Scheme : Scheme CSpec OSpec State) : Prop := sorry
+variable (CSpec : Spec) (OSpec : OracleSpec ι) (State : Type) (Statement : Type) (Witness : Type)
 
-def extractability (CSpec : Spec) (OSpec : OracleSpec ι) (State : Type) (Statement : Type) (Witness : Type) (Scheme : Scheme CSpec OSpec State) : Prop := sorry
+def binding (Scheme : Scheme CSpec OSpec State) : Prop := sorry
 
-def hiding' (CSpec : Spec) (OSpec : OracleSpec ι) (State : Type) (Statement : Type) (Witness : Type) (Scheme : Scheme CSpec OSpec State) : Prop := sorry
+def extractability (Scheme : Scheme CSpec OSpec State) : Prop := sorry
 
+/-- Have to put it as `hiding'` because `hiding` is already used somewhere else. -/
+def hiding' (Scheme : Scheme CSpec OSpec State) : Prop := sorry
 
 end Security
 

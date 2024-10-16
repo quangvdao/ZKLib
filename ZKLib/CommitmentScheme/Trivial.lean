@@ -7,12 +7,11 @@ Authors: Quang Dao
 import ZKLib.CommitmentScheme.Basic
 
 /-!
-  # Trivial Commitment Scheme
+  # Trivial Commitment Schemes
 
-  This is the simplest (oracle) commitment scheme, which just sends the data directly.
+  We describe the simplest (oracle) commitment schemes, where the prover sends the data directly,
+  and the verifier enforces any necessary checks on the data (e.g. degree bounds).
 -/
 
-/-- The trivial polynomial commitment scheme where you just send the polynomial directly -/
-class TrivialCommitmentScheme extends CommitmentScheme where
-  Statement := Statement
-  Witness := Witness
+/- The trivial PCS for bounded-degree univariate polynomials where the prover sends the
+  polynomial directly, and the verifier checks the degree bound. -/

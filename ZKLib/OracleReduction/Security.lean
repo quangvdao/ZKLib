@@ -16,7 +16,8 @@ import ZKLib.OracleReduction.Basic
   - Zero-knowledge: This will be defined in the future
 -/
 
--- We first define security notions for interactive (non-oracle) protocols, and then for oracle protocols?
+-- We first define security notions for interactive (non-oracle) protocols, and then for oracle
+-- protocols?
 
 -- For completeness and soundness, it doesn't matter whether the verifier is oracle or not
 
@@ -34,7 +35,8 @@ open scoped NNReal
 -- instance unitInterval.toNNReal : Coe unitInterval NNReal where
 --   coe := fun ⟨x, h⟩ => ⟨x, (Set.mem_Icc.mp h).left⟩
 
-variable (pSpec : ProtocolSpec n) {ι : Type} [DecidableEq ι] (oSpec : OracleSpec ι) [∀ i, Sampleable (pSpec.Challenge i)] {PrvState : Type} {Statement Witness : Type}
+variable {n : ℕ} (pSpec : ProtocolSpec n) {ι : Type} [DecidableEq ι] (oSpec : OracleSpec ι)
+    [∀ i, Sampleable (pSpec.Challenge i)] {PrvState : Type} {Statement Witness : Type}
 
 section Completeness
 
@@ -64,7 +66,8 @@ end Completeness
 section Soundness
 
 
-/- We define 3 variants each of soundness and knowledge soundness, all in the adaptive setting: (our definitions are automatically in the adaptive setting, since there is no `crs`?)
+/- We define 3 variants each of soundness and knowledge soundness, all in the adaptive setting: (our
+  definitions are automatically in the adaptive setting, since there is no `crs`?)
 
   1. (Plain) soundness
   2. Knowledge soundness
@@ -133,7 +136,8 @@ def knowledgeSoundness (verifier : Verifier pSpec oSpec Statement)
 
 section StateRestoration
 
-variable [DecidableEq Statement] [∀ i, DecidableEq (pSpec.Message i)] [∀ i, Sampleable (pSpec.Challenge i)]
+variable [DecidableEq Statement] [∀ i, DecidableEq (pSpec.Message i)]
+    [∀ i, Sampleable (pSpec.Challenge i)]
 
 /-- Version of `challengeOracle` that requires querying with the statement and prior messages.
 
@@ -148,21 +152,25 @@ def challengeOracle' : OracleSpec (Fin n) where
   range_fintype' := fun _ => Sampleable.toFintype
 
 class StateRestorationProver extends Prover pSpec oSpec PrvState Statement Witness where
-  stateRestorationQuery : OracleComp (oSpec ++ₒ challengeOracle' pSpec (Statement := Statement)) (PrvState × Statement × Transcript pSpec)
+  stateRestorationQuery : OracleComp (oSpec ++ₒ challengeOracle' pSpec (Statement := Statement))
+    (PrvState × Statement × Transcript pSpec)
 
--- def runStateRestorationProver (prover : StateRestorationProver pSpec oSpec PrvState Statement Witness) (stmtIn : Statement) (witIn : Witness) :
---     OracleComp (oSpec ++ₒ challengeOracle' pSpec (Statement := Statement)) (Transcript pSpec × QueryLog (oSpec ++ₒ challengeOracle' pSpec (Statement := Statement))) := do
+-- def runStateRestorationProver (prover : StateRestorationProver pSpec oSpec PrvState
+--     Statement Witness) (stmtIn : Statement) (witIn : Witness) :
+--     OracleComp (oSpec ++ₒ challengeOracle' pSpec (Statement := Statement))
+--     (Transcript pSpec × QueryLog (oSpec ++ₒ challengeOracle' pSpec (Statement := Statement)))
+-- := do
 --   let ⟨state, stmt, transcript⟩ ← prover.stateRestorationQuery stmtIn
 --   return ⟨transcript, state⟩
 
 
 def stateRestorationSoundness (verifier : Verifier pSpec oSpec Statement)
-    [RelIn : Relation Statement Witness]
-    (SRSoundnessBound : ENNReal) : Prop :=
+    [RelIn : Relation Statement Witness] (SRSoundnessBound : ENNReal) : Prop :=
   ∀ stmtIn ∉ RelIn.language,
   ∀ witIn : Witness,
   ∀ SRProver : StateRestorationProver pSpec oSpec,
-    let protocol := Protocol.mk (PrvState := PrvState) (Witness := Witness) SRProver.toProver verifier
+    let protocol := Protocol.mk (PrvState := PrvState) (Witness := Witness)
+      SRProver.toProver verifier
     sorry
 
 end StateRestoration
@@ -235,7 +243,9 @@ noncomputable section
 open OracleComp OracleSpec
 open scoped NNReal
 
-variable (pSpec : ProtocolSpec n) {ι : Type} [DecidableEq ι] (oSpec : OracleSpec ι) [∀ i, ToOracle (pSpec.Message i)] [∀ i, Sampleable (pSpec.Challenge i)] {PrvState : Type} {Statement : Type} {Witness : Type}
+variable {n : ℕ} {pSpec : ProtocolSpec n} {ι : Type} [DecidableEq ι] (oSpec : OracleSpec ι)
+    [∀ i, ToOracle (pSpec.Message i)] [∀ i, Sampleable (pSpec.Challenge i)] {PrvState : Type}
+    {Statement : Type} {Witness : Type}
 
 def completeness (oracleProtocol : OracleProtocol pSpec oSpec PrvState Statement Witness)
     [Relation Statement Witness] (completenessError : ℝ≥0) : Prop :=
@@ -247,7 +257,8 @@ def perfectCompleteness (oracleProtocol : OracleProtocol pSpec oSpec PrvState St
 
 def soundness (verifier : OracleVerifier pSpec oSpec Statement)
     [RelIn : Relation Statement Witness] (soundnessBound : ENNReal) : Prop :=
-  Protocol.soundness pSpec oSpec verifier.toVerifier (PrvState := PrvState) (RelIn := RelIn) soundnessBound
+  Protocol.soundness pSpec oSpec verifier.toVerifier (PrvState := PrvState) (RelIn := RelIn)
+   soundnessBound
 
 -- def knowledgeSoundness (oracleProtocol : OracleProtocol OpSpec oSpec Statement Witness)
 --     [Relation Statement Witness] (knowledgeBound : ENNReal) : Prop :=

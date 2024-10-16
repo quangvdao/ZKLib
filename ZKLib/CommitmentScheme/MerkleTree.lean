@@ -21,9 +21,9 @@ open Mathlib OracleSpec OracleComp
 
 variable (α : Type) [DecidableEq α] [Inhabited α] [Fintype α]
 
-/-- Define the domain & range of the (single) oracle needed for constructing a Merkle tree with elements from some type `α`.
-
-We may instantiate `α` with `BitVec n` or `Fin (2 ^ n)` to construct a Merkle tree for boolean vectors of length `n`. -/
+/-- Define the domain & range of the (single) oracle needed for constructing a Merkle tree with
+  elements from some type `α`. We may instantiate `α` with `BitVec n` or `Fin (2 ^ n)` to construct
+  a Merkle tree for boolean vectors of length `n`. -/
 def oracleSpec : OracleSpec Unit where
   domain _ := α × α
   range _ := α
@@ -93,7 +93,7 @@ def getRoot {n : ℕ} (cache : Cache α n) : α :=
 
 /-- Figure out the indices of the Merkle tree nodes that are needed to
 recompute the root from the given leaf -/
-def findNeighbors (i : Fin (2 ^ n)) : (j : Fin n) → Fin (2 ^ (j.val + 1)) := fun j =>
+def findNeighbors {n : ℕ} (i : Fin (2 ^ n)) : (j : Fin n) → Fin (2 ^ (j.val + 1)) := fun j =>
   -- `finFunctionFinEquiv.invFun` gives the little-endian order, e.g. `6 = 011 little`
   -- so we need to reverse it to get the big-endian order, e.g. `6 = 110 big`
   let bits := (Vector.ofFn (finFunctionFinEquiv.invFun i)).reverse
@@ -108,24 +108,23 @@ theorem getRoot_trivial (a : α) : getRoot α <$> (buildMerkleTree α 0 ⟨[a], 
   simp [getRoot, buildMerkleTree, Vector.head];
 
 @[simp]
-theorem getRoot_single (a b : α) : getRoot α <$> buildMerkleTree α 1 ⟨[a, b], rfl⟩ = (query () (a, b)) := by
+theorem getRoot_single (a b : α) :
+    getRoot α <$> buildMerkleTree α 1 ⟨[a, b], rfl⟩ = (query () (a, b)) := by
   simp [buildMerkleTree, buildLayer, Vector.ofFn, Vector.head, Vector.get]
   unfold Cache.cons getRoot
   simp [map_bind, Fin.reverseInduction]
-  split
-  · contradiction
-  · simp
 
-/-- Generate a Merkle proof that a given leaf at index `i` is in the Merkle tree.
-The proof consists of the Merkle tree nodes that are needed to recompute the root from the given leaf. -/
-def generateProof (i : Fin (2 ^ n)) (cache : Cache α n) :
+/-- Generate a Merkle proof that a given leaf at index `i` is in the Merkle tree. The proof consists
+  of the Merkle tree nodes that are needed to recompute the root from the given leaf. -/
+def generateProof {n : ℕ} (i : Fin (2 ^ n)) (cache : Cache α n) :
     Vector α n :=
   let complement := findNeighbors i
   let proof := Vector.ofFn (fun (j : Fin n) => (cache j).get (complement j))
   proof
 
-/-- Verify a Merkle proof `proof`that a given `leaf` at index `i` is in the Merkle tree with given `root`. -/
-def verifyProof (i : Fin (2 ^ n)) (leaf : α) (root : α) (proof : Vector α n) :
+/-- Verify a Merkle proof `proof`that a given `leaf` at index `i` is in the Merkle tree with given
+  `root`. -/
+def verifyProof {n : ℕ} (i : Fin (2 ^ n)) (leaf : α) (root : α) (proof : Vector α n) :
     OracleComp (oracleSpec α) Bool := do
   if h : n = 0 then
     -- When we are at the root, just check whether `leaf` is equal to the root
@@ -166,8 +165,10 @@ section Test
 end Test
 
 -- /-- Building the next layer of a Merkle tree, as an oracle computation. -/
--- def buildLayer (m : Nat) (leaves : Vector (α × α) (2 ^ m)) : OracleComp (oracleSpec α) (Vector α (2 ^ m)) :=
---   (Vector.ofFn (n := 2 ^ m) (fun i => i)).mmap fun i => query (spec := oracleSpec α) () (leaves.get i)
+-- def buildLayer (m : Nat) (leaves : Vector (α × α) (2 ^ m)) :
+--     OracleComp (oracleSpec α) (Vector α (2 ^ m)) :=
+--   (Vector.ofFn (n := 2 ^ m) (fun i => i)).mmap
+--     fun i => query (spec := oracleSpec α) () (leaves.get i)
 
 -- /-- Building the Merkle tree from the bottommost layer to the root. -/
 -- def build (m : Nat) (leaves : Vector α (2 ^ m)) : OracleComp (oracleSpec α) α := match m with
