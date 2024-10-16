@@ -32,6 +32,10 @@ abbrev MultilinearPolynomial := MvPolynomial.restrictDegree σ R 1
 abbrev singleEqPolynomial (r : R) (x : MvPolynomial σ R) : MvPolynomial σ R :=
   (1 - C r) * (1 - x) + C r * x
 
+theorem singleEqPolynomial_nf (r : R) (x : MvPolynomial σ R) :
+    singleEqPolynomial r x = (2 * C r - 1) * x + (1 - C r) := by
+  ring_nf
+
 abbrev eqPolynomial (r : Fin n → R) : MvPolynomial (Fin n) R :=
   ∏ i : Fin n, singleEqPolynomial (r i) (X i)
 
@@ -98,6 +102,20 @@ theorem MLE_eval_zeroOne (x : Fin n → Fin 2) (evals : (Fin n → Fin 2) → R)
   unfold MLE
   sorry
 
+section Support
+
+theorem singleEqPolynomial_support (r : Fin n → R) (i : Fin n) :
+    (singleEqPolynomial r (X i)).support ⊆ { Finsupp.single i 1 } := by
+  rw [singleEqPolynomial_nf]
+  refine le_trans support_add ?_
+  -- have h1 : ((2 * C r - 1) * X i).support ≤ {Finsupp.single i 1} := by
+  --   apply support_le_X
+  -- have h2 : ((1 - C r) * X i).support ≤ {Finsupp.single i 1} := by
+  --   sorry
+  -- apply add_le_add h1 h2
+  sorry
+
+end Support
 
 section DegreeOf
 

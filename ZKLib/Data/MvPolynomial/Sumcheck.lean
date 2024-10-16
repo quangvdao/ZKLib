@@ -6,7 +6,7 @@ Authors: Quang Dao
 
 import Mathlib.Algebra.MvPolynomial.Equiv
 import Mathlib.Data.Multiset.Bind
-import ZKLib.Data.MvPolynomial.Notation
+import ZKLib.Data.MvPolynomial.Degrees
 
 /-!
   # Auxiliary functions for sum-check over multivariate polynomials
@@ -42,14 +42,6 @@ def finOneEquiv : MvPolynomial (Fin 1) R ≃ₐ[R] Polynomial R :=
 
 section PartialEval
 
-theorem support_C {r : R} [h : Decidable (r = 0)] :
-    (@C R σ _ r).support = if r = 0 then ∅ else { 0 } := by
-  rw [←monomial_zero', support_monomial]
-
-theorem support_C_subset {r : R} : (@C R σ _ r).support ⊆ { 0 } := by
-  rw [←monomial_zero']
-  exact support_monomial_subset
-
 variable {σ σ₁ σ₂ : Type*}
 
 /-- Partial evaluation of multivariate polynomials given a mapping to a sum type `σ → σ₁ ⊕ σ₂`
@@ -78,43 +70,14 @@ theorem peval_eq_eval_sumToIter_rename (f : σ → σ₁ ⊕ σ₂) (x : σ₁ �
         rw [this, Sum.elim_inr]
         simp only [comp_apply, eval_C]
 
-theorem support_peval {x : σ₁ → R} {f : σ → σ₁ ⊕ σ₂} {p : MvPolynomial σ R} :
-    (peval f x p).support ⊆ @Finset.image _ _ (Classical.decEq (σ₂ →₀ ℕ))
-    ((fun x => comapDomain _ x (Injective.injOn Sum.inr_injective)) ∘ (mapDomain f)) p.support := by
-  induction p using MvPolynomial.induction_on'' with
-  | h_C r =>
-    simp [peval, support_C (h := Classical.propDecidable (r = 0))]
-    by_cases h : r = 0 <;> simp [h]
-  | h_add_weak => sorry
-  | h_X p s hp => sorry
-  -- | h_X p s hp =>
-  --   simp [hp]
-  --   apply Finset.image_subset_iff.mpr
-  --   apply Finset.subset_iff.mpr
-  --   intro x hx
-
-attribute [gcongr] Multiset.map_le_map
-attribute [gcongr] Multiset.map_lt_map
-attribute [gcongr] Multiset.filter_le_filter
-attribute [gcongr] Multiset.filterMap_le_filterMap
-
-theorem degrees_eval {τ : Type*} {f : τ → R} {p : R[X σ][X τ]} :
-    (eval (C ∘ f) p).degrees ≤ Multiset.bind p.support.val (fun c => (coeff c p).degrees)  := by
-  rw [eval_eq]
-  sorry
-
-#check Multiset.sum_bind
-
 theorem degrees_peval {x : σ₁ → R} {f : σ → σ₁ ⊕ σ₂} {p : MvPolynomial σ R} :
     (peval f x p).degrees ≤ (p.degrees.map f).filterMap Sum.getRight? := by
-  have : DecidableEq σ₂ := Classical.decEq σ₂
-  induction p using MvPolynomial.induction_on'' with
-  | h_C r => simp [peval, degrees_C]
-  | h_X p n h =>
-    simp only [map_mul]
-    refine le_trans (degrees_mul _ _) ?_
-    sorry
-  | h_add_weak => sorry
+  classical
+  rw [peval_eq_eval_sumToIter_rename]
+  refine le_trans (degrees_eval) ?_
+  simp only [Finset.sup_le_iff, mem_support_iff, ne_eq]
+  intro b h
+  sorry
 
 end PartialEval
 
