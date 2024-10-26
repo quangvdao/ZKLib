@@ -3,14 +3,8 @@ Copyright (c) 2020 Bolton Bailey. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Bolton Bailey
 -/
-import Mathlib.Data.Fintype.Basic
-import Mathlib.GroupTheory.OrderOfElement
-import Mathlib.Tactic.Zify
-import Mathlib.Data.Nat.Totient
--- import Mathlib.Tactic.ReduceModChar
-import Mathlib.Tactic.NormNum.Prime
+import Mathlib.Tactic.ReduceModChar
 import Mathlib.NumberTheory.LucasPrimality
-import ZKLib.ToMathlib.Tactic.ReduceModCharPow
 
 /-!
 # The Lucas test for primes.
@@ -128,79 +122,79 @@ theorem PrattCertificate.out {p : ℕ} (c : PrattCertificate p) : p.Prime :=
 theorem prime_2 : Nat.Prime 2 := Nat.prime_two
 theorem prime_3 : Nat.Prime 3 := Nat.prime_three
 theorem prime_5 : Nat.Prime 5 := by
-  refine PrattCertificate.out ⟨2, by reduce_mod_char_pow, ?_⟩
-  exact .prime 2 2 _ prime_2 (by reduce_mod_char_pow; decide) (by norm_num)
+  refine PrattCertificate.out ⟨2, by reduce_mod_char, ?_⟩
+  exact .prime 2 2 _ prime_2 (by reduce_mod_char; decide) (by norm_num)
 theorem prime_7 : Nat.Prime 7 := by
-  refine PrattCertificate.out ⟨3, by reduce_mod_char_pow, ?_⟩
+  refine PrattCertificate.out ⟨3, by reduce_mod_char, ?_⟩
   refine .split 2 3 ?_ ?_ (by norm_num)
-  · exact .prime 2 1 _ prime_2 (by reduce_mod_char_pow; decide) (by norm_num)
-  · exact .prime 3 1 _ prime_3 (by reduce_mod_char_pow; decide) (by norm_num)
+  · exact .prime 2 1 _ prime_2 (by reduce_mod_char; decide) (by norm_num)
+  · exact .prime 3 1 _ prime_3 (by reduce_mod_char; decide) (by norm_num)
 theorem prime_11 : Nat.Prime 11 := by
-  refine PrattCertificate.out ⟨2, by reduce_mod_char_pow, ?_⟩
+  refine PrattCertificate.out ⟨2, by reduce_mod_char, ?_⟩
   refine .split 2 5 ?_ ?_ (by norm_num)
-  · exact .prime 2 1 _ prime_2 (by reduce_mod_char_pow; decide) (by norm_num)
-  · exact .prime 5 1 _ prime_5 (by reduce_mod_char_pow; decide) (by norm_num)
+  · exact .prime 2 1 _ prime_2 (by reduce_mod_char; decide) (by norm_num)
+  · exact .prime 5 1 _ prime_5 (by reduce_mod_char; decide) (by norm_num)
 theorem prime_13 : Nat.Prime 13 := by
-  refine PrattCertificate.out ⟨2, by reduce_mod_char_pow, ?_⟩
+  refine PrattCertificate.out ⟨2, by reduce_mod_char, ?_⟩
   refine .split 4 3 ?_ ?_ (by norm_num)
-  · exact .prime 2 2 _ prime_2 (by reduce_mod_char_pow; decide) (by norm_num)
-  · exact .prime 3 1 _ prime_3 (by reduce_mod_char_pow; decide) (by norm_num)
+  · exact .prime 2 2 _ prime_2 (by reduce_mod_char; decide) (by norm_num)
+  · exact .prime 3 1 _ prime_3 (by reduce_mod_char; decide) (by norm_num)
 theorem prime_17 : Nat.Prime 17 := by
-  refine PrattCertificate.out ⟨3, by reduce_mod_char_pow, ?_⟩
-  exact .prime 2 4 _ prime_2 (by reduce_mod_char_pow; decide) (by norm_num)
+  refine PrattCertificate.out ⟨3, by reduce_mod_char, ?_⟩
+  exact .prime 2 4 _ prime_2 (by reduce_mod_char; decide) (by norm_num)
 theorem prime_19 : Nat.Prime 19 := by
-  refine PrattCertificate.out ⟨2, by reduce_mod_char_pow, ?_⟩
+  refine PrattCertificate.out ⟨2, by reduce_mod_char, ?_⟩
   refine .split 2 9 ?_ ?_ (by norm_num)
-  · exact .prime 2 1 _ prime_2 (by reduce_mod_char_pow; decide) (by norm_num)
-  · exact .prime 3 2 _ prime_3 (by reduce_mod_char_pow; decide) (by norm_num)
+  · exact .prime 2 1 _ prime_2 (by reduce_mod_char; decide) (by norm_num)
+  · exact .prime 3 2 _ prime_3 (by reduce_mod_char; decide) (by norm_num)
 theorem prime_23 : Nat.Prime 23 := by
-  refine PrattCertificate.out ⟨5, by reduce_mod_char_pow, ?_⟩
+  refine PrattCertificate.out ⟨5, by reduce_mod_char, ?_⟩
   refine .split 2 11 ?_ ?_ (by norm_num)
-  · exact .prime 2 1 _ prime_2 (by reduce_mod_char_pow; decide) (by norm_num)
-  · exact .prime 11 1 _ prime_11 (by reduce_mod_char_pow; decide) (by norm_num)
+  · exact .prime 2 1 _ prime_2 (by reduce_mod_char; decide) (by norm_num)
+  · exact .prime 11 1 _ prime_11 (by reduce_mod_char; decide) (by norm_num)
 theorem prime_29 : Nat.Prime 29 := by
-  refine PrattCertificate.out ⟨2, by reduce_mod_char_pow, ?_⟩
+  refine PrattCertificate.out ⟨2, by reduce_mod_char, ?_⟩
   refine .split 4 7 ?_ ?_ (by norm_num)
-  · exact .prime 2 2 _ prime_2 (by reduce_mod_char_pow; decide) (by norm_num)
-  · exact .prime 7 1 _ prime_7 (by reduce_mod_char_pow; decide) (by norm_num)
+  · exact .prime 2 2 _ prime_2 (by reduce_mod_char; decide) (by norm_num)
+  · exact .prime 7 1 _ prime_7 (by reduce_mod_char; decide) (by norm_num)
 theorem prime_31 : Nat.Prime 31 := by
-  refine PrattCertificate.out ⟨3, by reduce_mod_char_pow, ?_⟩
+  refine PrattCertificate.out ⟨3, by reduce_mod_char, ?_⟩
   refine .split 3 10 ?_ ?_ (by norm_num)
-  · exact .prime 3 1 _ prime_3 (by reduce_mod_char_pow; decide) (by norm_num)
+  · exact .prime 3 1 _ prime_3 (by reduce_mod_char; decide) (by norm_num)
   · refine .split 2 5 ?_ ?_ (by norm_num)
-    · exact .prime 2 1 _ prime_2 (by reduce_mod_char_pow; decide) (by norm_num)
-    · exact .prime 5 1 _ prime_5 (by reduce_mod_char_pow; decide) (by norm_num)
+    · exact .prime 2 1 _ prime_2 (by reduce_mod_char; decide) (by norm_num)
+    · exact .prime 5 1 _ prime_5 (by reduce_mod_char; decide) (by norm_num)
 theorem prime_37 : Nat.Prime 37 := by
-  refine PrattCertificate.out ⟨2, by reduce_mod_char_pow, ?_⟩
+  refine PrattCertificate.out ⟨2, by reduce_mod_char, ?_⟩
   refine .split 4 9 ?_ ?_ (by norm_num)
-  · exact .prime 2 2 _ prime_2 (by reduce_mod_char_pow; decide) (by norm_num)
-  · exact .prime 3 2 _ prime_3 (by reduce_mod_char_pow; decide) (by norm_num)
+  · exact .prime 2 2 _ prime_2 (by reduce_mod_char; decide) (by norm_num)
+  · exact .prime 3 2 _ prime_3 (by reduce_mod_char; decide) (by norm_num)
 theorem prime_41 : Nat.Prime 41 := by
-  refine PrattCertificate.out ⟨6, by reduce_mod_char_pow, ?_⟩
+  refine PrattCertificate.out ⟨6, by reduce_mod_char, ?_⟩
   refine .split 5 8 ?_ ?_ (by norm_num)
-  · exact .prime 5 1 _ prime_5 (by reduce_mod_char_pow; decide) (by norm_num)
-  · exact .prime 2 3 _ prime_2 (by reduce_mod_char_pow; decide) (by norm_num)
+  · exact .prime 5 1 _ prime_5 (by reduce_mod_char; decide) (by norm_num)
+  · exact .prime 2 3 _ prime_2 (by reduce_mod_char; decide) (by norm_num)
 theorem prime_43 : Nat.Prime 43 := by
-  refine PrattCertificate.out ⟨3, by reduce_mod_char_pow, ?_⟩
+  refine PrattCertificate.out ⟨3, by reduce_mod_char, ?_⟩
   refine .split 6 7 ?_ ?_ (by norm_num)
   · refine .split 2 3 ?_ ?_ (by norm_num)
-    · exact .prime 2 1 _ prime_2 (by reduce_mod_char_pow; decide) (by norm_num)
-    · exact .prime 3 1 _ prime_3 (by reduce_mod_char_pow; decide) (by norm_num)
-  · exact .prime 7 1 _ prime_7 (by reduce_mod_char_pow; decide) (by norm_num)
+    · exact .prime 2 1 _ prime_2 (by reduce_mod_char; decide) (by norm_num)
+    · exact .prime 3 1 _ prime_3 (by reduce_mod_char; decide) (by norm_num)
+  · exact .prime 7 1 _ prime_7 (by reduce_mod_char; decide) (by norm_num)
 theorem prime_47 : Nat.Prime 47 := by
-  refine PrattCertificate.out ⟨5, by reduce_mod_char_pow, ?_⟩
+  refine PrattCertificate.out ⟨5, by reduce_mod_char, ?_⟩
   refine .split 2 23 ?_ ?_ (by norm_num)
-  · exact .prime 2 1 _ prime_2 (by reduce_mod_char_pow; decide) (by norm_num)
-  · exact .prime 23 1 _ prime_23 (by reduce_mod_char_pow; decide) (by norm_num)
+  · exact .prime 2 1 _ prime_2 (by reduce_mod_char; decide) (by norm_num)
+  · exact .prime 23 1 _ prime_23 (by reduce_mod_char; decide) (by norm_num)
 
 theorem prime_101 : Nat.Prime 101 := by
-  refine PrattCertificate.out ⟨2, by reduce_mod_char_pow, ?_⟩
+  refine PrattCertificate.out ⟨2, by reduce_mod_char, ?_⟩
   refine .split 4 25 ?_ ?_ (by norm_num)
-  · refine .prime 2 2 _ ?_ (by reduce_mod_char_pow; decide) (by norm_num)
+  · refine .prime 2 2 _ ?_ (by reduce_mod_char; decide) (by norm_num)
     exact Nat.prime_two
-  · refine .prime 5 2 _ ?_ (by reduce_mod_char_pow; decide) (by norm_num)
-    refine PrattCertificate.out ⟨2, by reduce_mod_char_pow, ?_⟩
-    refine .prime 2 2 _ ?_ (by reduce_mod_char_pow; decide) (by norm_num)
+  · refine .prime 5 2 _ ?_ (by reduce_mod_char; decide) (by norm_num)
+    refine PrattCertificate.out ⟨2, by reduce_mod_char, ?_⟩
+    refine .prime 2 2 _ ?_ (by reduce_mod_char; decide) (by norm_num)
     exact Nat.prime_two
 
 -- theorem prime_987654319 : Nat.Prime 987654319 := sorry
@@ -331,7 +325,7 @@ mutual
       let cert ← computePrattCertificate p
       return .prime p k cert
 
-    let ⟨left, right⟩ := l.split
+    let ⟨left, right⟩ := l.splitAt (l.length / 2)
     let lhs ← computePrattPart left
     let rhs ← computePrattPart right
     return .split lhs rhs
@@ -403,7 +397,7 @@ theorem ZMod.bla : ∀ {n c : ℕ} (a : ZMod n), c = 1 → IsNat (a ^ (n - 1)) c
 def verifyEqOne (n a' : Q(ℕ)) (a : Q(ZMod $n)) (_ : Q(($a' : ZMod $n) = $a)) :
     MetaM Q($a ^ ($n - 1) = 1) := do
   let p : Q(ZMod $n) := q($a ^ ($n - 1))
-  let .isNat _ c hc ← Tactic.ReduceModCharPow.normIntNumeral n p
+  let .isNat _ c hc ← Tactic.ReduceModChar.normIntNumeral n p
     q(CommRing.toRing) q(ZMod.charP $n) | failure
   assumeInstancesCommute
   haveI : $p =Q $a ^ ($n - 1) := ⟨⟩
@@ -452,7 +446,7 @@ def verifyNeOne (n a' q : Q(ℕ)) (a : Q(ZMod $n)) (_ : Q(($a' : ZMod $n) = $a))
     MetaM Q($a ^ (($n - 1) / $q) ≠ 1) := do
   -- return q(sorry)
   let p : Q(ZMod $n) := q($a ^ (($n - 1) / $q))
-  let .isNat _ c hc ← Tactic.ReduceModCharPow.normIntNumeral n p
+  let .isNat _ c hc ← Tactic.ReduceModChar.normIntNumeral n p
     q(CommRing.toRing) q(ZMod.charP $n) | failure
   -- have npd : Q(ℕ) := mkRawNatLit ((n.natLit! - 1) / q.natLit!)
   -- haveI : $npd =Q ($n - 1) / $q := ⟨⟩
@@ -513,9 +507,9 @@ elab "pratt" : tactic => do
   let u := q(Nat.Prime_of_isNat $pn $cert)
   closeMainGoal (Name.mkSimple "pratt") u
 
-set_option linter.style.setOption false
-set_option trace.profiler true
-set_option profiler true
+-- set_option linter.style.setOption false
+-- set_option trace.profiler true
+-- set_option profiler true
 
 -- example : Nat.Prime 5915587277 := by pratt
 -- example : Nat.Prime 1500450271 := by pratt

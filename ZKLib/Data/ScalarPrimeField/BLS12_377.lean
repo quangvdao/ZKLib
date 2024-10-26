@@ -29,19 +29,19 @@ notation "SCALAR_FIELD_CARD" =>
 abbrev ScalarField := ZMod SCALAR_FIELD_CARD
 
 theorem ScalarField_is_prime : Nat.Prime SCALAR_FIELD_CARD := by
-  refine PrattCertificate'.out (p := SCALAR_FIELD_CARD) ⟨22, (by reduce_mod_char_pow), ?_⟩
+  refine PrattCertificate'.out (p := SCALAR_FIELD_CARD) ⟨22, (by reduce_mod_char), ?_⟩
   refine .split [2 ^ 47, 3, 5, 7, 13, 499, 958612291309063373, 9586122913090633729 ^ 2]
     (fun r hr => ?_) (by norm_num)
   simp at hr
   rcases hr with hr | hr | hr | hr | hr | hr | hr | hr <;> rw [hr]
-  · exact .prime 2 47 _ (by pratt) (by reduce_mod_char_pow; decide) (by norm_num)
-  · exact .prime 3 1 _ (by pratt) (by reduce_mod_char_pow; decide) (by norm_num)
-  · exact .prime 5 1 _ (by pratt) (by reduce_mod_char_pow; decide) (by norm_num)
-  · exact .prime 7 1 _ (by pratt) (by reduce_mod_char_pow; decide) (by norm_num)
-  · exact .prime 13 1 _ (by pratt) (by reduce_mod_char_pow; decide) (by norm_num)
-  · exact .prime 499 1 _ (by pratt) (by reduce_mod_char_pow; decide) (by norm_num)
-  · exact .prime 958612291309063373 1 _ (by pratt) (by reduce_mod_char_pow; decide) (by norm_num)
-  · exact .prime 9586122913090633729 2 _ (by pratt) (by reduce_mod_char_pow; decide) (by norm_num)
+  · exact .prime 2 47 _ (by pratt) (by reduce_mod_char; decide) (by norm_num)
+  · exact .prime 3 1 _ (by pratt) (by reduce_mod_char; decide) (by norm_num)
+  · exact .prime 5 1 _ (by pratt) (by reduce_mod_char; decide) (by norm_num)
+  · exact .prime 7 1 _ (by pratt) (by reduce_mod_char; decide) (by norm_num)
+  · exact .prime 13 1 _ (by pratt) (by reduce_mod_char; decide) (by norm_num)
+  · exact .prime 499 1 _ (by pratt) (by reduce_mod_char; decide) (by norm_num)
+  · exact .prime 958612291309063373 1 _ (by pratt) (by reduce_mod_char; decide) (by norm_num)
+  · exact .prime 9586122913090633729 2 _ (by pratt) (by reduce_mod_char; decide) (by norm_num)
 
 instance : Fact (Nat.Prime SCALAR_FIELD_CARD) := ⟨ScalarField_is_prime⟩
 
