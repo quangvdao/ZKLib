@@ -8,7 +8,7 @@ import Mathlib.RingTheory.Polynomial.Basic
 import Mathlib.RingTheory.MvPolynomial.Basic
 
 /-!
-  # Notation for Multivariate Polynomials
+  # Useful Notation
     We define notation `R[X σ]` to be `MvPolynomial σ R`.
 
     For a Finset `s` and a natural number `n`, we also define `s ^ᶠ n` to be

@@ -7,15 +7,24 @@ Authors: Quang Dao
 import Mathlib.Algebra.MvPolynomial.Degrees
 import ZKLib.Data.MvPolynomial.Notation
 
+/-!
+  # Lemmas about degrees of multivariate polynomials
+
+  TODO: write a `poly_degree` tactic that can prove goals involving degrees of univariate or
+  multivariate polynomials
+
+  (will need to prove by hand first before knowing how to write the tactic)
+-/
+
+attribute [gcongr] Finset.sup_mono_fun
+
 noncomputable section
 
 open Set Function Finsupp AddMonoidAlgebra
 
 open BigOperators
 
-universe u v w
-
-variable {R : Type u} {S : Type v}
+variable {R : Type*} {S : Type*}
 
 namespace MvPolynomial
 
@@ -104,6 +113,19 @@ section DegreeOf
 --   convert Multiset.count_le_of_le j (degrees_X' (R := R) j)
 --   rw [Multiset.count_singleton_self]
 
+/-- Variant of `degreeOf_X` with no `DecidableEq` on `σ` or `Nontrivial` condition on `R` -/
+theorem degreeOf_X_le (i j : σ) : degreeOf i (X (R := R) j) ≤ 1 := by
+  classical
+  simp only [degreeOf]
+  apply le_trans (Multiset.count_le_card _ _) _
+  exact Multiset.card_le_card (degrees_X' (R := R) j)
+
+theorem degreeOf_X_le_of_ne (i j : σ) (h : i ≠ j) : degreeOf i (X (R := R) j) = 0 := by
+  simp [degreeOf]
+  intro hMem
+  have hSub := degrees_X' (R := R) j
+  aesop
+
 theorem degreeOf_linear_le {a b : R} : degreeOf n (C a + C b * p) ≤ degreeOf n p := by
   apply le_trans (degreeOf_add_le _ _ _) _
   rw [max_def]
@@ -115,12 +137,78 @@ theorem degreeOf_sum_le (n : σ) (s : Finset ι) (f : ι → MvPolynomial σ R) 
   exact supDegree_sum_le
 
 theorem degreeOf_prod_le (n : σ) (s : Finset ι) (f : ι → MvPolynomial σ R) :
-    degreeOf n (∏ i in s, f i) ≤ ∑ i in s, degreeOf n (f i) := by
+    degreeOf n (∏ i in s, f i) ≤ ∑ i in s, (f i).degreeOf n := by
   simp_rw [degreeOf_eq_sup]
   exact supDegree_prod_le (by simp) (by intro a1 a2 ; simp)
 
+theorem mem_restrictDegree_iff_degreeOf_le (p : MvPolynomial σ R) (n : ℕ) :
+    p ∈ restrictDegree σ R n ↔ ∀ i, p.degreeOf i ≤ n := by
+  classical
+  apply Iff.trans (mem_restrictDegree_iff_sup σ p n)
+  simp only [degreeOf]
+
 end DegreeOf
 
+theorem test {a b : R} {n : σ} : (X n * (C a + C b * X n)).degreeOf n ≤ 2 := by
+  calc
+    _ ≤ degreeOf n (X n) + degreeOf n (C a + C b * X n) := by
+      exact degreeOf_mul_le n _ _
+    _ ≤ degreeOf n (X n) + max (degreeOf n (C a)) (degreeOf n (C b * X n)) := by
+      gcongr
+      exact degreeOf_add_le n _ _
+    _ ≤ degreeOf n (X n) + max (degreeOf n (C a)) (degreeOf n (C b) + degreeOf n (X n)) := by
+      gcongr
+      exact degreeOf_mul_le n _ _
+    _ ≤ 1 + max (degreeOf n (C a)) (degreeOf n (C b) + 1) := by
+      gcongr <;>
+      exact degreeOf_X_le n _
+    _ = 1 + max (0 : ℕ) (0 + 1) := by
+      congr <;>
+      exact degreeOf_C _ _
+    _ ≤ 2 := by norm_num
+
 end CommSemiring
+
+-- section DegreeOfTactic
+
+-- open Lean Meta Elab Tactic
+
+-- /-- Auxiliary function to recursively break down polynomial expressions -/
+-- private unsafe def degreeOfLeAux : Syntax → TacticM Unit
+--   | `(($p + $q).degreeOf $n) => do
+--     evalTactic (← `(tactic| apply le_trans (degreeOf_add_le _ _ _) (max_le _ _ ?_ ?_)))
+--     degreeOfLeAux (← `(MvPolynomial.degreeOf $n $p))
+--     degreeOfLeAux (← `(MvPolynomial.degreeOf $n $q))
+--   | `(($p * $q).degreeOf $n) => do
+--     evalTactic (← `(tactic| apply le_trans (degreeOf_mul_le _ _ _) (add_le_add ?_ ?_)))
+--     degreeOfLeAux (← `(MvPolynomial.degreeOf $n $p))
+--     degreeOfLeAux (← `(MvPolynomial.degreeOf $n $q))
+--   | `((∑ $i ∈ $s, $f).degreeOf $n) => do
+--     evalTactic (← `(tactic| apply le_trans (degreeOf_sum_le _ _ _) (Finset.sup_le _)))
+--     evalTactic (← `(tactic| intro $i _))
+--     degreeOfLeAux (← `(MvPolynomial.degreeOf $n $f))
+--   | `((∏ $i ∈ $s, $f).degreeOf $n) => do
+--     evalTactic (← `(tactic| apply le_trans (degreeOf_prod_le _ _ _) (Finset.sum_le_sum _)))
+--     evalTactic (← `(tactic| intro $i _))
+--     degreeOfLeAux (← `(MvPolynomial.degreeOf $n $f))
+--   | `((MvPolynomial.degreeOf $n (MvPolynomial.C $c))) => do
+--     evalTactic (← `(tactic| rw [degreeOf_C]; simp))
+--   | `((MvPolynomial.degreeOf $n (MvPolynomial.X $m))) => do
+--     evalTactic (← `(tactic| rw [degreeOf_X]; split_ifs; simp))
+--   | _ => do
+--     evalTactic (← `(tactic| try { simp }))
+
+-- /-- Tactic to prove goals of the form `p.degreeOf n ≤ k` for multivariate polynomials -/
+-- @[tactic degree_le]
+-- def degreeLeTactic : Tactic
+--   | `(tactic| degree_le) => do
+--     let goal ← getMainTarget
+--     match goal with
+--     | `($p.degreeOf $n ≤ $k) => do
+--       degreeOfLeAux (← `($p.degreeOf $n))
+--       evalTactic (← `(tactic| try { simp }))
+--     | _ => throwError "Goal is not of the form 'p.degreeOf n ≤ k'"
+
+-- end DegreeOfTactic
 
 end MvPolynomial
