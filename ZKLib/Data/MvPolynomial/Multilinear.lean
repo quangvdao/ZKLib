@@ -161,7 +161,7 @@ theorem eqPolynomial_degreeOf (r : σ → R) (i : σ) : degreeOf i (eqPolynomial
   apply (mem_restrictDegree_iff_degreeOf_le _ _).mp
   exact eqPolynomial_mem_restrictDegree r
 
-instance MLE_degreeOf (evals : (σ → Fin 2) → R) : (MLE evals) ∈ R⦃≤ 1⦄[X σ] := by
+theorem MLE_mem_restrictDegree (evals : (σ → Fin 2) → R) : (MLE evals) ∈ R⦃≤ 1⦄[X σ] := by
   simp [mem_restrictDegree_iff_degreeOf_le, MLE]
   intro i
   calc
@@ -176,6 +176,10 @@ instance MLE_degreeOf (evals : (σ → Fin 2) → R) : (MLE evals) ∈ R⦃≤ 1
       gcongr <;>
       simp [eqPolynomial_degreeOf]
     _ ≤ 1 := by simp
+
+theorem MLE_degreeOf (evals : (σ → Fin 2) → R) (i : σ) : degreeOf i (MLE evals) ≤ 1 := by
+  apply (mem_restrictDegree_iff_degreeOf_le _ _).mp
+  exact MLE_mem_restrictDegree evals
 
 end DegreeOf
 

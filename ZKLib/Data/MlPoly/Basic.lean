@@ -8,9 +8,10 @@ Authors: Quang Dao
 import Mathlib.Algebra.MvPolynomial.Basic
 import Mathlib.Data.ZMod.Defs
 import Mathlib.Data.Nat.Log
-import Batteries.Data.Array.Lemmas
 import Mathlib.Data.Matrix.Basic
 import Mathlib.Data.Fin.VecNotation
+import Batteries.Data.Array.Lemmas
+import Batteries.Data.Vector.Lemmas
 
 /-!
   # Multilinear Polynomials
@@ -20,6 +21,14 @@ import Mathlib.Data.Fin.VecNotation
 
   Our operations are designed to be as efficient as possible.
 -/
+
+open Batteries
+
+-- TODO: Make this the definition (and use coefficient basis by default)
+/-- `MlPoly n R` is the type of multilinear polynomials in `n` variables over a ring `R`. It is
+  represented by its coefficients as a `Batteries.Vector` of length `2^n`, i.e. an `Array` of size
+  `2^n`. We also do not put any algebraic structure on `R` to allow for more flexibility. -/
+def MlPoly'' (n : ℕ) (R : Type*) := Vector R (2 ^ n)
 
 -- We define multilinear polynomials over rings by their evaluation on the hypercube {0,1}^n (i.e.
 -- the Lagrange basis).
@@ -34,7 +43,6 @@ structure MlPoly' (R : Type*) (n : ℕ) where
   hSize : coeffs.size = 2 ^ n
 deriving DecidableEq, Repr
 
-#check Mathlib.Vector
 
 -- variable {R : Type} [DecidableEq R] [Inhabited R] [Ring R]
 
