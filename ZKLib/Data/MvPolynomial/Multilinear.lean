@@ -11,20 +11,24 @@ import ZKLib.Data.MvPolynomial.Interpolation
   # Multilinear Polynomials
 
   This is the special case of polynomial interpolation, when we consider multilinear polynomials and
-  evaluation on the hypercube `{0, 1} ^ᶠ n`.
+  evaluation on the hypercube `σ → Fin 2`.
 -/
 
 noncomputable section
 
-open MvPolynomial BigOperators
+namespace MvPolynomial
+
+open BigOperators
 
 universe u
 
 variable {σ : Type*} {R : Type*} [CommRing R]
 
-
-instance coeVecFin2 : Coe (σ → Fin 2) (σ → R) where
+instance coeFunctionFin2 : Coe (σ → Fin 2) (σ → R) where
   coe := fun vec i => vec i
+
+def toEvalsZeroOne (p : MvPolynomial σ R) : (σ → Fin 2) → R :=
+  fun x => eval (x : σ → R) p
 
 abbrev singleEqPolynomial (r : R) (x : MvPolynomial σ R) : MvPolynomial σ R :=
   (1 - C r) * (1 - x) + C r * x
@@ -44,13 +48,13 @@ theorem singleEqPolynomial_zero (x : MvPolynomial σ R) : singleEqPolynomial (0 
 theorem singleEqPolynomial_one (x : MvPolynomial σ R) : singleEqPolynomial (1 : R) x = x := by
   unfold singleEqPolynomial ; simp
 
-@[simp]
-theorem singleEqPolynomial_zeroOne_eq_ite (r : Fin 2) (x : MvPolynomial σ R) :
+-- @[simp]
+theorem singleEqPolynomial_zeroOne (r : Fin 2) (x : MvPolynomial σ R) :
     singleEqPolynomial (r : R) x = if r = 0 then 1 - x else x := by
   fin_cases r <;> simp
 
-@[simp]
-theorem singleEqPolynomial_zeroOne_eq_ite' (r : Fin 2) (x : Fin 2) :
+-- @[simp]
+theorem singleEqPolynomial_zeroOne_C (r : Fin 2) (x : Fin 2) :
     (singleEqPolynomial (r : R) (C x) : MvPolynomial σ R) = if x = r then 1 else 0 := by
   fin_cases r <;> fin_cases x <;> simp
 
@@ -76,15 +80,25 @@ theorem eqPolynomial_symm (x : σ → R) (y : σ → R) :
 -- @[simp]
 theorem eqPolynomial_zeroOne (r : σ → Fin 2) : (eqPolynomial r : MvPolynomial σ R) =
     ∏ i : σ, if r i = 0 then 1 - X i else X i := by
-  unfold eqPolynomial ; congr ; funext i ; simp
+  unfold eqPolynomial ; congr ; funext i ; simp [singleEqPolynomial_zeroOne]
 
 @[simp]
-theorem eqPolynomial_eval_zeroOne_eq_ite (r : σ → Fin 2) (x : σ → Fin 2) :
-    MvPolynomial.eval (x : σ → R) (eqPolynomial r) = if x = r then 1 else 0 := by
+theorem eqPolynomial_eval_zeroOne (r x : σ → Fin 2) :
+    eval (x : σ → R) (eqPolynomial r) = if x = r then 1 else 0 := by
   unfold eqPolynomial ; simp
-  sorry
-  -- split_ifs
-  -- refine' Fin.two_cases _ _ (r i)
+  by_cases h : x = r
+  · simp [h]
+    have (i : Fin 2) : (1 - (i : R)) * (1 - (i : R)) + i * i = 1 := by
+      fin_cases i <;> ring_nf
+    simp [this]
+  · simp [h]
+    have : ∃ i : σ, x i ≠ r i := Function.ne_iff.mp h
+    obtain ⟨i, hi⟩ := this
+    refine Finset.prod_eq_zero (Finset.mem_univ i) ?_
+    by_cases h' : r i = 0
+    · simp_all [Fin.eq_one_of_neq_zero]
+    · have : x i = 0 := by fin_omega
+      simp_all [Fin.eq_one_of_neq_zero]
 
 variable [DecidableEq σ]
 
@@ -100,23 +114,8 @@ theorem MLE_expanded (evals : (σ → Fin 2) → R) : MLE evals =
 @[simp]
 theorem MLE_eval_zeroOne (x : σ → Fin 2) (evals : (σ → Fin 2) → R) :
     MvPolynomial.eval (x : σ → R) (MLE evals) = evals x := by
-  unfold MLE
-  sorry
-
-section Support
-
-theorem singleEqPolynomial_support (r : σ → R) (i : σ) :
-    (singleEqPolynomial r (X i)).support ⊆ { Finsupp.single i 1 } := by
-  rw [singleEqPolynomial_nf]
-  refine le_trans support_add ?_
-  -- have h1 : ((2 * C r - 1) * X i).support ≤ {Finsupp.single i 1} := by
-  --   apply support_le_X
-  -- have h2 : ((1 - C r) * X i).support ≤ {Finsupp.single i 1} := by
-  --   sorry
-  -- apply add_le_add h1 h2
-  sorry
-
-end Support
+  simp only [MLE, eval_sum, eval_mul, eqPolynomial_eval_zeroOne]
+  simp
 
 section DegreeOf
 
@@ -142,8 +141,8 @@ theorem singleEqPolynomial_degreeOf (r : R) (i j : σ) :
     _ ≤ max (0 + (if i = j then 1 else 0)) 0 := by
       gcongr
       by_cases h : i = j
-      · simp [h]; exact degreeOf_X_le j j
-      · simp [h]; exact degreeOf_X_le_of_ne i j h
+      · simp [h]; exact degreeOf_X_le j _
+      · simp [h]; exact degreeOf_X_of_ne i j h
     _ = if i = j then 1 else 0 := by norm_num
 
 theorem eqPolynomial_mem_restrictDegree (r : σ → R) : (eqPolynomial r) ∈ R⦃≤ 1⦄[X σ] := by
@@ -185,29 +184,20 @@ end DegreeOf
 
 -- TODO: add lemmas about the uniqueness of multilinear polynomials up to evaluations on hypercube
 
-namespace MvPolynomial
-
-def toEvalsZeroOne (p : MvPolynomial σ R) : (σ → Fin 2) → R :=
-  fun x => MvPolynomial.eval (x : σ → R) p
-
--- instance : Function.Injective toEvalsZeroOne where
---   injective := by
---     intro x y h
---     rw [toEvalsZeroOne, toEvalsZeroOne] at h
---     sorry
-
-
--- theorem eq_evals_zeroOne_if_is_multilinear (p : @MultilinearPolynomial σ R _) :
---     p.1 = MLE p.1.toEvalsZeroOne := by
---   sorry
-
-theorem iff_is_multilinear_eq_evals_zeroOne (p : MvPolynomial σ R) :
+theorem is_multilinear_iff_eq_evals_zeroOne (p : MvPolynomial σ R) :
     p ∈ R⦃≤ 1⦄[X σ] ↔ p = MLE p.toEvalsZeroOne := by
   sorry
 
 theorem is_multilinear_eq_iff_eq_evals_zeroOne (p : MvPolynomial σ R) (q : MvPolynomial σ R) :
     p ∈ R⦃≤ 1⦄[X σ] → q ∈ R⦃≤ 1⦄[X σ] → (p = q ↔ p.toEvalsZeroOne = q.toEvalsZeroOne) := by
   sorry
+
+/-- Equivalence between multilinear polynomials and their evaluations on the Boolean hypercube -/
+def MLEEquiv : R⦃≤ 1⦄[X σ] ≃ ((σ → Fin 2) → R) where
+  toFun := fun p x => MvPolynomial.eval (x : σ → R) p
+  invFun := fun evals => ⟨MLE evals, MLE_mem_restrictDegree evals⟩
+  left_inv := fun p => by simp; ext s; sorry
+  right_inv := fun evals => by simp only [MLE_eval_zeroOne]
 
 end MvPolynomial
 

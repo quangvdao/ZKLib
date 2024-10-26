@@ -5,6 +5,7 @@ Authors: Quang Dao
 -/
 
 import Mathlib.Algebra.MvPolynomial.Degrees
+import Mathlib.Algebra.MvPolynomial.Equiv
 import ZKLib.Data.MvPolynomial.Notation
 
 /-!
@@ -50,7 +51,7 @@ theorem support_C_mul_le (p : MvPolynomial σ R) (r : R) : (C r * p).support ⊆
   rw [support_C]
   by_cases h : r = 0
   · simp [h]
-  · simp [h, Finset.singleton_add]
+  · simp [h, Finset.singleton_add, Finset.vadd_finset_def]
 
 theorem support_mul_C_le (p : MvPolynomial σ R) (r : R) : (p * C r).support ⊆ p.support := by
   rw [mul_comm]
@@ -120,7 +121,8 @@ theorem degreeOf_X_le (i j : σ) : degreeOf i (X (R := R) j) ≤ 1 := by
   apply le_trans (Multiset.count_le_card _ _) _
   exact Multiset.card_le_card (degrees_X' (R := R) j)
 
-theorem degreeOf_X_le_of_ne (i j : σ) (h : i ≠ j) : degreeOf i (X (R := R) j) = 0 := by
+theorem degreeOf_X_of_ne (i j : σ) (h : i ≠ j) : degreeOf i (X (R := R) j) = 0 := by
+  classical
   simp [degreeOf]
   intro hMem
   have hSub := degrees_X' (R := R) j
@@ -168,6 +170,14 @@ theorem test {a b : R} {n : σ} : (X n * (C a + C b * X n)).degreeOf n ≤ 2 := 
     _ ≤ 2 := by norm_num
 
 end CommSemiring
+
+
+section Equiv
+
+
+
+
+end Equiv
 
 -- section DegreeOfTactic
 
