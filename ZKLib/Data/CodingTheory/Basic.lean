@@ -6,6 +6,7 @@ Authors: Quang Dao
 
 import Mathlib.InformationTheory.Hamming
 import Mathlib.LinearAlgebra.Lagrange
+import Mathlib.Data.Set.Finite
 
 /-!
   # Basics of Coding Theory
@@ -40,7 +41,7 @@ notation "‖" u "‖₀" => hammingNorm u
 
 /-- The Hamming distance of a code `C` is the minimum Hamming distance between any two distinct
   elements of the code.
-
+cd
 We formalize this as the infimum `sInf` over all `d : ℕ` such that there exist `u v : n → R` in the
 code with `u ≠ v` and `hammingDist u v ≤ d`. If none exists, then we define the distance to be `0`.
 -/
@@ -244,3 +245,22 @@ def Function.interleave₂ {α β : Type*} (u v : α → β) : (Fin 2) × α →
 notation:20 u "⋈" v => Function.interleave₂ u v
 
 end Linear
+
+variable [Finite R]
+
+open Fintype
+
+/-- **Singleton bound** for arbitrary codes -/
+theorem singleton_bound (C : Set (n → R)) :
+    (ofFinite C).card ≤ (ofFinite R).card ^ (card n - ‖C‖₀ + 1) := sorry
+
+variable [DivisionRing R]
+
+/-- **Singleton bound** for linear codes -/
+theorem singleton_bound_linear (C : Submodule R (n → R)) :
+    Module.finrank R C ≤ card n - (codeDist C.carrier) + 1 := by sorry
+  -- have : (ofFinite C).card = (ofFinite R).card ^ (Module.finrank R C) := by
+
+-- #check card_eq_pow_finrank
+
+-- #check cardinal_mk_eq_cardinal_mk_field_pow_rank
