@@ -44,7 +44,7 @@ package «Zklib» {
 
 
 require mathlib from git
-  "https://github.com/leanprover-community/mathlib4.git"
+  "https://github.com/leanprover-community/mathlib4.git" @ "BoltonBailey/schwartz-zippel"
 -- require LeanCopilot from git "https://github.com/lean-dojo/LeanCopilot.git" @ "v1.0.0"
 
 require VCVio from git

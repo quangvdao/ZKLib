@@ -4,6 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Quang Dao
 -/
 
+import Mathlib.Algebra.MvPolynomial.SchwartzZippel
 import ZKLib.Data.MvPolynomial.Notation
 import ZKLib.Data.MvPolynomial.Interpolation
 

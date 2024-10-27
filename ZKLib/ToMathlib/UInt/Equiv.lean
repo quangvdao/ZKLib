@@ -32,7 +32,7 @@ def finUInt64Equiv : Fin (2 ^ 64) ≃ UInt64 where
   left_inv := fun i => by simp
   right_inv := fun u => by simp
 
-def finBitVecEquiv : Fin (2 ^ n) ≃ BitVec n where
+def finBitVecEquiv {n : ℕ} : Fin (2 ^ n) ≃ BitVec n where
   toFun := fun i => BitVec.ofFin i
   invFun := fun u => u.toFin
   left_inv := fun i => by simp
