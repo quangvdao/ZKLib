@@ -35,6 +35,9 @@ section CommSemiring
 
 variable [CommSemiring R] {p q : MvPolynomial σ R}
 
+/-- `C : R →+* MvPolynomial σ R` as an embedding -/
+def CEmbedding : R ↪ MvPolynomial σ R := ⟨C, C_injective σ R⟩
+
 section Support
 
 theorem support_C {r : R} [h : Decidable (r = 0)] :
@@ -70,6 +73,20 @@ theorem support_eval [DecidableEq σ] {τ : Type*} {f : τ → R} {p : R[X σ][X
   exact support_mul_C_le _ _
 
 end Support
+
+section Rename
+
+theorem rename_ne_zero_of_injective {τ : Type*} {f : σ → τ} (hf : Function.Injective f)
+    {p : MvPolynomial σ R} (h : p ≠ 0) : rename f p ≠ 0 := by
+  rw [← map_zero (rename f)]
+  exact fun a ↦ h (rename_injective f hf a)
+
+theorem rename_eq_zero_of_injective {τ : Type*} {f : σ → τ} (hf : Function.Injective f)
+    {p : MvPolynomial σ R} (h : rename f p = 0) : p = 0 := by
+  rw [← map_zero (rename f)] at h
+  exact (rename_injective f hf).eq_iff.mp h
+
+end Rename
 
 section Degrees
 
@@ -133,6 +150,13 @@ theorem degreeOf_linear_le {a b : R} : degreeOf n (C a + C b * p) ≤ degreeOf n
   rw [max_def]
   split_ifs <;> simp [degreeOf_C_mul_le]
 
+theorem degreeOf_pow_le (i : σ) (n : ℕ) (p : MvPolynomial σ R) :
+    degreeOf i (p ^ n) ≤ n * degreeOf i p := by
+  classical
+  repeat' rw [degreeOf]
+  convert Multiset.count_le_of_le i (degrees_pow p n)
+  rw [Multiset.count_nsmul]
+
 theorem degreeOf_sum_le (n : σ) (s : Finset ι) (f : ι → MvPolynomial σ R) :
     degreeOf n (∑ i in s, f i) ≤ s.sup fun i => degreeOf n (f i) := by
   simp_rw [degreeOf_eq_sup]
@@ -141,7 +165,8 @@ theorem degreeOf_sum_le (n : σ) (s : Finset ι) (f : ι → MvPolynomial σ R) 
 theorem degreeOf_prod_le (n : σ) (s : Finset ι) (f : ι → MvPolynomial σ R) :
     degreeOf n (∏ i in s, f i) ≤ ∑ i in s, (f i).degreeOf n := by
   simp_rw [degreeOf_eq_sup]
-  exact supDegree_prod_le (by simp) (by intro a1 a2 ; simp)
+  exact supDegree_prod_le (by simp only [coe_zero, Pi.zero_apply])
+    (fun _ _ => by simp only [coe_add, Pi.add_apply])
 
 theorem mem_restrictDegree_iff_degreeOf_le (p : MvPolynomial σ R) (n : ℕ) :
     p ∈ restrictDegree σ R n ↔ ∀ i, p.degreeOf i ≤ n := by
@@ -151,33 +176,52 @@ theorem mem_restrictDegree_iff_degreeOf_le (p : MvPolynomial σ R) (n : ℕ) :
 
 end DegreeOf
 
-theorem test {a b : R} {n : σ} : (X n * (C a + C b * X n)).degreeOf n ≤ 2 := by
-  calc
-    _ ≤ degreeOf n (X n) + degreeOf n (C a + C b * X n) := by
-      exact degreeOf_mul_le n _ _
-    _ ≤ degreeOf n (X n) + max (degreeOf n (C a)) (degreeOf n (C b * X n)) := by
-      gcongr
-      exact degreeOf_add_le n _ _
-    _ ≤ degreeOf n (X n) + max (degreeOf n (C a)) (degreeOf n (C b) + degreeOf n (X n)) := by
-      gcongr
-      exact degreeOf_mul_le n _ _
-    _ ≤ 1 + max (degreeOf n (C a)) (degreeOf n (C b) + 1) := by
-      gcongr <;>
-      exact degreeOf_X_le n _
-    _ = 1 + max (0 : ℕ) (0 + 1) := by
-      congr <;>
-      exact degreeOf_C _ _
-    _ ≤ 2 := by norm_num
-
-end CommSemiring
-
 
 section Equiv
 
+variable {n : ℕ}
 
+theorem degreeOf_eval_C_finSuccEquiv (p : MvPolynomial (Fin (n + 1)) R) (j : Fin n) (x : R) :
+    degreeOf j (Polynomial.eval (C x) (finSuccEquiv R n p)) ≤ degreeOf j.succ p := by
+  rw [Polynomial.eval_eq_sum, Polynomial.sum]
+  calc
+  _ ≤ ((finSuccEquiv R n) p).support.sup
+        (fun i => degreeOf j (((finSuccEquiv R n) p).coeff i * C x ^ i)) := by
+    apply MvPolynomial.degreeOf_sum_le
+  _ ≤ ((finSuccEquiv R n) p).support.sup
+        (fun i => degreeOf j (((finSuccEquiv R n) p).coeff i) + degreeOf j (C x ^ i)) := by
+    gcongr
+    apply MvPolynomial.degreeOf_mul_le
+  _ ≤ ((finSuccEquiv R n) p).support.sup
+        (fun i => degreeOf j (((finSuccEquiv R n) p).coeff i) + i * degreeOf j (C x)) := by
+    gcongr
+    apply MvPolynomial.degreeOf_pow_le
+  _ ≤ ((finSuccEquiv R n) p).support.sup
+        (fun i => degreeOf j (((finSuccEquiv R n) p).coeff i) + 0) := by
+    simp only [degreeOf_C, mul_zero, add_zero, le_refl]
+  _ ≤ ((finSuccEquiv R n) p).support.sup (fun i => degreeOf j.succ p + 0) := by
+    gcongr
+    exact degreeOf_coeff_finSuccEquiv p j _
+  _ ≤ degreeOf j.succ p := Finset.sup_const_le
 
+theorem eval_comp_eval_C_finSuccEquiv (p : R[X (Fin (n + 1))]) (y : Fin n → R) (x : R) :
+    eval y (Polynomial.eval (C x) (finSuccEquiv R n p)) = eval (Fin.cons x y) p := by
+  rw [eval_eq_eval_mv_eval', Polynomial.eval_map, Polynomial.eval_eq_sum]
+  simp only [Polynomial.eval₂, Polynomial.sum, map_sum, map_mul, map_pow, eval_C]
 
 end Equiv
+
+end CommSemiring
+
+section CommRing
+
+variable [CommRing R]
+
+theorem degreeOf_sub_le (i : σ) (p q : MvPolynomial σ R) :
+    degreeOf i (p - q) ≤ max (degreeOf i p) (degreeOf i q) := by
+  simp_rw [degreeOf_eq_sup]; exact supDegree_sub_le
+
+end CommRing
 
 -- section DegreeOfTactic
 

@@ -27,4 +27,5 @@ open MvPolynomial
 
 -- `𝔽⦃≤ 1⦄[X Fin n]` is the set of multilinear polynomials in `n` variables over `𝔽`.
 
-notation:20 set "^ᶠ" pow => Fintype.piFinset (fun (_ : Fin pow) => set)
+notation:70 s:70 " ^^ " t:71 => Fintype.piFinset fun (i : t) ↦ s i
+notation:70 s:70 " ^ᶠ " t:71 => Fintype.piFinset fun (i : t) ↦ s i

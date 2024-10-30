@@ -4,7 +4,6 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Quang Dao
 -/
 
-import Mathlib.Algebra.MvPolynomial.SchwartzZippel
 import ZKLib.Data.MvPolynomial.Notation
 import ZKLib.Data.MvPolynomial.Interpolation
 
@@ -19,7 +18,7 @@ noncomputable section
 
 namespace MvPolynomial
 
-open BigOperators
+open BigOperators Fintype Finset
 
 universe u
 
@@ -68,7 +67,11 @@ theorem singleEqPolynomial_zeroOne_C (r : Fin 2) (x : Fin 2) :
 
 variable [Fintype σ]
 
-abbrev eqPolynomial (r : σ → R) : MvPolynomial (σ) R :=
+abbrev eqPolynomial' : R[X (σ ⊕ σ)] :=
+  ∏ i : σ, ((1 - X (.inl i)) * (1 - X (.inr i)) + (X (.inl i)) * X (.inr i))
+
+-- Should be in `R[X σ ⊕ σ]`
+abbrev eqPolynomial (r : σ → R) : R[X σ] :=
   ∏ i : σ, singleEqPolynomial (r i) (X i)
 
 theorem eqPolynomial_expanded (r : σ → R) :
@@ -117,6 +120,10 @@ theorem MLE_eval_zeroOne (x : σ → Fin 2) (evals : (σ → Fin 2) → R) :
     MvPolynomial.eval (x : σ → R) (MLE evals) = evals x := by
   simp only [MLE, eval_sum, eval_mul, eqPolynomial_eval_zeroOne]
   simp
+
+theorem eval_zeroOne_eq_MLE_toEvalsZeroOne (p : MvPolynomial σ R) (x : σ → Fin 2) :
+    eval (x : σ → R) p = eval (x : σ → R) (MLE p.toEvalsZeroOne) := by
+  simp only [MLE_eval_zeroOne, toEvalsZeroOne]
 
 section DegreeOf
 
@@ -185,19 +192,46 @@ end DegreeOf
 
 -- TODO: add lemmas about the uniqueness of multilinear polynomials up to evaluations on hypercube
 
-theorem is_multilinear_iff_eq_evals_zeroOne (p : MvPolynomial σ R) :
-    p ∈ R⦃≤ 1⦄[X σ] ↔ p = MLE p.toEvalsZeroOne := by
-  sorry
+variable [DecidableEq R] [IsDomain R]
 
-theorem is_multilinear_eq_iff_eq_evals_zeroOne (p : MvPolynomial σ R) (q : MvPolynomial σ R) :
-    p ∈ R⦃≤ 1⦄[X σ] → q ∈ R⦃≤ 1⦄[X σ] → (p = q ↔ p.toEvalsZeroOne = q.toEvalsZeroOne) := by
-  sorry
+theorem is_multilinear_eq_iff_eq_evals_zeroOne (p : MvPolynomial σ R) (q : MvPolynomial σ R)
+    (hp : p ∈ R⦃≤ 1⦄[X σ]) (hq : q ∈ R⦃≤ 1⦄[X σ]) :
+    p = q ↔ p.toEvalsZeroOne = q.toEvalsZeroOne := by
+  constructor <;> intro h
+  · simp only [h]
+  · unfold toEvalsZeroOne at h
+    simp [mem_restrictDegree_iff_degreeOf_le] at hp hq
+    let S : σ → Finset R := fun i => {0, 1}
+    have hDegree : ∀ i, degreeOf i (p - q) < #(S i) := fun i => by
+      simp [S]
+      apply Nat.lt_of_le_pred (by decide)
+      apply le_trans (degreeOf_sub_le i _ _)
+      simp [hp, hq]
+    have hEval : ∀ x ∈ piFinset fun i => S i, eval (x : σ → R) (p - q) = 0 := fun x hx => by
+      simp only [eval_sub, sub_eq_zero]
+      simp [S] at hx
+      let y : σ → Fin 2 := fun i => if x i = 0 then 0 else 1
+      have : x = y := by ext i; have := hx i; by_cases h : x i = 0 <;> simp_all [y, h]
+      rw [this]
+      apply funext_iff.mp at h
+      exact h y
+    suffices p - q = 0 by exact eq_of_sub_eq_zero this
+    exact eq_zero_of_degreeOf_lt_card_of_eval_eq_zero S hDegree hEval
+
+theorem is_multilinear_iff_eq_evals_zeroOne {p : MvPolynomial σ R} :
+    p ∈ R⦃≤ 1⦄[X σ] ↔ MLE p.toEvalsZeroOne = p := by
+  constructor <;> intro h
+  · refine (is_multilinear_eq_iff_eq_evals_zeroOne (MLE p.toEvalsZeroOne) p
+      (MLE_mem_restrictDegree p.toEvalsZeroOne) h).mpr ?_
+    unfold toEvalsZeroOne ; simp only [MLE_eval_zeroOne]
+  · rw [←h]
+    exact MLE_mem_restrictDegree p.toEvalsZeroOne
 
 /-- Equivalence between multilinear polynomials and their evaluations on the Boolean hypercube -/
 def MLEEquiv : R⦃≤ 1⦄[X σ] ≃ ((σ → Fin 2) → R) where
   toFun := fun p x => MvPolynomial.eval (x : σ → R) p
   invFun := fun evals => ⟨MLE evals, MLE_mem_restrictDegree evals⟩
-  left_inv := fun p => by simp; ext s; sorry
+  left_inv := fun ⟨p, hp⟩ => by simp; exact is_multilinear_iff_eq_evals_zeroOne.mp hp
   right_inv := fun evals => by simp only [MLE_eval_zeroOne]
 
 end MvPolynomial

@@ -33,9 +33,6 @@ def evalFirstVar (p : MvPolynomial (Fin n) R) (r : R) (pos : n > 0) :
   rw [this] at p
   exact (finSuccEquiv R (n - 1) p).eval (C r)
 
-/-- `C : R →+* MvPolynomial σ R` as an embedding -/
-def CEmbedding : R ↪ MvPolynomial σ R := ⟨C, C_injective σ R⟩
-
 /-- Equivalence between `MvPolynomial (Fin 1) R` and `Polynomial R` -/
 def finOneEquiv : MvPolynomial (Fin 1) R ≃ₐ[R] Polynomial R :=
   (finSuccEquiv R 0).trans (Polynomial.mapAlgEquiv (isEmptyAlgEquiv R (Fin 0)))
