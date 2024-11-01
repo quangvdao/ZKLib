@@ -4,206 +4,131 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Quang Dao
 -/
 import Mathlib.Data.Matrix.Reflection
-import Mathlib.Data.Fin.Tuple.Basic
+import Mathlib.Data.Fin.Tuple.Take
+import Mathlib.Logic.Lemmas
 
 /-!
-  # (Dependent) Finite Vectors
+  # Lemmas on `n`-tuples
 
   We define operations on (dependent) finite vectors that are needed
   for composing interactive (oracle) protocols.
 -/
+universe u v
+
+/-- Version of `funext_iff` for dependent functions `f : (x : α) → β x`. -/
+theorem funext_iff' {α : Sort u} {β : α → Sort v} {γ : α → Sort v}
+    {f : (x : α) → β x} {g : (x : α) → γ x} (h : ∀ x, β x = γ x) :
+      HEq f g ↔ ∀ x, HEq (f x) (g x) := by
+  have : β = γ := funext h
+  subst this
+  simp [Function.funext_iff]
+
 namespace Fin
 
 open Function
 
-universe u v
+/-- Version of `Fin.heq_fun_iff` for dependent functions `f : (i : Fin k) → α i`. -/
+protected theorem heq_fun_iff' {k l : ℕ} {α : Fin k → Sort u} {β : Fin l → Sort u} (h : k = l)
+    (h' : ∀ i : Fin k, (α i) = (β (cast h i))) {f : (i : Fin k) → α i} {g : (j : Fin l) → β j} :
+    HEq f g ↔ ∀ i : Fin k, HEq (f i) (g (cast h i)) := by
+  subst h
+  simp only [cast_eq_self]
+  exact funext_iff' h'
 
 /-- Version of `Fin.addCases` that splits the motive into two dependent vectors, and maps the result
   type through some function `φ`. -/
-def addCases_fun {m n : ℕ} {motive : Fin m → Sort u} {motive' : Fin n → Sort u}
-    {φ : Sort u → Sort v} (left : (i : Fin m) → φ (motive i)) (right : (j : Fin n) → φ (motive' j))
-        (i : Fin (m + n)) : φ (addCases motive motive' i) := by
+def addCases_fun {m n : ℕ} {α : Fin m → Sort u} {β : Fin n → Sort u}
+    {φ : Sort u → Sort v} (left : (i : Fin m) → φ (α i)) (right : (j : Fin n) → φ (β j))
+        (i : Fin (m + n)) : φ (append α β i) := by
   refine addCases ?_ ?_ i <;> intro j <;> simp
   · exact left j
   · exact right j
 
 @[simp]
-theorem addCases_fun_left {m n : ℕ} {motive : Fin m → Sort u} {motive' : Fin n → Sort u}
-    {φ : Sort u → Sort v} (left : (i : Fin m) → φ (motive i)) (right : (j : Fin n) → φ (motive' j))
-        (i : Fin m) : (@addCases_left _ _ (fun _ => Sort u) motive _ _) ▸
-            (addCases_fun left right (Fin.castAdd n i)) = left i := by
-  simp [addCases_fun]; symm
-  apply eq_of_heq
-  refine heq_eqRec_iff_heq.mpr ?_
-  symm; exact cast_heq _ (left i)
+theorem addCases_fun_left {m n : ℕ} {α : Fin m → Sort u} {β : Fin n → Sort u} {φ : Sort u → Sort v}
+    (left : (i : Fin m) → φ (α i)) (right : (j : Fin n) → φ (β j)) (i : Fin m) :
+      HEq (addCases_fun left right (Fin.castAdd n i)) (left i) := by
+  simp only [addCases_fun, eq_mpr_eq_cast, addCases_left, cast_heq]
 
 @[simp]
-theorem addCases_fun_right {m n : ℕ} {motive : Fin m → Sort u} {motive' : Fin n → Sort u}
-    {φ : Sort u → Sort v} (left : (i : Fin m) → φ (motive i)) (right : (j : Fin n) → φ (motive' j))
-        (i : Fin n) : (@addCases_right _ _ (fun _ => Sort u) _ motive' _) ▸
-            (addCases_fun left right (Fin.natAdd m i)) = right i := by
-  simp [addCases_fun]; symm
-  apply eq_of_heq
-  refine heq_eqRec_iff_heq.mpr ?_
-  symm; exact cast_heq _ (right i)
+theorem addCases_fun_right {m n : ℕ} {α : Fin m → Sort u} {β : Fin n → Sort u} {φ : Sort u → Sort v}
+    (left : (i : Fin m) → φ (α i)) (right : (j : Fin n) → φ (β j)) (i : Fin n) :
+      HEq (addCases_fun left right (Fin.natAdd m i)) (right i) := by
+  simp only [addCases_fun, eq_mpr_eq_cast, addCases_right, cast_heq]
 
 /-- Version of `Fin.addCases_fun` with `φ = id`. -/
-def addCases' {m n : ℕ} {motive : Fin m → Sort u} {motive' : Fin n → Sort u}
-    (left : (i : Fin m) → motive i) (right : (j : Fin n) → motive' j)
-        (i : Fin (m + n)) : addCases motive motive' i :=
+def addCases' {m n : ℕ} {α : Fin m → Sort u} {β : Fin n → Sort u} (left : (i : Fin m) → α i)
+    (right : (j : Fin n) → β j) (i : Fin (m + n)) : append α β i :=
   Fin.addCases_fun (φ := id) left right i
 
+/-- Version of `Fin.addCases_fun` with `φ = id`. -/
+-- def addCases'' {m n : ℕ} {α : Fin m → Sort u} {β : Fin n → Sort u} (left : (i : Fin m) → α i)
+--     (right : (j : Fin n) → β j) (i : Fin (m + n)) : append α β i :=
+--   if hi : i.val < m then (castAdd_castLT n i hi) ▸ (left ⟨i, hi⟩)
+--   else (natAdd_subNat_cast (Nat.le_of_not_lt hi))
+
+  -- if hi : (i : Nat) < m then (castAdd_castLT n i hi) ▸ (left (castLT i hi))
+  -- else (natAdd_subNat_cast (Nat.le_of_not_lt hi)) ▸ (right _)
+
 @[simp]
-theorem addCases'_left {m n : ℕ} {motive : Fin m → Sort u} {motive' : Fin n → Sort u}
-    (left : (i : Fin m) → motive i) (right : (j : Fin n) → motive' j)
-        (i : Fin m) : (@addCases_left _ _ (fun _ => Sort u) motive _ _) ▸
-            (addCases' left right (Fin.castAdd n i)) = left i :=
+theorem addCases'_left {m n : ℕ} {α : Fin m → Sort u} {β : Fin n → Sort u}
+    (left : (i : Fin m) → α i) (right : (j : Fin n) → β j) (i : Fin m) :
+      HEq (addCases' left right (Fin.castAdd n i)) (left i) :=
   addCases_fun_left (φ := id) left right i
 
 @[simp]
-theorem addCases'_right {m n : ℕ} {motive : Fin m → Sort u} {motive' : Fin n → Sort u}
-    (left : (i : Fin m) → motive i) (right : (j : Fin n) → motive' j)
-        (i : Fin n) : (@addCases_right _ _ (fun _ => Sort u) _ motive' _) ▸
-            (addCases' left right (Fin.natAdd m i)) = right i :=
+theorem addCases'_right {m n : ℕ} {α : Fin m → Sort u} {β : Fin n → Sort u}
+    (left : (i : Fin m) → α i) (right : (j : Fin n) → β j) (i : Fin n) :
+      HEq (addCases' left right (Fin.natAdd m i)) (right i) :=
   addCases_fun_right (φ := id) left right i
 
+-- theorem addCases'_heq_addCases {m n : ℕ} {α : Fin m → Sort u} {β : Fin n → Sort u}
+--     (left : (i : Fin m) → α i) (right : (j : Fin n) → β j) :
+--       HEq (addCases' left right) = addCases (motive := append α β) left right := by
+--   ext i
+--   refine addCases_fun_iff.mpr (fun i => ?_)
+--   simp [addCases']
 
 variable {n : ℕ} {α : Fin n → Sort*}
 
-/-- Take the first `m` elements of an `n`-tuple where `m ≤ n`, returning an `m`-tuple. -/
-def take (v : (i : Fin n) → α i) (m : ℕ) (h : m ≤ n) : (i : Fin m) → α (castLE h i) :=
-  fun i ↦ v (castLE h i)
+theorem take_addCases'_left {n' : ℕ} {β : Fin n' → Sort u_1} (m : ℕ) (h : m ≤ n)
+    (u : (i : Fin n) → α i) (v : (j : Fin n') → β j) :
+      HEq (take m (Nat.le_add_right_of_le h) (addCases' u v)) (take m h u) := by
+  have {i : Fin m} : castLE (Nat.le_add_right_of_le h) i = castAdd n' (castLE h i) := by congr
+  refine (Fin.heq_fun_iff' rfl (fun i => ?_)).mpr (fun i => ?_)
+  · rw [this]
+    simp only [append_left, cast_eq_self]
+  · rw [take, this]
+    simp only [cast_eq_self, take_apply, addCases'_left]
 
-@[simp]
-theorem take_def (v : (i : Fin n) → α i) (m : ℕ) (h : m ≤ n) (i : Fin m) :
-    (take v m h) i = v (castLE h i) := rfl
+-- theorem take_addCases'_right {n' : ℕ} {β : Fin n' → Sort u_1} (m : ℕ) (h : m ≤ n')
+--     (u : (i : Fin n) → α i) (v : (j : Fin n') → β j) :
+--       HEq (take (n + m) (Nat.add_le_add_left h n) (addCases' u v))
+--         (addCases' u (take m h v)) := by
+--   have {i : Fin m} : castLE (Nat.le_add_right_of_le h) i = natAdd n (castLE h i) := by congr
+--   refine (Fin.heq_fun_iff' rfl (fun i => ?_)).mpr (fun i => ?_)
+--   · sorry
+--     simp only [append_right, cast_eq_self]
+--   · rw [take, this]
+--     simp [addCases_right]
 
-@[simp]
-theorem take_zero (v : (i : Fin n) → α i) : take v 0 (Nat.zero_le n) = fun i ↦ elim0 i := by
-  ext i; exact elim0 i
-
-@[simp]
-theorem take_eq_self (v : (i : Fin n) → α i) :
-    take v n (le_refl n) = v := by ext i; simp [take]
-
-/-- Taking `m + 1` elements is equal to taking `m` elements and adding the `(m + 1)`th one. -/
-theorem take_succ_eq_snoc (v : (i : Fin n) → α i) (m : ℕ) (h : m < n) :
-    take v m.succ h = snoc (take v m (le_of_lt h)) (v ⟨m, h⟩) := by
-  ext i
-  induction m with
-  | zero =>
-    have h' : i = 0 := by
-      ext
-      simp only [Nat.succ_eq_add_one, Nat.reduceAdd, val_eq_zero]
-    subst h'
-    simp [take, snoc, castLE]
-  | succ m _ =>
-    induction i using reverseInduction with
-    | last => simp [take, snoc, castLT]; congr
-    | cast i _ => simp [snoc_cast_add]
-
-/-- `take` commutes with `update` for indices in the range of `take`. -/
-@[simp]
-theorem take_update_of_lt (v : (i : Fin n) → α i) (m : ℕ) (h : m ≤ n) (i : Fin m)
-    (x : α (castLE h i)) : take (update v (castLE h i) x) m h = update (take v m h) i x := by
-  ext j
-  by_cases h' : j = i
-  · rw [h']
-    simp only [take, update_same]
-  · have : castLE h j ≠ castLE h i := by simp [h']
-    simp only [take, update_noteq h', update_noteq this]
-
-/-- `take` is the same after `update` for indices outside the range of `take`. -/
-@[simp]
-theorem take_update_of_ge (v : (i : Fin n) → α i) (m : ℕ) (h : m ≤ n) (i : Fin n) (hi : i ≥ m)
-    (x : α i) : take (update v i x) m h = take v m h := by
-  ext j
-  have : castLE h j ≠ i := by
-    refine ne_of_val_ne ?_
-    simp only [coe_castLE]
-    exact Nat.ne_of_lt (lt_of_lt_of_le j.isLt hi)
-  simp only [take, update_noteq this]
-
-/-- Taking the first `m ≤ n` elements of an `append u v`, where `u` is a `n`-tuple, is the same as
-taking the first `m` elements of `u`. -/
-@[simp]
-theorem take_append_left {n' m : ℕ} {α : Sort*} (u : (i : Fin n) → α) (v : (i : Fin n') → α)
-    (h : m ≤ n) : take (append u v) m (Nat.le_add_right_of_le h) = take u m h := by
-  ext i
-  have : castLE (Nat.le_add_right_of_le h) i = castAdd n' (castLE h i) := rfl
-  simp only [take, append_left, this]
-
-/-- Taking the first `n + m` elements of an `append u v`, where `v` is a `n'`-tuple and `m ≤ n'`,
-is the same as appending `u` with the first `m` elements of `v`. -/
-@[simp]
-theorem take_append_right {n' m : ℕ} {α : Sort*} (u : (i : Fin n) → α) (v : (i : Fin n') → α)
-    (h : m ≤ n') : take (append u v) (n + m) (Nat.add_le_add_left h n) = append u (take v m h) := by
-  ext i
-  by_cases h' : i < n
-  · have : castLE (Nat.add_le_add_left h n) i = castAdd n' ⟨i.val, h'⟩ := by
-      simp only [castAdd_mk]
-      rfl
-    rw [take, this, append_left]
-    have : i = castAdd m ⟨i.val, h'⟩ := by simp only [castAdd_mk]
-    conv_rhs => rw [this, append_left]
-  · simp only [not_lt] at h'
-    let j := subNat n (cast (Nat.add_comm _ _) i) h'
-    have : i = natAdd n j := by simp [j]
-    conv_rhs => rw [this, append_right, take]
-    have : castLE (Nat.add_le_add_left h n) i = natAdd n (castLE h j) := by
-      simp_all only [natAdd_subNat_cast, j]
-      ext : 1
-      simp_all only [coe_castLE, coe_natAdd, coe_subNat, coe_cast, Nat.add_sub_cancel']
-    rw [take, this, append_right]
-
-@[simp]
-theorem take_init {α : Fin (n + 1) → Sort*} (v : (i : Fin (n + 1)) → α i) (m : ℕ) (h : m ≤ n) :
-    take (init v) m h = take v m (Nat.le_succ_of_le h) := by
-  ext i
-  simp only [take, init]
-  congr
-
-theorem take_List_ofFn {n : ℕ} {α : Type u} (v : Fin n → α) (m : ℕ) (h : m ≤ n) :
-    List.ofFn (take v m h) = (List.ofFn v).take m := by
-  induction m with
-  | zero => simp [take_zero]
-  | succ m ih =>
-    simp only [List.ofFn_add, List.take_succ]
-    congr
-    · rw [←(ih (by omega))]; congr
-    · have hLt : m < n := by omega
-      simp [take, List.getElem?_ofFn, List.ofFnNthVal, hLt, castLE]
-
-@[simp]
-theorem take_append_eq_self {n m : ℕ} {α : Type u} (v : (i : Fin n) → α) (w : (i : Fin m) → α) :
-    take (Fin.append v w) n (Nat.le_add_right n m) = v := by
-  ext i
-  simp [take, append, addCases]
-  congr 1
-
--- theorem take_addCases_eq_self {n m : ℕ} {α : Fin n → Sort u} {β : Fin m → Sort u}
---     (v : (i : Fin n) → α i) (w : (i : Fin m) → β i) :
---     take (Fin.addCases' v w) n (Nat.le_add_right n m) = v := by
---   ext i
---   simp only [take, append]
---   congr
 
 /-- Take the last `m` elements of a finite vector -/
-def rtake {n : ℕ} {α : Fin n → Sort u} (v : (i : Fin n) → α i) (m : ℕ) (h : m ≤ n) :
-    (i : Fin m) → α (Fin.cast (by omega) (Fin.natAdd (n - m) i)) :=
-  fun i => v (Fin.cast (by omega) (Fin.natAdd (n - m) i))
+def rtake {n : ℕ} {α : Fin n → Sort u} (m : ℕ) (h : m ≤ n) (v : (i : Fin n) → α i) :
+    (i : Fin m) → α (cast (Nat.sub_add_cancel h) (natAdd (n - m) i)) :=
+  fun i => v (cast (Nat.sub_add_cancel h) (natAdd (n - m) i))
 
 @[simp]
-theorem rtake_def {n : ℕ} {α : Fin n → Sort u} (v : (i : Fin n) → α i) (m : ℕ) (h : m ≤ n)
-    (i : Fin m) : rtake v m h i = v (Fin.cast (by omega) (Fin.natAdd (n - m) i)) := rfl
+theorem rtake_apply {n : ℕ} {α : Fin n → Sort u} (v : (i : Fin n) → α i) (m : ℕ) (h : m ≤ n)
+    (i : Fin m) : rtake m h v i = v (cast (Nat.sub_add_cancel h) (natAdd (n - m) i)) := rfl
 
 @[simp]
 theorem rtake_zero {n : ℕ} {α : Sort u} (v : Fin n → α) :
-    rtake v 0 (by omega) = fun i => Fin.elim0 i := by ext i; exact Fin.elim0 i
+    rtake 0 (by omega) v = fun i => Fin.elim0 i := by ext i; exact Fin.elim0 i
 
 @[simp]
 theorem rtake_self {n : ℕ} {α : Sort u} (v : Fin n → α) :
-    rtake v n (by omega) = v := by ext i; simp [rtake, Fin.natAdd]
+    rtake n (by omega) v = v := by ext i; simp [rtake, Fin.natAdd]
 
 -- @[simp]
 -- theorem rtake_succ {n : ℕ} {α : Sort u} (v : Fin n → α) (m : Fin (n + 1)) :
@@ -226,5 +151,58 @@ theorem rtake_self {n : ℕ} {α : Sort u} (v : Fin n → α) :
 --   · exact v j
 --   · exact v (Fin.addNat j (n - m))
 
+/-
+* `Fin.drop`: Given `h : m ≤ n`, `Fin.drop m h v` for a `n`-tuple `v = (v 0, ..., v (n - 1))` is the
+  `(n - m)`-tuple `(v m, ..., v (n - 1))`.
+-/
+section Drop
+
+/-- Drop the first `m` elements of an `n`-tuple where `m ≤ n`, returning an `(n - m)`-tuple. -/
+def drop (m : ℕ) (h : m ≤ n) (v : (i : Fin n) → α i) :
+    (i : Fin (n - m)) → α (cast (Nat.sub_add_cancel h) (addNat i m)) :=
+  fun i ↦ v (cast (Nat.sub_add_cancel h) (addNat i m))
+
+@[simp]
+theorem drop_apply (m : ℕ) (h : m ≤ n) (v : (i : Fin n) → α i) (i : Fin (n - m)) :
+    (drop m h v) i = v (cast (Nat.sub_add_cancel h) (addNat i m)) := rfl
+
+@[simp]
+theorem drop_zero (v : (i : Fin n) → α i) : drop 0 n.zero_le v = v := by
+  ext i
+  simp only [Nat.sub_zero, Nat.add_zero, addNat, Fin.eta, cast_eq_self, drop_apply]
+
+@[simp]
+theorem drop_one {α : Fin (n + 1) → Sort*} (v : (i : Fin (n + 1)) → α i) :
+    drop 1 (Nat.le_add_left 1 n) v = tail v := by
+  ext i
+  simp only [drop, tail]
+  congr
+
+@[simp]
+theorem drop_of_succ {α : Fin (n + 1) → Sort*} (v : (i : Fin (n + 1)) → α i) :
+    drop n n.le_succ v = fun i => v (cast (Nat.sub_add_cancel n.le_succ) (addNat i n)) := by
+  ext i
+  simp only [drop]
+
+-- @[simp]
+-- theorem drop_all (v : (i : Fin n) → α i) :
+--     HEq (drop n (le_refl n) v)
+--       (fun (i : Fin 0) ↦ @elim0 (α (cast (Nat.sub_add_cancel (le_refl n)) (i.addNat n))) i) := by
+--   refine (Fin.heq_fun_iff ?_).mpr ?_
+--   · simp
+--   · intro i
+
+theorem drop_tail {α : Fin (n + 1) → Sort*} (m : ℕ) (h : m ≤ n) (v : (i : Fin (n + 1)) → α i) :
+    HEq (drop m h (tail v)) (drop m.succ (Nat.succ_le_succ h) v) := by
+  refine (Fin.heq_fun_iff' (Nat.succ_sub_succ_eq_sub n m).symm (fun i => by congr)).mpr ?_
+  intro i
+  simp [drop, tail]
+  congr
+
+theorem drop_repeat {α : Type*} {n' : ℕ} (m : ℕ) (h : m ≤ n) (a : Fin n' → α) :
+    HEq (drop (m * n') (Nat.mul_le_mul_right n' h) (Fin.repeat n a)) (Fin.repeat (n - m) a) :=
+  (Fin.heq_fun_iff (Nat.sub_mul n m n').symm).mpr (fun i => by simp [cast, modNat])
+
+end Drop
 
 end Fin

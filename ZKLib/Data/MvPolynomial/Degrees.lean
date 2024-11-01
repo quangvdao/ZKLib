@@ -223,6 +223,18 @@ theorem degreeOf_sub_le (i : σ) (p q : MvPolynomial σ R) :
 
 end CommRing
 
+section Aesop
+
+attribute [aesop unsafe 50%] degreeOf_add_le degreeOf_mul_le degreeOf_sum_le degreeOf_prod_le
+  degreeOf_X
+
+-- example [CommSemiring R] [Nontrivial R] :
+--     degreeOf (R := R) (σ := Fin 3) 0 (X 0 * X 1) ≤ 1 := by
+  -- aesop (add unsafe 50% apply degreeOf_mul_le) (add unsafe 50% apply le_trans)
+  --   (add unsafe 50% apply degreeOf_X_le)
+
+end Aesop
+
 -- section DegreeOfTactic
 
 -- open Lean Meta Elab Tactic

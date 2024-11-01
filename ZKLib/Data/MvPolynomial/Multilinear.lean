@@ -22,10 +22,12 @@ open BigOperators Fintype Finset
 
 universe u
 
-variable {σ : Type*} {R : Type*} [CommRing R]
+variable {σ : Type*} {R : Type*}
 
-instance coeFunctionFin2 : Coe (σ → Fin 2) (σ → R) where
+instance coeFunctionFin2 [NatCast R] : Coe (σ → Fin 2) (σ → R) where
   coe := fun vec i => vec i
+
+variable [CommRing R]
 
 def toEvalsZeroOne (p : MvPolynomial σ R) : (σ → Fin 2) → R :=
   fun x => eval (x : σ → R) p
