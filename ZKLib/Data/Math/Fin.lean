@@ -21,11 +21,16 @@ theorem funext_iff' {α : Sort u} {β : α → Sort v} {γ : α → Sort v}
       HEq f g ↔ ∀ x, HEq (f x) (g x) := by
   have : β = γ := funext h
   subst this
-  simp [Function.funext_iff]
+  simp [funext_iff]
 
 namespace Fin
 
 open Function
+
+theorem append_comp {n m : ℕ} {α : Sort*} {β : Sort*} {a : Fin n → α} {b : Fin m → α} (f : α → β)
+    (i : Fin (n + m)) : append (f ∘ a) (f ∘ b) i = f (append a b i) := by
+  dsimp [append, addCases]
+  by_cases h : i < n <;> simp [h]
 
 /-- Version of `Fin.heq_fun_iff` for dependent functions `f : (i : Fin k) → α i`. -/
 protected theorem heq_fun_iff' {k l : ℕ} {α : Fin k → Sort u} {β : Fin l → Sort u} (h : k = l)
@@ -35,76 +40,48 @@ protected theorem heq_fun_iff' {k l : ℕ} {α : Fin k → Sort u} {β : Fin l �
   simp only [cast_eq_self]
   exact funext_iff' h'
 
-/-- Version of `Fin.addCases` that splits the motive into two dependent vectors, and maps the result
-  type through some function `φ`. -/
-def addCases_fun {m n : ℕ} {α : Fin m → Sort u} {β : Fin n → Sort u}
-    {φ : Sort u → Sort v} (left : (i : Fin m) → φ (α i)) (right : (j : Fin n) → φ (β j))
-        (i : Fin (m + n)) : φ (append α β i) := by
+/-- Version of `Fin.addCases` that splits the motive into two dependent vectors `α` and `β`, and
+  the return type is `Fin.append α β`. -/
+def addCases' {m n : ℕ} {α : Fin m → Sort u} {β : Fin n → Sort u} (left : (i : Fin m) → α i)
+    (right : (j : Fin n) → β j) (i : Fin (m + n)) : append α β i := by
   refine addCases ?_ ?_ i <;> intro j <;> simp
   · exact left j
   · exact right j
 
 @[simp]
-theorem addCases_fun_left {m n : ℕ} {α : Fin m → Sort u} {β : Fin n → Sort u} {φ : Sort u → Sort v}
-    (left : (i : Fin m) → φ (α i)) (right : (j : Fin n) → φ (β j)) (i : Fin m) :
-      HEq (addCases_fun left right (Fin.castAdd n i)) (left i) := by
-  simp only [addCases_fun, eq_mpr_eq_cast, addCases_left, cast_heq]
-
-@[simp]
-theorem addCases_fun_right {m n : ℕ} {α : Fin m → Sort u} {β : Fin n → Sort u} {φ : Sort u → Sort v}
-    (left : (i : Fin m) → φ (α i)) (right : (j : Fin n) → φ (β j)) (i : Fin n) :
-      HEq (addCases_fun left right (Fin.natAdd m i)) (right i) := by
-  simp only [addCases_fun, eq_mpr_eq_cast, addCases_right, cast_heq]
-
-/-- Version of `Fin.addCases_fun` with `φ = id`. -/
-def addCases' {m n : ℕ} {α : Fin m → Sort u} {β : Fin n → Sort u} (left : (i : Fin m) → α i)
-    (right : (j : Fin n) → β j) (i : Fin (m + n)) : append α β i :=
-  Fin.addCases_fun (φ := id) left right i
-
-/-- Version of `Fin.addCases_fun` with `φ = id`. -/
--- def addCases'' {m n : ℕ} {α : Fin m → Sort u} {β : Fin n → Sort u} (left : (i : Fin m) → α i)
---     (right : (j : Fin n) → β j) (i : Fin (m + n)) : append α β i :=
---   if hi : i.val < m then (castAdd_castLT n i hi) ▸ (left ⟨i, hi⟩)
---   else (natAdd_subNat_cast (Nat.le_of_not_lt hi))
-
-  -- if hi : (i : Nat) < m then (castAdd_castLT n i hi) ▸ (left (castLT i hi))
-  -- else (natAdd_subNat_cast (Nat.le_of_not_lt hi)) ▸ (right _)
-
-@[simp]
 theorem addCases'_left {m n : ℕ} {α : Fin m → Sort u} {β : Fin n → Sort u}
     (left : (i : Fin m) → α i) (right : (j : Fin n) → β j) (i : Fin m) :
-      HEq (addCases' left right (Fin.castAdd n i)) (left i) :=
-  addCases_fun_left (φ := id) left right i
+      addCases' left right (Fin.castAdd n i) = (Fin.append_left α β i) ▸ (left i) := by
+  simp [addCases', cast_eq_iff_heq]
 
 @[simp]
 theorem addCases'_right {m n : ℕ} {α : Fin m → Sort u} {β : Fin n → Sort u}
     (left : (i : Fin m) → α i) (right : (j : Fin n) → β j) (i : Fin n) :
-      HEq (addCases' left right (Fin.natAdd m i)) (right i) :=
-  addCases_fun_right (φ := id) left right i
+      addCases' left right (Fin.natAdd m i) = (Fin.append_right α β i) ▸ (right i) := by
+  simp [addCases', cast_eq_iff_heq]
 
 -- theorem addCases'_heq_addCases {m n : ℕ} {α : Fin m → Sort u} {β : Fin n → Sort u}
 --     (left : (i : Fin m) → α i) (right : (j : Fin n) → β j) :
 --       HEq (addCases' left right) = addCases (motive := append α β) left right := by
 --   ext i
---   refine addCases_fun_iff.mpr (fun i => ?_)
+--   refine addCasesFn_iff.mpr (fun i => ?_)
 --   simp [addCases']
 
-variable {n : ℕ} {α : Fin n → Sort*}
+variable {n : ℕ} {α : Fin n → Sort u}
 
-theorem take_addCases'_left {n' : ℕ} {β : Fin n' → Sort u_1} (m : ℕ) (h : m ≤ n)
-    (u : (i : Fin n) → α i) (v : (j : Fin n') → β j) :
-      HEq (take m (Nat.le_add_right_of_le h) (addCases' u v)) (take m h u) := by
-  have {i : Fin m} : castLE (Nat.le_add_right_of_le h) i = castAdd n' (castLE h i) := by congr
-  refine (Fin.heq_fun_iff' rfl (fun i => ?_)).mpr (fun i => ?_)
-  · rw [this]
-    simp only [append_left, cast_eq_self]
-  · rw [take, this]
-    simp only [cast_eq_self, take_apply, addCases'_left]
+theorem take_addCases'_left {n' : ℕ} {β : Fin n' → Sort u} (m : ℕ) (h : m ≤ n)
+    (u : (i : Fin n) → α i) (v : (j : Fin n') → β j) (i : Fin m) :
+    take m (Nat.le_add_right_of_le h) (addCases' u v) i =
+      (append_left α β (castLE h i)) ▸ (take m h u i) := by
+  have : i < n := Nat.lt_of_lt_of_le i.isLt h
+  simp [take_apply, addCases', addCases, this, cast_eq_iff_heq, castLT, castLE]
 
--- theorem take_addCases'_right {n' : ℕ} {β : Fin n' → Sort u_1} (m : ℕ) (h : m ≤ n')
---     (u : (i : Fin n) → α i) (v : (j : Fin n') → β j) :
---       HEq (take (n + m) (Nat.add_le_add_left h n) (addCases' u v))
---         (addCases' u (take m h v)) := by
+-- theorem take_addCases'_right {n' : ℕ} {β : Fin n' → Sort u} (m : ℕ) (h : m ≤ n')
+--     (u : (i : Fin n) → α i) (v : (j : Fin n') → β j) (i : Fin (n + m)) :
+--       take (n + m) (Nat.add_le_add_left h n) (addCases' u v) i =
+--         addCases' u (take m h v) i := by
+--   have : i < n := Nat.lt_of_lt_of_le i.isLt h
+--   simp [take_apply, addCases', addCases, this, cast_eq_iff_heq, castLT, castLE]
 --   have {i : Fin m} : castLE (Nat.le_add_right_of_le h) i = natAdd n (castLE h i) := by congr
 --   refine (Fin.heq_fun_iff' rfl (fun i => ?_)).mpr (fun i => ?_)
 --   · sorry
@@ -114,12 +91,12 @@ theorem take_addCases'_left {n' : ℕ} {β : Fin n' → Sort u_1} (m : ℕ) (h :
 
 
 /-- Take the last `m` elements of a finite vector -/
-def rtake {n : ℕ} {α : Fin n → Sort u} (m : ℕ) (h : m ≤ n) (v : (i : Fin n) → α i) :
+def rtake (m : ℕ) (h : m ≤ n) (v : (i : Fin n) → α i) :
     (i : Fin m) → α (cast (Nat.sub_add_cancel h) (natAdd (n - m) i)) :=
   fun i => v (cast (Nat.sub_add_cancel h) (natAdd (n - m) i))
 
 @[simp]
-theorem rtake_apply {n : ℕ} {α : Fin n → Sort u} (v : (i : Fin n) → α i) (m : ℕ) (h : m ≤ n)
+theorem rtake_apply (v : (i : Fin n) → α i) (m : ℕ) (h : m ≤ n)
     (i : Fin m) : rtake m h v i = v (cast (Nat.sub_add_cancel h) (natAdd (n - m) i)) := rfl
 
 @[simp]
@@ -204,5 +181,43 @@ theorem drop_repeat {α : Type*} {n' : ℕ} (m : ℕ) (h : m ≤ n) (a : Fin n' 
   (Fin.heq_fun_iff (Nat.sub_mul n m n').symm).mpr (fun i => by simp [cast, modNat])
 
 end Drop
+
+section Sum
+
+-- Append multiple `Fin` tuples?
+
+#print Fin.addCases
+
+def castSum (l : List ℕ) {i : ℕ} (h : i ∈ l) : Fin i → Fin l.sum := fun j =>
+  match l with
+  | [] => by contradiction
+  | i' :: l' => by
+    simp only [List.sum_cons]
+    by_cases hi : i = i'
+    · exact castAdd l'.sum (cast hi j)
+    · exact natAdd i' (castSum l' (List.mem_of_ne_of_mem hi h) j)
+
+theorem castSum_castLT {l' : List ℕ} {i : ℕ} (j : Fin i) :
+    castSum (i :: l') (by simp) j =
+      castLT j (Nat.lt_of_lt_of_le j.isLt (List.le_sum_of_mem (by simp))) := by
+  simp [castSum, castAdd, castLE, castLT]
+
+theorem castSum_castAdd {n m : ℕ} (i : Fin n) : castSum [n, m] (by simp) i = castAdd m i := by
+  simp [castSum]
+
+def sumCases {l : List ℕ} {motive : Fin l.sum → Sort*}
+    (cases : ∀ {i} (h : i ∈ l) (j : Fin i), motive (castSum l h j))
+    (j : Fin l.sum) : motive j := match l with
+  | [] => by simp only [List.sum_nil] at j; exact elim0 j
+  | i' :: l' => by
+    simp only [List.sum_cons] at j motive
+    by_cases hj : j < i'
+    · convert cases (i := i') (by simp) ⟨j.val, hj⟩
+      simp [castSum]
+    · have hj' : j.val - i' < l'.sum := by sorry
+      sorry
+      -- refine sumCases (l := l') (motive := motive ∘ natAdd i') ?_ ⟨j.val - i', hj'⟩
+
+end Sum
 
 end Fin

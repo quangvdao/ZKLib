@@ -139,21 +139,20 @@ section StateRestoration
 variable [DecidableEq Statement] [∀ i, DecidableEq (pSpec.Message i)]
     [∀ i, Sampleable (pSpec.Challenge i)]
 
-/-- Version of `challengeOracle` that requires querying with the statement and prior messages.
+-- /-- Version of `challengeOracle` that requires querying with the statement and prior messages.
 
-This is a stepping stone toward the Fiat-Shamir transform. -/
-@[simps]
-def challengeOracle' : OracleSpec (Fin n) where
-  domain := fun i => Statement × (∀ j : Fin i, (pSpec.take i (by omega)).Message j)
-  range := fun i => pSpec.Challenge i
-  domain_decidableEq' := fun _ => decEq
-  range_decidableEq' := fun _ => Sampleable.toDecidableEq
-  range_inhabited' := fun _ => Sampleable.toInhabited
-  range_fintype' := fun _ => Sampleable.toFintype
+-- This is a stepping stone toward the Fiat-Shamir transform. -/
+-- def challengeOracle' : OracleSpec (Fin n) where
+--   domain := fun i => Statement × (∀ j : Fin i, (pSpec.take i (by omega) j)
+--   range := fun i => pSpec.Challenge i
+--   domain_decidableEq' := fun _ => decEq
+--   range_decidableEq' := fun _ => Sampleable.toDecidableEq
+--   range_inhabited' := fun _ => Sampleable.toInhabited
+--   range_fintype' := fun _ => Sampleable.toFintype
 
-class StateRestorationProver extends Prover pSpec oSpec PrvState Statement Witness where
-  stateRestorationQuery : OracleComp (oSpec ++ₒ challengeOracle' pSpec (Statement := Statement))
-    (PrvState × Statement × Transcript pSpec)
+-- class StateRestorationProver extends Prover pSpec oSpec PrvState Statement Witness where
+--   stateRestorationQuery : OracleComp (oSpec ++ₒ challengeOracle' pSpec (Statement := Statement))
+--     (PrvState × Statement × Transcript pSpec)
 
 -- def runStateRestorationProver (prover : StateRestorationProver pSpec oSpec PrvState
 --     Statement Witness) (stmtIn : Statement) (witIn : Witness) :
@@ -164,14 +163,14 @@ class StateRestorationProver extends Prover pSpec oSpec PrvState Statement Witne
 --   return ⟨transcript, state⟩
 
 
-def stateRestorationSoundness (verifier : Verifier pSpec oSpec Statement)
-    [RelIn : Relation Statement Witness] (SRSoundnessBound : ENNReal) : Prop :=
-  ∀ stmtIn ∉ RelIn.language,
-  ∀ witIn : Witness,
-  ∀ SRProver : StateRestorationProver pSpec oSpec,
-    let protocol := Protocol.mk (PrvState := PrvState) (Witness := Witness)
-      SRProver.toProver verifier
-    sorry
+-- def stateRestorationSoundness (verifier : Verifier pSpec oSpec Statement)
+--     [RelIn : Relation Statement Witness] (SRSoundnessBound : ENNReal) : Prop :=
+--   ∀ stmtIn ∉ RelIn.language,
+--   ∀ witIn : Witness,
+--   ∀ SRProver : StateRestorationProver pSpec oSpec,
+--     let protocol := Protocol.mk (PrvState := PrvState) (Witness := Witness)
+--       SRProver.toProver verifier
+--     sorry
 
 end StateRestoration
 
