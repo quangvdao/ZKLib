@@ -313,6 +313,10 @@ def ToOracle.append {pSpec₁ : ProtocolSpec n} {pSpec₂ : ProtocolSpec m}
   · rw [← @Fin.natAdd_subNat_cast n m i (not_lt.mp h'), Fin.append_right] at h ⊢
     exact O₂ ⟨Fin.subNat n (Fin.cast (add_comm n m) i) (not_lt.mp h'), h⟩
 
+instance {pSpec : ProtocolSpec n} {pSpec' : ProtocolSpec m}
+    [∀ i, ToOracle (pSpec.Message i)] [∀ i, ToOracle (pSpec'.Message i)] :
+    ∀ i, ToOracle ((pSpec ++ₚ pSpec').Message i) := ToOracle.append
+
 /-- Appending two transcripts for two `ProtocolSpec`s -/
 def Transcript.append {pSpec₁ : ProtocolSpec n} {pSpec₂ : ProtocolSpec m}
     (T₁ : Transcript pSpec₁) (T₂ : Transcript pSpec₂) : Transcript (pSpec₁ ++ₚ pSpec₂) := by

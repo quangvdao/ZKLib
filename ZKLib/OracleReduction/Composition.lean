@@ -34,11 +34,8 @@ theorem Transcript.take_append_left (T : Transcript pSpec) (T' : Transcript pSpe
     ((T ++ₜ T').take n (Nat.le_add_right n m)) =
       (@ProtocolSpec.take_append_left _ _ pSpec pSpec').symm ▸ T := by
   simp [Transcript.append, Transcript.take]
-  have {i : Fin n} : Fin.castLE (by omega) i = Fin.castAdd m i := by
-    simp [Fin.castLE, Fin.castAdd]
-  simp [eqRec_eq_cast]
   ext i
-  simp [Fin.take_apply, Fin.castLE, Fin.addCases', Fin.addCases]
+  simp [Fin.castLE, Fin.addCases', Fin.addCases, eqRec_eq_cast, cast_eq_iff_heq]
   sorry
 
 def ProverRound.append (P : ProverRound pSpec oSpec PrvState)
@@ -80,18 +77,6 @@ def Protocol.append (P : Protocol pSpec oSpec PrvState Statement Witness)
     Protocol (pSpec ++ₚ pSpec') oSpec PrvState Statement Witness := sorry
   -- prover := Prover.append P.prover P'.prover
   -- verifier := Verifier.append P.verifier P'.verifier
-
-instance [O : ∀ i, ToOracle (pSpec.Message i)] [O' : ∀ i, ToOracle (pSpec'.Message i)] :
-    ∀ i, ToOracle ((pSpec ++ₚ pSpec').Message i) := sorry
-  -- {
-  --   Query := Fin.addCases (fun j => (O j).Query) (fun j => (O' j).Query) i
-  --   Response := Fin.addCases (fun j => (O j).Response) (fun j => (O' j).Response) i
-  --   respond := fun msg query => by sorry
-  -- }
-    -- refine Fin.addCases ?_ ?_ i <;> intro j c <;>
-    --   simp [ProtocolSpec.append] at c ⊢
-    --   · exact (O j).respond (fun j => (O j).Query) (fun j => (O j).Response) query response
-    --   · exact (O' j).respond (fun j => (O' j).Query) (fun j => (O' j).Response) query response
 
 def OracleVerifier.append [O : ∀ i, ToOracle (pSpec.Message i)]
     [O' : ∀ i, ToOracle (pSpec'.Message i)] (V : OracleVerifier pSpec oSpec Statement)
