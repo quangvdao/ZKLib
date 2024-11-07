@@ -116,9 +116,25 @@ def ProtocolSpec.Challenge (pSpec : ProtocolSpec n) (i : ChallengeIndex pSpec) :
 @[inline, reducible]
 def Transcript (pSpec : ProtocolSpec n) := (i : Fin n) → pSpec.getType i
 
+@[inline, reducible]
+def PartialTranscript (pSpec : ProtocolSpec n) (m : ℕ) := (i : Fin n) → (i < m) → pSpec.getType i
+
+def emptyPartialTranscript {pSpec : ProtocolSpec n} : PartialTranscript pSpec 0 :=
+  fun i hi => by contradiction
+
 variable {ι : Type}
 
 variable {pSpec : ProtocolSpec n} {oSpec : OracleSpec ι} {State : Type}
+
+def PartialTranscript.toFull {m : ℕ} (T : PartialTranscript pSpec m) (h : n ≤ m) :
+    Transcript pSpec := fun i => T i (Nat.lt_of_lt_of_le i.isLt h)
+
+def PartialTranscript.snoc {m : ℕ} (T : PartialTranscript pSpec m) (h : m < n)
+    (msg : pSpec.getType ⟨m, h⟩) : PartialTranscript pSpec (m + 1) := fun i hi => by
+  by_cases hi' : i < m
+  · exact T i hi'
+  · haveI : i = ⟨m, h⟩ := by ext; simp; exact Nat.eq_of_lt_succ_of_not_lt hi hi'
+    exact this ▸ msg
 
 @[inline, reducible]
 def Transcript.messages (transcript : Transcript pSpec) (i : MessageIndex pSpec) :=
@@ -366,12 +382,12 @@ def runProverAux [DecidableEq ι] [∀ i, Sampleable (pSpec.Challenge i)]
     (prover : Prover pSpec oSpec PrvState Statement Witness)
     (stmt : Statement) (wit : Witness) (i : Fin (n + 1)) :
       OracleComp (oSpec ++ₒ challengeOracle pSpec)
-        (Transcript (pSpec.take i (by omega)) × QueryLog oSpec × PrvState) := by
+        (PartialTranscript pSpec i × QueryLog oSpec × PrvState) := by
   induction i using Fin.induction with
   | zero => simp; exact
     (do
       let ⟨state, queryLog⟩ ← liftComp (simulate loggingOracle ∅ <| pure (prover.load stmt wit))
-      return ⟨fun i => Fin.elim0 i, queryLog, state⟩)
+      return ⟨emptyPartialTranscript, queryLog, state⟩)
   | succ j ih => simp [ProtocolSpec.take] at ih ⊢; exact
     (do
       let ⟨transcript, queryLog, state⟩ ← ih
@@ -379,21 +395,13 @@ def runProverAux [DecidableEq ι] [∀ i, Sampleable (pSpec.Challenge i)]
       | .V_to_P => do
         let challenge ← query (Sum.inr ⟨j, hDir⟩) ()
         haveI challenge : pSpec.Challenge ⟨j, hDir⟩ := by simpa only
-        let newState := prover.receiveChallenge ⟨j, hDir⟩ state challenge
-        let newTranscript := transcript.snoc .V_to_P challenge
-        let newTranscript : Transcript (pSpec.take (j + 1) (by omega)) := by
-          sorry
-          -- simp [ProtocolSpec.snoc_take] at newTranscript
-          -- exact newTranscript
+        letI newState := prover.receiveChallenge ⟨j, hDir⟩ state challenge
+        letI newTranscript := transcript.snoc (by omega) challenge
         return ⟨newTranscript, queryLog, newState⟩
       | .P_to_V => do
         let ⟨⟨msg, newState⟩, newQueryLog⟩ ← liftComp
           (simulate loggingOracle queryLog (prover.sendMessage ⟨j, hDir⟩ state))
-        let newTranscript := transcript.snoc .P_to_V msg
-        let newTranscript : Transcript (pSpec.take (j + 1) (by omega)) := by
-          sorry
-          -- simp only [ProtocolSpec.snoc_take] at newTranscript
-          -- exact newTranscript
+        letI newTranscript := transcript.snoc (by omega) msg
         return ⟨newTranscript, newQueryLog, newState⟩
       )
 
@@ -406,7 +414,8 @@ def runProver [DecidableEq ι] [∀ i, Sampleable (pSpec.Challenge i)]
     (stmt : Statement) (wit : Witness) : OracleComp
     (oSpec ++ₒ challengeOracle pSpec)
     (Transcript pSpec × QueryLog oSpec × PrvState) := do
-  return ← runProverAux prover stmt wit ⟨n, by omega⟩
+  let ⟨transcript, queryLog, state⟩ ← runProverAux prover stmt wit ⟨n, by omega⟩
+  return ⟨transcript.toFull (by simp), queryLog, state⟩
 
 /-- Run the (non-oracle) verifier in the interactive protocol. Simply reads the statement and the
   transcript, and outputs a decision.
