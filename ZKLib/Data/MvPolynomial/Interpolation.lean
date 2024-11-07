@@ -4,10 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Quang Dao
 -/
 
-import Mathlib.Algebra.MvPolynomial.CommRing
-import Mathlib.RingTheory.MvPolynomial.Basic
 import Mathlib.LinearAlgebra.Lagrange
-import Mathlib.Tactic.Common
 import Mathlib.Algebra.MvPolynomial.SchwartzZippel
 import ZKLib.Data.MvPolynomial.Degrees
 import Mathlib.Data.FinEnum

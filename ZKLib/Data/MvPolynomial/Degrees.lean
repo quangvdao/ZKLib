@@ -17,8 +17,6 @@ import ZKLib.Data.MvPolynomial.Notation
   (will need to prove by hand first before knowing how to write the tactic)
 -/
 
-attribute [gcongr] Finset.sup_mono_fun
-
 noncomputable section
 
 open Set Function Finsupp AddMonoidAlgebra
@@ -150,23 +148,23 @@ theorem degreeOf_linear_le {a b : R} : degreeOf n (C a + C b * p) ≤ degreeOf n
   rw [max_def]
   split_ifs <;> simp [degreeOf_C_mul_le]
 
-theorem degreeOf_pow_le (i : σ) (n : ℕ) (p : MvPolynomial σ R) :
-    degreeOf i (p ^ n) ≤ n * degreeOf i p := by
-  classical
-  repeat' rw [degreeOf]
-  convert Multiset.count_le_of_le i (degrees_pow p n)
-  rw [Multiset.count_nsmul]
+-- theorem degreeOf_pow_le (i : σ) (n : ℕ) (p : MvPolynomial σ R) :
+--     degreeOf i (p ^ n) ≤ n * degreeOf i p := by
+--   classical
+--   repeat' rw [degreeOf]
+--   convert Multiset.count_le_of_le i (degrees_pow p n)
+--   rw [Multiset.count_nsmul]
 
-theorem degreeOf_sum_le (n : σ) (s : Finset ι) (f : ι → MvPolynomial σ R) :
-    degreeOf n (∑ i in s, f i) ≤ s.sup fun i => degreeOf n (f i) := by
-  simp_rw [degreeOf_eq_sup]
-  exact supDegree_sum_le
+-- theorem degreeOf_sum_le (n : σ) (s : Finset ι) (f : ι → MvPolynomial σ R) :
+--     degreeOf n (∑ i in s, f i) ≤ s.sup fun i => degreeOf n (f i) := by
+--   simp_rw [degreeOf_eq_sup]
+--   exact supDegree_sum_le
 
-theorem degreeOf_prod_le (n : σ) (s : Finset ι) (f : ι → MvPolynomial σ R) :
-    degreeOf n (∏ i in s, f i) ≤ ∑ i in s, (f i).degreeOf n := by
-  simp_rw [degreeOf_eq_sup]
-  exact supDegree_prod_le (by simp only [coe_zero, Pi.zero_apply])
-    (fun _ _ => by simp only [coe_add, Pi.add_apply])
+-- theorem degreeOf_prod_le (n : σ) (s : Finset ι) (f : ι → MvPolynomial σ R) :
+--     degreeOf n (∏ i in s, f i) ≤ ∑ i in s, (f i).degreeOf n := by
+--   simp_rw [degreeOf_eq_sup]
+--   exact supDegree_prod_le (by simp only [coe_zero, Pi.zero_apply])
+--     (fun _ _ => by simp only [coe_add, Pi.add_apply])
 
 theorem mem_restrictDegree_iff_degreeOf_le (p : MvPolynomial σ R) (n : ℕ) :
     p ∈ restrictDegree σ R n ↔ ∀ i, p.degreeOf i ≤ n := by
@@ -216,10 +214,6 @@ end CommSemiring
 section CommRing
 
 variable [CommRing R]
-
-theorem degreeOf_sub_le (i : σ) (p q : MvPolynomial σ R) :
-    degreeOf i (p - q) ≤ max (degreeOf i p) (degreeOf i q) := by
-  simp_rw [degreeOf_eq_sup]; exact supDegree_sub_le
 
 end CommRing
 

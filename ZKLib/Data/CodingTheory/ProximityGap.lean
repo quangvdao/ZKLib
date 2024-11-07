@@ -1,4 +1,5 @@
 import ZKLib.Data.CodingTheory.Basic
+import Mathlib.Probability.ProbabilityMassFunction.Basic
 
 /-!
   # Definitions and Theorems about Proximity Gaps
@@ -9,7 +10,11 @@ import ZKLib.Data.CodingTheory.Basic
 
 -/
 
-variable {F : Type*} [Field F] [Fintype F] [DecidableEq F] {n : Type*} [Fintype n] [DecidableEq n]
+open NNReal Finset Function
+
+variable {n : Type*} [Fintype n] [DecidableEq n]
+
+variable {F : Type*} [Field F] [Fintype F] [DecidableEq F]
 
 variable (C : Submodule F (n → F)) [DecidablePred (· ∈ C)]
 
@@ -25,3 +30,11 @@ def proximityMeasure (u v : n → F) (d : ℕ) : ℕ :=
 def proximityGap (d : ℕ) (bound : ℕ) : Prop :=
   ∀ u v : n → F, (proximityMeasure C u v d > bound)
     → (Δ₀( u ⋈ v , C ^⋈ Fin 2 ) ≤ d)
+
+/-- A code `C` exhibits `δ`-correlated agreement with respect to a tuple of vectors `W_1, ..., W_k`
+  if there exists a set `S` of coordinates such that the size of `S` is at least `(1 - δ) * |n|`,
+  and there exists a tuple of codewords `v_1, ..., v_k` such that `v_i` agrees with `W_i` on `S`
+  for all `i`. -/
+def correlatedAgreement (C : Set (n → F)) (δ : ℝ≥0) {k : ℕ} (W : Fin k → n → F) : Prop :=
+  ∃ S : Finset n, #(S) ≥ (1 - δ) * (Fintype.card n) ∧
+    ∃ v : Fin k → n → F, ∀ i, v i ∈ C ∧ {j | v i j = W i j} ⊆ S
