@@ -15,6 +15,28 @@ import Mathlib.Logic.Lemmas
 -/
 universe u v
 
+#check Fin.partialProd
+
+-- TODO: put this elsewhere (for some reason `@[to_additive]` doesn't work)
+def List.partialSum {α : Type*} [AddMonoid α] (l : List α) : List α :=
+  [0] ++ match l with
+  | [] => []
+  | a :: l' => (partialSum l').map (a + ·)
+
+def List.partialProd {α : Type*} [Monoid α] (l : List α) : List α :=
+  [1] ++ match l with
+  | [] => []
+  | a :: l' => (partialProd l').map (a * ·)
+
+
+theorem List.partialProd_eq_Fin_partialProd {α : Type*} [Monoid α] (l : List α) :
+    List.partialProd l = List.ofFn (Fin.partialProd l.get) := by sorry
+  -- induction l with
+  -- | nil => simp [List.partialProd, List.ofFn]
+  -- | cons a l' ih => simp [List.partialProd, List.ofFn, ih]
+
+#eval [1, 2, 3].partialSum
+
 /-- Version of `funext_iff` for dependent functions `f : (x : α) → β x`. -/
 theorem funext_iff' {α : Sort u} {β : α → Sort v} {γ : α → Sort v}
     {f : (x : α) → β x} {g : (x : α) → γ x} (h : ∀ x, β x = γ x) :
@@ -188,14 +210,14 @@ section Sum
 
 #print Fin.addCases
 
-def castSum (l : List ℕ) {i : ℕ} (h : i ∈ l) : Fin i → Fin l.sum := fun j =>
+def castSum (l : List ℕ) {n : ℕ} (h : n ∈ l) : Fin n → Fin l.sum := fun i =>
   match l with
   | [] => by contradiction
-  | i' :: l' => by
+  | n' :: l' => by
     simp only [List.sum_cons]
-    by_cases hi : i = i'
-    · exact castAdd l'.sum (cast hi j)
-    · exact natAdd i' (castSum l' (List.mem_of_ne_of_mem hi h) j)
+    by_cases hi : n = n'
+    · exact castAdd l'.sum (cast hi i)
+    · exact natAdd n' (castSum l' (List.mem_of_ne_of_mem hi h) i)
 
 theorem castSum_castLT {l' : List ℕ} {i : ℕ} (j : Fin i) :
     castSum (i :: l') (by simp) j =
@@ -205,16 +227,24 @@ theorem castSum_castLT {l' : List ℕ} {i : ℕ} (j : Fin i) :
 theorem castSum_castAdd {n m : ℕ} (i : Fin n) : castSum [n, m] (by simp) i = castAdd m i := by
   simp [castSum]
 
+-- Pinpoint the index in the list
+def findSumIdx (l : List ℕ) (j : ℕ) : ℕ := l.partialSum.findIdx (j < ·)
+
+-- Variant of `findSumIdx` with bounds
+def findSumIdx' (l : List ℕ) (j : Fin l.sum) : Fin l.length := ⟨findSumIdx l j, sorry⟩
+
+def findSumIdxWith (l : List ℕ) (j : Fin l.sum) : (i : Fin l.length) × Fin (l.get i) := sorry
+
 def sumCases {l : List ℕ} {motive : Fin l.sum → Sort*}
-    (cases : ∀ {i} (h : i ∈ l) (j : Fin i), motive (castSum l h j))
-    (j : Fin l.sum) : motive j := match l with
-  | [] => by simp only [List.sum_nil] at j; exact elim0 j
-  | i' :: l' => by
-    simp only [List.sum_cons] at j motive
-    by_cases hj : j < i'
-    · convert cases (i := i') (by simp) ⟨j.val, hj⟩
+    (cases : ∀ (n : ℕ) (h : n ∈ l) (i : Fin n), motive (castSum l h i))
+    (i : Fin l.sum) : motive i := match l with
+  | [] => by simp only [List.sum_nil] at i; exact elim0 i
+  | n' :: l' => by
+    simp only [List.sum_cons] at i
+    by_cases hi : i < n'
+    · convert cases n' (by simp) ⟨i.val, hi⟩
       simp [castSum]
-    · have hj' : j.val - i' < l'.sum := by sorry
+    · have hj' : i.val - n' < l'.sum := by sorry
       sorry
       -- refine sumCases (l := l') (motive := motive ∘ natAdd i') ?_ ⟨j.val - i', hj'⟩
 

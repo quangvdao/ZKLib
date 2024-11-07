@@ -15,6 +15,89 @@ import ZKLib.Data.Math.Fin
   R3. This gives us an interactive (oracle) protocol for reducing relations R1 => R3.
 -/
 
+section Restrict
+
+variable {n : ℕ}
+
+abbrev ProtocolSpec.take (m : ℕ) (h : m ≤ n) (pSpec : ProtocolSpec n) :=
+  Fin.take m h pSpec
+
+abbrev ProtocolSpec.rtake (m : ℕ) (h : m ≤ n) (pSpec : ProtocolSpec n) :=
+  Fin.rtake m h pSpec
+
+abbrev Transcript.take {pSpec : ProtocolSpec n} (m : ℕ) (h : m ≤ n)
+    (transcript : Transcript pSpec) : Transcript (pSpec.take m h) :=
+  Fin.take m h transcript
+
+abbrev Transcript.rtake {pSpec : ProtocolSpec n} (m : ℕ) (h : m ≤ n)
+    (transcript : Transcript pSpec) : Transcript (pSpec.rtake m h) :=
+  Fin.rtake m h transcript
+
+end Restrict
+
+section Composition
+
+variable {n m : ℕ}
+
+/-- Adding a round with direction `dir` and type `Message` to the beginning of a `ProtocolSpec` -/
+abbrev ProtocolSpec.cons (pSpec : ProtocolSpec n) (dir : Direction) (Message : Type) :
+    ProtocolSpec (n + 1) :=
+  Fin.cons ⟨dir, Message⟩ pSpec
+
+/-- Adding a round with direction `dir` and type `Message` to the end of a `ProtocolSpec` -/
+abbrev ProtocolSpec.snoc (pSpec : ProtocolSpec n) (dir : Direction) (Message : Type) :
+    ProtocolSpec (n + 1) :=
+  Fin.snoc pSpec ⟨dir, Message⟩
+
+/-- Appending two `ProtocolSpec`s -/
+abbrev ProtocolSpec.append (pSpec : ProtocolSpec n) (pSpec' : ProtocolSpec m) :
+    ProtocolSpec (n + m) :=
+  Fin.append pSpec pSpec'
+
+def ProtocolSpec.mkSingle (dir : Direction) (Message : Type) : ProtocolSpec 1 :=
+  fun _ => ⟨dir, Message⟩
+
+infixl : 65 " ++ₚ " => ProtocolSpec.append
+
+@[simp]
+theorem ProtocolSpec.snoc_take {pSpec : ProtocolSpec n} (m : ℕ) (h : m < n) :
+    (pSpec.take m (by omega) ++ₚ (fun (_ : Fin 1) => pSpec ⟨m, h⟩))
+        = pSpec.take (m + 1) (by omega) := by
+  simp only [append, take, Fin.append_right_eq_snoc, Fin.take_succ_eq_snoc]
+
+/-- Appending two `ToOracle`s for two `ProtocolSpec`s -/
+def ToOracle.append {pSpec₁ : ProtocolSpec n} {pSpec₂ : ProtocolSpec m}
+    [O₁ : ∀ i, ToOracle (pSpec₁.Message i)] [O₂ : ∀ i, ToOracle (pSpec₂.Message i)] :
+        ∀ i, ToOracle ((pSpec₁ ++ₚ pSpec₂).Message i) := fun ⟨i, h⟩ => by
+  dsimp [ProtocolSpec.append, ProtocolSpec.getDir] at h ⊢
+  dsimp [ProtocolSpec.Message, ProtocolSpec.getType]
+  by_cases h' : i < n
+  · rw [← Fin.castAdd_castLT m i h', Fin.append_left] at h ⊢
+    exact O₁ ⟨i.castLT h', h⟩
+  · rw [← @Fin.natAdd_subNat_cast n m i (not_lt.mp h'), Fin.append_right] at h ⊢
+    exact O₂ ⟨Fin.subNat n (Fin.cast (add_comm n m) i) (not_lt.mp h'), h⟩
+
+instance {pSpec : ProtocolSpec n} {pSpec' : ProtocolSpec m}
+    [∀ i, ToOracle (pSpec.Message i)] [∀ i, ToOracle (pSpec'.Message i)] :
+    ∀ i, ToOracle ((pSpec ++ₚ pSpec').Message i) := ToOracle.append
+
+/-- Appending two transcripts for two `ProtocolSpec`s -/
+def Transcript.append {pSpec₁ : ProtocolSpec n} {pSpec₂ : ProtocolSpec m}
+    (T₁ : Transcript pSpec₁) (T₂ : Transcript pSpec₂) : Transcript (pSpec₁ ++ₚ pSpec₂) := by
+  dsimp [ProtocolSpec.append, ProtocolSpec.getDir]
+  dsimp [Transcript, ProtocolSpec.getType] at T₁ T₂ ⊢
+  exact fun i => (Fin.append_comp Prod.snd i) ▸ (Fin.addCases' T₁ T₂ i)
+
+infixl : 65 " ++ₜ " => Transcript.append
+
+/-- Adding a message with a given direction and type to the end of a `Transcript` -/
+def Transcript.snoc {pSpec : ProtocolSpec n} {NextMessage : Type}
+    (T : Transcript pSpec) (dir : Direction) (msg : NextMessage) :
+        Transcript (pSpec ++ₚ .mkSingle dir NextMessage) :=
+  Transcript.append T fun _ => msg
+
+end Composition
+
 section Composition
 
 variable {n m : ℕ} {pSpec : ProtocolSpec n} {pSpec' : ProtocolSpec m} {ι : Type} [DecidableEq ι]

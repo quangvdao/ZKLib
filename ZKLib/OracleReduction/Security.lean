@@ -175,7 +175,7 @@ variable [DecidableEq Statement] [∀ i, DecidableEq (pSpec.Message i)]
 end StateRestoration
 
 
-def BadFunction := (i : ℕ) → (h : i ≤ n) → Statement →  Transcript (pSpec.take i h) → Prop
+def BadFunction := (m : ℕ) → Statement → PartialTranscript pSpec m → Prop
 
 /--
   Round-by-round soundness should be defined for each round
