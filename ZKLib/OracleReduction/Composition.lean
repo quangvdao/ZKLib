@@ -100,7 +100,7 @@ end Composition
 section Composition
 
 variable {n m : ℕ} {pSpec₁ : ProtocolSpec n} {pSpec₂ : ProtocolSpec m} {ι : Type} [DecidableEq ι]
-    {oSpec : OracleSpec ι} {StmtIn WitIn StmtOut WitOut PrvState : Type}
+    {oSpec : OracleSpec ι} {Stmt₁ Wit₁ Stmt₂ Wit₂ Stmt₃ Wit₃ PrvState : Type}
 
 @[simp]
 theorem ProtocolSpec.take_append_left :
@@ -120,9 +120,9 @@ theorem Transcript.take_append_left (T : Transcript pSpec₁) (T' : Transcript p
   simp [Fin.castLE, Fin.addCases', Fin.addCases, eqRec_eq_cast, cast_eq_iff_heq]
   sorry
 
-def ProverRound.append (P : ProverRound pSpec₁ oSpec PrvState)
-    (P' : ProverRound pSpec₂ oSpec PrvState) :
-    ProverRound (pSpec₁ ++ₚ pSpec₂) oSpec PrvState := sorry
+-- def ProverRound.append (P : ProverRound pSpec₁ oSpec PrvState)
+--     (P' : ProverRound pSpec₂ oSpec PrvState) :
+--     ProverRound (pSpec₁ ++ₚ pSpec₂) oSpec PrvState := sorry
   -- receiveChallenge := fun ⟨i, h⟩ => by
   --   refine Fin.addCases ?_ ?_ i <;> intro j c <;>
   --   simp [ProtocolSpec.append] at c ⊢
@@ -134,17 +134,17 @@ def ProverRound.append (P : ProverRound pSpec₁ oSpec PrvState)
   --   · exact P.sendMessage j c
   --   · exact P'.sendMessage j c
 
-def Prover.append (P : Prover pSpec₁ oSpec StmtIn WitIn StmtOut WitOut PrvState)
-    (P' : ProverRound pSpec₂ oSpec PrvState) :
-        Prover (pSpec₁ ++ₚ pSpec₂) oSpec StmtIn WitIn StmtOut WitOut PrvState where
+def Prover.append (P : Prover pSpec₁ oSpec Stmt₁ Wit₁ Stmt₂ Wit₂ PrvState)
+    (P' : Prover pSpec₂ oSpec Stmt₂ Wit₂ Stmt₃ Wit₃ PrvState) :
+        Prover (pSpec₁ ++ₚ pSpec₂) oSpec Stmt₁ Wit₁ Stmt₃ Wit₃ PrvState where
   load := P.load
-  toProverRound := ProverRound.append P.toProverRound P'
-  output := P.output
+  toProverRound := sorry
+  output := P'.output
 
 /-- Composition of verifiers. Return the conjunction of the decisions of the two verifiers. -/
-def Verifier.append (V : Verifier pSpec₁ oSpec StmtIn StmtOut)
-    (V' : Verifier pSpec₂ oSpec StmtIn StmtOut) :
-        Verifier (pSpec₁ ++ₚ pSpec₂) oSpec StmtIn StmtOut := sorry
+def Verifier.append (V : Verifier pSpec₁ oSpec Stmt₁ Stmt₂)
+    (V' : Verifier pSpec₂ oSpec Stmt₂ Stmt₃) :
+        Verifier (pSpec₁ ++ₚ pSpec₂) oSpec Stmt₁ Stmt₃ := sorry
   -- verify := fun stmt transcript => do
   --   let firstTranscript : Transcript pSpec₁ := by
   --     have := transcript.take n (by omega)
@@ -156,16 +156,16 @@ def Verifier.append (V : Verifier pSpec₁ oSpec StmtIn StmtOut)
     -- let decision' ← V'.verify stmt secondTranscript
     -- return decision ∧ decision'
 
-def Protocol.append (P : Protocol pSpec₁ oSpec PrvState StmtIn WitIn StmtOut WitOut)
-    (P' : Protocol pSpec₂ oSpec PrvState StmtIn WitIn StmtOut WitOut) :
-    Protocol (pSpec₁ ++ₚ pSpec₂) oSpec PrvState StmtIn WitIn StmtOut WitOut := sorry
+def Reduction.append (P : Reduction pSpec₁ oSpec PrvState Stmt₁ Wit₁ Stmt₂ Wit₂)
+    (P' : Reduction pSpec₂ oSpec PrvState Stmt₂ Wit₂ Stmt₃ Wit₃) :
+    Reduction (pSpec₁ ++ₚ pSpec₂) oSpec PrvState Stmt₁ Wit₁ Stmt₃ Wit₃ := sorry
   -- prover := Prover.append P.prover P'.prover
   -- verifier := Verifier.append P.verifier P'.verifier
 
 def OracleVerifier.append [O : ∀ i, ToOracle (pSpec₁.Message i)]
-    [O' : ∀ i, ToOracle (pSpec₂.Message i)] (V : OracleVerifier pSpec₁ oSpec StmtIn StmtOut)
-    (V' : OracleVerifier pSpec₂ oSpec StmtIn StmtOut) :
-        OracleVerifier (pSpec₁ ++ₚ pSpec₂) oSpec StmtIn StmtOut := sorry
+    [O' : ∀ i, ToOracle (pSpec₂.Message i)] (V : OracleVerifier pSpec₁ oSpec Stmt₁ Stmt₂)
+    (V' : OracleVerifier pSpec₂ oSpec Stmt₂ Stmt₃) :
+        OracleVerifier (pSpec₁ ++ₚ pSpec₂) oSpec Stmt₁ Stmt₃ := sorry
   -- genQueries := fun stmt transcript => do
   --   let queries ← V.genQueries stmt transcript.challenges
   --   let queries' ← V'.genQueries stmt transcript.challenges

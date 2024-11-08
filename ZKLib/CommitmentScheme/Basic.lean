@@ -4,73 +4,94 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Quang Dao
 -/
 
-import ZKLib.OracleReduction.Basic
 import VCVio
+import ZKLib.OracleReduction.Security
 
 /-!
   # Oracle Commitment Schemes
 
-  A commitment scheme for a given oracle `Oracle : {D : Data} → Input → Output`
-  parameterized by some data `D` consists of two main operations:
+  A commitment scheme, relative to an oracle `oSpec : OracleSpec ι`, and for a given function
+  `oracle : Data → Query → Response` transforming underlying data `Data` into an oracle `Query →
+  Response`, is a tuple of two operations:
 
-  - `commit` which commits to the data `D`
-  - `open`, which is an interactive oracle proof (with respect to a different oracle `OraclePrime`)
-    for the relation that `Oracle {D} (input) = output`. Here the underlying data `D` is the
-    witness, and `input`, `output` are the statement.
+  - Commit, which is a function `commit : Data → Randomness → OracleComp oSpec Commitment`
+  - Open, which is (roughly) an interactive proof (relative to `oSpec`) for the following relation:
+    - `StmtIn := (cm : Commitment) × (x : Query) × (y : Response)`
+    - `WitIn := (d : Data) × (r : Randomness)`
+    - `rel : StmtIn → WitIn → Prop := fun ⟨cm, x, y⟩ ⟨d, r⟩ => commit d r = cm ∧ oracle d x = y`
+
+  There is one inaccuracy about the relation above: `commit` is an oracle computation, and not a
+  deterministic function; hence the relation is not literally true as described. This is why
+  security definitions for commitment schemes have to be stated differently than those for IOPs.
 -/
 
 namespace Commitment
 
-open OracleSpec OracleComp
+open OracleSpec OracleComp SubSpec
 
--- We may not be able to say that the opening of a commitment scheme is an IOP for some relation,
--- because that relation may require querying oracles to determine validity.
+variable {n : ℕ} {ι : Type}
 
-structure Spec where
-  Data : Type
-  Commitment : Type
-  Query : Type
-  Response : Type
-  eval : Data → Query → Response
-  n : ℕ
-  Opening : ProtocolSpec n
+structure Commit (oSpec : OracleSpec ι) (Data Randomness Commitment : Type) where
+  commit : Data → Randomness → OracleComp oSpec Commitment
 
-variable {ι : Type} [DecidableEq ι]
+structure Opening (pSpec : ProtocolSpec n) (oSpec : OracleSpec ι) (Data : Type)
+    [O : ToOracle Data] (Randomness Commitment PrvState : Type) where
+  opening : Proof pSpec oSpec (Commitment × O.Query × O.Response) (Data × Randomness) PrvState
 
-structure Commit (CSpec : Spec) (OSpec : OracleSpec ι) (State : Type) where
-  commit : CSpec.Data → StateT State (OracleComp OSpec) CSpec.Commitment
+-- abbrev Statement (Data Commitment : Type) [O : ToOracle Data] :=
+--  Commitment × O.Query × O.Response
 
-structure Prover (CSpec : Spec) (OSpec : OracleSpec ι) (State : Type)
-    extends ProverRound CSpec.Opening OSpec State where
-  loadState : CSpec.Data → CSpec.Query → State
+-- abbrev Witness (Data Randomness : Type) := Data × Randomness
 
-structure Scheme (CSpec : Spec) (OSpec : OracleSpec ι) (State : Type) extends
-    Prover CSpec OSpec State,
-    Verifier CSpec.Opening OSpec (CSpec.Commitment × CSpec.Query × CSpec.Response)
-
--- /-- The opening relation for a commitment scheme. Shows that `c` is a commitment to some `data`,
--- whose oracle representation takes in `query` and outputs `response`. -/
--- def relation (oSpec : OracleSpec ι) (cSpec : Spec oSpec) : OracleRelation oSpec where
---   Statement := cSpec.Commitment × cSpec.Query × cSpec.Response
---   Witness := cSpec.Data
-  -- isValid := fun ⟨commitment, query, response⟩ data =>
-  --   (cSpec.eval data query = response ∧ commitment = ·) <$> cSpec.commit data
-
+structure Scheme (pSpec : ProtocolSpec n) (oSpec : OracleSpec ι) (Data : Type) [O : ToOracle Data]
+    (Randomness Commitment PrvState : Type) extends
+    Commit oSpec Data Randomness Commitment,
+    Opening pSpec oSpec Data Randomness Commitment PrvState
 
 section Security
 
--- Define binding, extractability, hiding
+noncomputable section
 
-variable (CSpec : Spec) (OSpec : OracleSpec ι) (State : Type) (Statement : Type) (Witness : Type)
+open scoped NNReal
 
-def binding (Scheme : Scheme CSpec OSpec State) : Prop := sorry
+variable [DecidableEq ι] {pSpec : ProtocolSpec n} [∀ i, Sampleable (pSpec.Challenge i)]
+  {oSpec : OracleSpec ι} {Data : Type} [O : ToOracle Data] {Randomness : Type} [Fintype Randomness]
+  {Commitment : Type} {PrvState : Type}
 
-def extractability (Scheme : Scheme CSpec OSpec State) : Prop := sorry
+def correctness (scheme : Scheme pSpec oSpec Data Randomness Commitment PrvState)
+    (correctnessError : ℝ≥0) : Prop :=
+  ∀ data : Data,
+  ∀ randomness : Randomness,
+  ∀ query : O.Query,
+    let commitment := scheme.commit data randomness
+    let result := evalDist (liftComp commitment >>=
+      fun cm => scheme.opening.run ⟨cm, query, O.oracle data query⟩ ⟨data, randomness⟩)
+    let probAccept := Prod.fst <$> Prod.snd <$> Prod.snd <$> result
+    probAccept True ≥ 1 - correctnessError
+
+def perfectCorrectness (scheme : Scheme pSpec oSpec Data Randomness Commitment PrvState) : Prop :=
+  correctness scheme 0
+
+/-- An adversary in the binding game returns a commitment `cm` and two purported openings `(d₁,r₁)`,
+  `(d₂,r₂)` for that commitment. -/
+def BindingAdversary := OracleComp oSpec (Commitment × (Data × Randomness) × (Data × Randomness))
+
+/-- A commitment scheme satisfies **binding** with error `bindingError` if for all -/
+def binding (scheme : Scheme pSpec oSpec Data Randomness Commitment PrvState)
+    (bindingError : ℝ≥0): Prop :=
+  ∀ adversary : OracleComp oSpec (Commitment × (Data × Randomness) × (Data × Randomness)),
+  ∀ PrvState : Type,
+  ∀ prover : Prover pSpec oSpec (Commitment × O.Query × O.Response) (Data × Randomness) Bool Unit
+      PrvState,
+    False
+
+def extractability (scheme : Scheme pSpec oSpec Data Randomness Commitment PrvState) : Prop := sorry
 
 /-- Have to put it as `hiding'` because `hiding` is already used somewhere else. -/
-def hiding' (Scheme : Scheme CSpec OSpec State) : Prop := sorry
+def hiding' (scheme : Scheme pSpec oSpec Data Randomness Commitment PrvState) : Prop := sorry
+
+end
 
 end Security
-
 
 end Commitment

@@ -31,7 +31,7 @@ end Relation
 
 noncomputable section
 
-namespace Protocol
+namespace Reduction
 
 open OracleComp OracleSpec
 open scoped NNReal
@@ -55,20 +55,20 @@ variable {PrvState : Type}
   the output relation `relOut`,
   except with probability `completenessError`
 -/
-def completeness (protocol : Protocol pSpec oSpec StmtIn WitIn StmtOut WitOut PrvState)
+def completeness (reduction : Reduction pSpec oSpec StmtIn WitIn StmtOut WitOut PrvState)
     (relIn : StmtIn → WitIn → Prop)
     (relOut : StmtOut → WitOut → Prop)
     (completenessError : ℝ≥0) : Prop :=
   ∀ stmtIn : StmtIn,
   ∀ witIn : WitIn,
     relIn stmtIn witIn = true →
-      let newPair := evalDist (Prod.snd <$> Prod.snd <$> protocol.run stmtIn witIn)
+      let newPair := evalDist (Prod.snd <$> Prod.snd <$> reduction.run stmtIn witIn)
       (relOut.uncurry <$> newPair) True ≥ 1 - completenessError
 
 /-- Perfect completeness when there is no completeness error -/
-def perfectCompleteness (protocol : Protocol pSpec oSpec StmtIn WitIn StmtOut WitOut PrvState)
+def perfectCompleteness (reduction : Reduction pSpec oSpec StmtIn WitIn StmtOut WitOut PrvState)
     (relIn : StmtIn → WitIn → Prop) (relOut : StmtOut → WitOut → Prop) : Prop :=
-  completeness pSpec oSpec protocol relIn relOut 0
+  completeness pSpec oSpec reduction relIn relOut 0
 
 end Completeness
 
@@ -102,8 +102,8 @@ def soundness (verifier : Verifier pSpec oSpec StmtIn StmtOut) (relIn : StmtIn �
   ∀ witIn : WitIn,
   ∀ PrvState : Type,
   ∀ prover : Prover pSpec oSpec StmtIn WitIn StmtOut WitOut PrvState,
-    let protocol := Protocol.mk prover verifier
-    let newPair := evalDist (Prod.snd <$> Prod.snd <$> protocol.run stmtIn witIn)
+    let reduction := Reduction.mk prover verifier
+    let newPair := evalDist (Prod.snd <$> Prod.snd <$> reduction.run stmtIn witIn)
     (relOut.uncurry <$> newPair) True ≤ soundnessBound
 
 /--
@@ -128,8 +128,8 @@ def knowledgeSoundness (verifier : Verifier pSpec oSpec StmtIn StmtOut)
   ∀ witIn : WitIn,
   ∀ PrvState : Type,
   ∀ prover : Prover pSpec oSpec StmtIn WitIn StmtOut WitOut PrvState,
-    let protocol := Protocol.mk prover verifier
-    let result := evalDist (protocol.run stmtIn witIn)
+    let reduction := Reduction.mk prover verifier
+    let result := evalDist (reduction.run stmtIn witIn)
     let transcript := Prod.fst <$> result
     let queryLog := Prod.fst <$> Prod.snd <$> result
     let stmtOut := Prod.fst <$> Prod.snd <$> Prod.snd <$> result
@@ -177,7 +177,7 @@ variable [DecidableEq StmtIn] [∀ i, DecidableEq (pSpec.Message i)]
 --   ∀ stmtIn ∉ RelIn.language,
 --   ∀ witIn : Witness,
 --   ∀ SRProver : StateRestorationProver pSpec oSpec,
---     let protocol := Protocol.mk (PrvState := PrvState) (Witness := Witness)
+--     let protocol := Reduction.mk (PrvState := PrvState) (Witness := Witness)
 --       SRProver.toProver verifier
 --     sorry
 
@@ -335,7 +335,7 @@ structure Simulator (SimState : Type) where
 --   ∀ stmtIn : Statement,
 --   ∀ witIn : Witness,
 --   relIn.isValid stmtIn witIn = true →
---     let result := runProtocolAux (Protocol.mk prover verifier) stmtIn witIn
+--     let result := runReductionAux (Reduction.mk prover verifier) stmtIn witIn
 --     let transcript := Prod.fst <$> Prod.snd <$> result
 --     let simTranscript := simulator
 --     -- let prob := spec.relOut.isValid' <$> output
@@ -343,53 +343,55 @@ structure Simulator (SimState : Type) where
 
 end ZeroKnowledge
 
-end Protocol
+end Reduction
 
 
-namespace OracleProtocol
+namespace OracleReduction
 
 /- Completeness and soundness are the same as for non-oracle protocols. -/
 
-open OracleComp OracleSpec Protocol
+open OracleComp OracleSpec Reduction
 open scoped NNReal
 
 variable {n : ℕ} {ι : Type} [DecidableEq ι] (pSpec : ProtocolSpec n) (oSpec : OracleSpec ι)
     [∀ i, ToOracle (pSpec.Message i)] [∀ i, Sampleable (pSpec.Challenge i)]
     {StmtIn WitIn StmtOut WitOut PrvState : Type}
 
-def completeness (oracleProtocol : OracleProtocol pSpec oSpec StmtIn WitIn StmtOut WitOut PrvState)
+def completeness
+    (oracleReduction : OracleReduction pSpec oSpec StmtIn WitIn StmtOut WitOut PrvState)
     (relIn : StmtIn → WitIn → Prop) (relOut : StmtOut → WitOut → Prop)
     (completenessError : ℝ≥0) : Prop :=
-  Protocol.completeness pSpec oSpec oracleProtocol.toProtocol relIn relOut completenessError
+  Reduction.completeness pSpec oSpec oracleReduction.toReduction relIn relOut completenessError
 
 def perfectCompleteness
-    (oracleProtocol : OracleProtocol pSpec oSpec StmtIn WitIn StmtOut WitOut PrvState)
+    (oracleReduction : OracleReduction pSpec oSpec StmtIn WitIn StmtOut WitOut PrvState)
     (relIn : StmtIn → WitIn → Prop) (relOut : StmtOut → WitOut → Prop) : Prop :=
-  Protocol.perfectCompleteness pSpec oSpec oracleProtocol.toProtocol relIn relOut
+  Reduction.perfectCompleteness pSpec oSpec oracleReduction.toReduction relIn relOut
 
 def soundness (verifier : OracleVerifier pSpec oSpec StmtIn StmtOut)
     (relIn : StmtIn → WitIn → Prop) (relOut : StmtOut → WitOut → Prop)
     (soundnessBound : ℝ≥0) : Prop :=
-  Protocol.soundness pSpec oSpec verifier.toVerifier relIn relOut soundnessBound
+  Reduction.soundness pSpec oSpec verifier.toVerifier relIn relOut soundnessBound
 
 def knowledgeSoundness (verifier : OracleVerifier pSpec oSpec StmtIn StmtOut)
     (relIn : StmtIn → WitIn → Prop) (relOut : StmtOut → WitOut → Prop)
     (knowledgeBound : ℝ≥0) : Prop :=
-  Protocol.knowledgeSoundness pSpec oSpec verifier.toVerifier relIn relOut knowledgeBound
+  Reduction.knowledgeSoundness pSpec oSpec verifier.toVerifier relIn relOut knowledgeBound
 
 def rbrSoundness (verifier : OracleVerifier pSpec oSpec StmtIn StmtOut)
     (relIn : StmtIn → WitIn → Prop) (relOut : StmtOut → WitOut → Prop)
     (stateFunction : StateFunction pSpec oSpec verifier.toVerifier relOut.language)
     (rbrSoundnessBound : Fin n → ℝ≥0) : Prop :=
-  Protocol.rbrSoundness pSpec oSpec verifier.toVerifier relIn relOut stateFunction rbrSoundnessBound
+  Reduction.rbrSoundness pSpec oSpec verifier.toVerifier relIn relOut stateFunction
+    rbrSoundnessBound
 
 def rbrKnowledgeSoundness (verifier : OracleVerifier pSpec oSpec StmtIn StmtOut)
     (relIn : StmtIn → WitIn → Prop) (relOut : StmtOut → WitOut → Prop)
     (stateFunction : StateFunction pSpec oSpec verifier.toVerifier relOut.language)
     (rbrKnowledgeBound : Fin n → ℝ≥0) : Prop :=
-  Protocol.rbrKnowledgeSoundness pSpec oSpec verifier.toVerifier relIn relOut stateFunction
+  Reduction.rbrKnowledgeSoundness pSpec oSpec verifier.toVerifier relIn relOut stateFunction
     rbrKnowledgeBound
 
-end OracleProtocol
+end OracleReduction
 
 end
