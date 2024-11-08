@@ -24,12 +24,11 @@ import ZKLib.OracleReduction.Basic
 def Function.language {α β} (rel : α → β → Prop) : Set α :=
   {stmt | ∃ wit, rel stmt wit}
 
+noncomputable section
+
 namespace Protocol
 
 open OracleComp OracleSpec
-
-noncomputable section
-
 open scoped NNReal
 
 -- open unitInterval
@@ -38,10 +37,12 @@ open scoped NNReal
 -- instance unitInterval.toNNReal : Coe unitInterval NNReal where
 --   coe := fun ⟨x, h⟩ => ⟨x, (Set.mem_Icc.mp h).left⟩
 
-variable {n : ℕ} (pSpec : ProtocolSpec n) {ι : Type} [DecidableEq ι] (oSpec : OracleSpec ι)
-    [∀ i, Sampleable (pSpec.Challenge i)] {PrvState StmtIn WitIn StmtOut WitOut : Type}
+variable {n : ℕ} {ι : Type} [DecidableEq ι] (pSpec : ProtocolSpec n) (oSpec : OracleSpec ι)
+    [∀ i, Sampleable (pSpec.Challenge i)] {StmtIn WitIn StmtOut WitOut : Type}
 
 section Completeness
+
+variable {PrvState : Type}
 
 /--
   For all valid statement-witness pair for the input relation `relIn`,
@@ -49,18 +50,18 @@ section Completeness
   the output relation `relOut`,
   except with probability `completenessError`
 -/
-def completeness (protocol : Protocol pSpec oSpec PrvState StmtIn WitIn StmtOut WitOut)
+def completeness (protocol : Protocol pSpec oSpec StmtIn WitIn StmtOut WitOut PrvState)
     (relIn : StmtIn → WitIn → Prop)
     (relOut : StmtOut → WitOut → Prop)
     (completenessError : ℝ≥0) : Prop :=
   ∀ stmtIn : StmtIn,
   ∀ witIn : WitIn,
     relIn stmtIn witIn = true →
-      letI newPair := evalDist (Prod.snd <$> Prod.snd <$> protocol.run stmtIn witIn)
+      let newPair := evalDist (Prod.snd <$> Prod.snd <$> protocol.run stmtIn witIn)
       (relOut.uncurry <$> newPair) True ≥ 1 - completenessError
 
 /-- Perfect completeness when there is no completeness error -/
-def perfectCompleteness (protocol : Protocol pSpec oSpec PrvState StmtIn WitIn StmtOut WitOut)
+def perfectCompleteness (protocol : Protocol pSpec oSpec StmtIn WitIn StmtOut WitOut PrvState)
     (relIn : StmtIn → WitIn → Prop) (relOut : StmtOut → WitOut → Prop) : Prop :=
   completeness pSpec oSpec protocol relIn relOut 0
 
@@ -80,9 +81,10 @@ section Soundness
   6. Round-by-round knowledge soundness
 -/
 
-/-- Don't really need this? -/
-structure AdaptiveProver extends Prover pSpec oSpec PrvState StmtIn WitIn StmtOut WitOut where
-  chooseStatementIn : OracleComp oSpec StmtIn
+
+structure AdaptiveProver {PrvState : Type} extends
+    Prover pSpec oSpec PrvState StmtIn WitIn StmtOut WitOut where
+  chooseStatement : OracleComp oSpec StmtIn
 
 /--
   For all initial statement `stmtIn` not in the language, all (malicious) provers with initial
@@ -93,9 +95,10 @@ def soundness (verifier : Verifier pSpec oSpec StmtIn StmtOut) (relIn : StmtIn �
     (relOut : StmtOut → WitOut → Prop) (soundnessBound : ℝ≥0) : Prop :=
   ∀ stmtIn ∉ relIn.language,
   ∀ witIn : WitIn,
-  ∀ prover : Prover pSpec oSpec PrvState StmtIn WitIn StmtOut WitOut,
-    letI protocol := Protocol.mk prover verifier
-    letI newPair := evalDist (Prod.snd <$> Prod.snd <$> protocol.run stmtIn witIn)
+  ∀ PrvState : Type,
+  ∀ prover : Prover pSpec oSpec StmtIn WitIn StmtOut WitOut PrvState,
+    let protocol := Protocol.mk prover verifier
+    let newPair := evalDist (Prod.snd <$> Prod.snd <$> protocol.run stmtIn witIn)
     (relOut.uncurry <$> newPair) True ≤ soundnessBound
 
 /--
@@ -118,18 +121,17 @@ def knowledgeSoundness (verifier : Verifier pSpec oSpec StmtIn StmtOut)
   ∃ extractor : Extractor pSpec oSpec,
   ∀ stmtIn : StmtIn,
   ∀ witIn : WitIn,
-  ∀ prover : Prover pSpec oSpec PrvState StmtIn WitIn StmtOut WitOut,
-    letI protocol := Protocol.mk prover verifier
-    letI result := evalDist (protocol.run stmtIn witIn)
-    letI transcript := Prod.fst <$> result
-    letI queryLog := Prod.fst <$> Prod.snd <$> result
-    letI newPair := Prod.snd <$> Prod.snd <$> result
-    letI stmtOut := Prod.fst <$> newPair
-    letI witOut := Prod.snd <$> newPair
-    if (relOut.uncurry <$> newPair) True > knowledgeBound then
-      letI extractedWitIn := (fun tr ql sOut wOut => extractor stmtIn sOut wOut tr ql)
-        <$> transcript <*> queryLog <*> stmtOut <*> witOut
-      letI validWit := relIn stmtIn <$> extractedWitIn
+  ∀ PrvState : Type,
+  ∀ prover : Prover pSpec oSpec StmtIn WitIn StmtOut WitOut PrvState,
+    let protocol := Protocol.mk prover verifier
+    let result := evalDist (protocol.run stmtIn witIn)
+    let transcript := Prod.fst <$> result
+    let queryLog := Prod.fst <$> Prod.snd <$> result
+    let stmtOut := Prod.fst <$> Prod.snd <$> Prod.snd <$> result
+    let witOut := Prod.snd <$> Prod.snd <$> Prod.snd <$> result
+    if (relOut <$> stmtOut <*> witOut) True > knowledgeBound then
+      let extractedWitIn := extractor stmtIn <$> stmtOut <*> witOut <*> transcript <*> queryLog
+      let validWit := relIn stmtIn <$> extractedWitIn
       validWit True ≥ 1 - knowledgeBound
     else
       True
@@ -150,12 +152,14 @@ variable [DecidableEq StmtIn] [∀ i, DecidableEq (pSpec.Message i)]
 --   range_inhabited' := fun _ => Sampleable.toInhabited
 --   range_fintype' := fun _ => Sampleable.toFintype
 
--- class StateRestorationProver extends Prover pSpec oSpec PrvState Statement Witness where
+-- class StateRestorationProver extends Prover pSpec oSpec StmtIn WitIn StmtOut WitOut PrvState
+-- where
 --   stateRestorationQuery : OracleComp (oSpec ++ₒ challengeOracle' pSpec (Statement := Statement))
 --     (PrvState × Statement × Transcript pSpec)
 
--- def runStateRestorationProver (prover : StateRestorationProver pSpec oSpec PrvState
---     Statement Witness) (stmtIn : Statement) (witIn : Witness) :
+-- def runStateRestorationProver
+--     (prover : StateRestorationProver pSpec oSpec StmtIn WitIn StmtOut WitOut PrvState)
+--     (stmtIn : StmtIn) (witIn : WitIn) :
 --     OracleComp (oSpec ++ₒ challengeOracle' pSpec (Statement := Statement))
 --     (Transcript pSpec × QueryLog (oSpec ++ₒ challengeOracle' pSpec (Statement := Statement)))
 -- := do
@@ -163,7 +167,7 @@ variable [DecidableEq StmtIn] [∀ i, DecidableEq (pSpec.Message i)]
 --   return ⟨transcript, state⟩
 
 
--- def stateRestorationSoundness (verifier : Verifier pSpec oSpec Statement)
+-- def stateRestorationSoundness (verifier : Verifier pSpec oSpec StmtIn StmtOut)
 --     [RelIn : Relation Statement Witness] (SRSoundnessBound : ENNReal) : Prop :=
 --   ∀ stmtIn ∉ RelIn.language,
 --   ∀ witIn : Witness,
@@ -173,6 +177,8 @@ variable [DecidableEq StmtIn] [∀ i, DecidableEq (pSpec.Message i)]
 --     sorry
 
 end StateRestoration
+
+section RoundByRound
 
 structure StateFunction (verifier : Verifier pSpec oSpec StmtIn StmtOut) (language : Set StmtOut)
     where
@@ -198,20 +204,27 @@ structure StateFunction (verifier : Verifier pSpec oSpec StmtIn StmtOut) (langua
   partial transcript output by the prover and the state function is true for the partial transcript
   appended by next challenge (chosen randomly) is at most `rbrSoundnessBound i`.
 -/
-def roundByRoundSoundness (verifier : Verifier pSpec oSpec StmtIn StmtOut)
-    (relIn : StmtIn → WitIn → Prop) (language : Set StmtOut)
-    (stateFunction : StateFunction pSpec oSpec verifier language)
+def rbrSoundness (verifier : Verifier pSpec oSpec StmtIn StmtOut)
+    (relIn : StmtIn → WitIn → Prop) (relOut : StmtOut → WitOut → Prop)
+    (stateFunction : StateFunction pSpec oSpec verifier relOut.language)
     (rbrSoundnessBound : Fin n → ℝ≥0) : Prop :=
   ∀ stmtIn ∉ relIn.language,
   ∀ witIn : WitIn,
-  ∀ prover : Prover pSpec oSpec PrvState StmtIn WitIn StmtOut WitOut,
+  ∀ PrvState : Type,
+  ∀ prover : Prover pSpec oSpec StmtIn WitIn StmtOut WitOut PrvState,
   ∀ i : ChallengeIndex pSpec,
-    letI partialTranscript := Prod.fst <$> evalDist (prover.runAux stmtIn witIn i.1.castSucc)
-    letI challenge := PMF.uniformOfFintype (pSpec.Challenge i)
-    letI nextTranscript := PartialTranscript.snoc i.1.isLt <$> challenge <*> partialTranscript
-    letI firstProb := stateFunction.fn i.1 stmtIn <$> partialTranscript
-    letI secondProb := stateFunction.fn (i.1 + 1) stmtIn <$> nextTranscript
-    ((· = False ∧ · = True) <$> firstProb <*> secondProb) True ≤ rbrSoundnessBound i.1
+    let partialTranscript := Prod.fst <$> evalDist (prover.runAux stmtIn witIn i.1.castSucc)
+    let challenge := PMF.uniformOfFintype (pSpec.Challenge i)
+    let nextTranscript := PartialTranscript.snoc i.1.isLt <$> challenge <*> partialTranscript
+    let stateIdx := stateFunction.fn i.1 stmtIn <$> partialTranscript
+    let stateIdxSucc := stateFunction.fn (i.1 + 1) stmtIn <$> nextTranscript
+    ((· = False ∧ · = True) <$> stateIdx <*> stateIdxSucc) True ≤ rbrSoundnessBound i.1
+
+/-- A round-by-round extractor with index `m` is given the input statement, a partial transcript
+  of length `m`, the query log, and returns a witness to the statement.
+
+  Note that the RBR extractor does not need to take in the output statement or witness. -/
+def RBRExtractor (m : ℕ) := StmtIn → PartialTranscript pSpec m → QueryLog oSpec → WitIn
 
 /--
   A protocol with `verifier` satisfies round-by-round knowledge soundness with error
@@ -222,12 +235,78 @@ def roundByRoundSoundness (verifier : Verifier pSpec oSpec StmtIn StmtOut)
   the state function is true for the partial transcript appended by next challenge (chosen randomly)
   is at most `rbrKnowledgeBound i`.
 -/
-def roundByRoundKnowledgeSoundness (verifier : Verifier pSpec oSpec StmtIn StmtOut)
+def rbrKnowledgeSoundness (verifier : Verifier pSpec oSpec StmtIn StmtOut)
     (relIn : StmtIn → WitIn → Prop) (relOut : StmtOut → WitOut → Prop)
     (stateFunction : StateFunction pSpec oSpec verifier relOut.language)
-    (extractor : @Extractor _ pSpec _ oSpec StmtIn StmtOut WitIn WitOut)
     (rbrKnowledgeBound : Fin n → ℝ≥0) : Prop :=
-  sorry
+  ∃ extractor : (m : ℕ) → @RBRExtractor _ _ pSpec oSpec StmtIn WitIn m,
+  ∀ stmtIn : StmtIn,
+  ∀ witIn : WitIn,
+  ∀ PrvState : Type,
+  ∀ prover : Prover pSpec oSpec StmtIn WitIn StmtOut WitOut PrvState,
+  ∀ i : ChallengeIndex pSpec,
+    let result := evalDist (prover.runAux stmtIn witIn i.1.castSucc)
+    let partialTranscript := Prod.fst <$> result
+    let queryLog := Prod.fst <$> Prod.snd <$> result
+    let extractedWitIn := extractor i.1 stmtIn <$> partialTranscript <*> queryLog
+    let challenge := PMF.uniformOfFintype (pSpec.Challenge i)
+    let nextTranscript := PartialTranscript.snoc i.1.isLt <$> challenge <*> partialTranscript
+    let stateIdx := stateFunction.fn i.1 stmtIn <$> partialTranscript
+    let stateIdxSucc := stateFunction.fn (i.1 + 1) stmtIn <$> nextTranscript
+    let validWit := relIn stmtIn <$> extractedWitIn
+    ((· = False ∧ · = True ∧ · = False) <$> stateIdx <*> stateIdxSucc <*> validWit) True ≤
+      rbrKnowledgeBound i.1
+
+end RoundByRound
+
+section Implications
+
+/- TODO: add the following results
+- `knowledgeSoundness` implies `soundness`
+- `roundByRoundSoundness` implies `soundness`
+- `roundByRoundKnowledgeSoundness` implies `roundByRoundSoundness`
+- `roundByRoundKnowledgeSoundness` implies `knowledgeSoundness`
+
+In other words, we have a lattice of security notions, with `knowledge` and `roundByRound` being
+two strengthenings of soundness.
+-/
+
+/-- Knowledge soundness with knowledge error `knowledgeBound` implies soundness with the same
+soundness error `knowledgeBound`. -/
+theorem knowledgeSoundness_implies_soundness (verifier : Verifier pSpec oSpec StmtIn StmtOut)
+    (relIn : StmtIn → WitIn → Prop) (relOut : StmtOut → WitOut → Prop) (knowledgeBound : ℝ≥0) :
+      knowledgeSoundness pSpec oSpec verifier relIn relOut knowledgeBound →
+        soundness pSpec oSpec verifier relIn relOut knowledgeBound := by sorry
+
+/-- Round-by-round soundness with error `rbrSoundnessBound` implies soundness with error
+`∑ i, rbrSoundnessBound i`, where the sum is over all rounds `i`. -/
+theorem rbrSoundness_implies_soundness (verifier : Verifier pSpec oSpec StmtIn StmtOut)
+    (relIn : StmtIn → WitIn → Prop) (relOut : StmtOut → WitOut → Prop)
+    (stateFunction : StateFunction pSpec oSpec verifier relOut.language)
+    (rbrSoundnessBound : Fin n → ℝ≥0) :
+      rbrSoundness pSpec oSpec verifier relIn relOut stateFunction rbrSoundnessBound →
+        soundness pSpec oSpec verifier relIn relOut (∑ i, rbrSoundnessBound i) := by sorry
+
+/-- Round-by-round knowledge soundness with error `rbrKnowledgeBound` implies round-by-round
+soundness with the same error `rbrKnowledgeBound`. -/
+theorem rbrKnowledgeSoundness_implies_rbrSoundness (verifier : Verifier pSpec oSpec StmtIn StmtOut)
+    (relIn : StmtIn → WitIn → Prop) (relOut : StmtOut → WitOut → Prop)
+    (stateFunction : StateFunction pSpec oSpec verifier relOut.language)
+    (rbrKnowledgeBound : Fin n → ℝ≥0) :
+      rbrKnowledgeSoundness pSpec oSpec verifier relIn relOut stateFunction rbrKnowledgeBound →
+        rbrSoundness pSpec oSpec verifier relIn relOut stateFunction rbrKnowledgeBound := by sorry
+
+/-- Round-by-round knowledge soundness with error `rbrKnowledgeBound` implies knowledge soundness
+with error `∑ i, rbrKnowledgeBound i`, where the sum is over all rounds `i`. -/
+theorem rbrKnowledgeSoundness_implies_knowledgeSoundness
+    (verifier : Verifier pSpec oSpec StmtIn StmtOut)
+    (relIn : StmtIn → WitIn → Prop) (relOut : StmtOut → WitOut → Prop)
+    (stateFunction : StateFunction pSpec oSpec verifier relOut.language)
+    (rbrKnowledgeBound : Fin n → ℝ≥0) :
+      rbrKnowledgeSoundness pSpec oSpec verifier relIn relOut stateFunction rbrKnowledgeBound →
+        knowledgeSoundness pSpec oSpec verifier relIn relOut (∑ i, rbrKnowledgeBound i) := by sorry
+
+end Implications
 
 end Soundness
 
@@ -259,45 +338,53 @@ def Simulator : Type := sorry
 
 end ZeroKnowledge
 
--- End noncomputable section
-end
-
 end Protocol
 
 
 namespace OracleProtocol
 
-noncomputable section
+/- Completeness and soundness are the same as for non-oracle protocols. -/
 
-open OracleComp OracleSpec
+open OracleComp OracleSpec Protocol
 open scoped NNReal
 
-variable {n : ℕ} {pSpec : ProtocolSpec n} {ι : Type} [DecidableEq ι] (oSpec : OracleSpec ι)
-    [∀ i, ToOracle (pSpec.Message i)] [∀ i, Sampleable (pSpec.Challenge i)] {PrvState : Type}
-    {StmtIn WitIn StmtOut WitOut : Type}
+variable {n : ℕ} {ι : Type} [DecidableEq ι] (pSpec : ProtocolSpec n) (oSpec : OracleSpec ι)
+    [∀ i, ToOracle (pSpec.Message i)] [∀ i, Sampleable (pSpec.Challenge i)]
+    {StmtIn WitIn StmtOut WitOut PrvState : Type}
 
-def completeness (oracleProtocol : OracleProtocol pSpec oSpec PrvState StmtIn WitIn StmtOut WitOut)
+def completeness (oracleProtocol : OracleProtocol pSpec oSpec StmtIn WitIn StmtOut WitOut PrvState)
     (relIn : StmtIn → WitIn → Prop) (relOut : StmtOut → WitOut → Prop)
     (completenessError : ℝ≥0) : Prop :=
   Protocol.completeness pSpec oSpec oracleProtocol.toProtocol relIn relOut completenessError
 
 def perfectCompleteness
-    (oracleProtocol : OracleProtocol pSpec oSpec PrvState StmtIn WitIn StmtOut WitOut)
+    (oracleProtocol : OracleProtocol pSpec oSpec StmtIn WitIn StmtOut WitOut PrvState)
     (relIn : StmtIn → WitIn → Prop) (relOut : StmtOut → WitOut → Prop) : Prop :=
   Protocol.perfectCompleteness pSpec oSpec oracleProtocol.toProtocol relIn relOut
 
 def soundness (verifier : OracleVerifier pSpec oSpec StmtIn StmtOut)
     (relIn : StmtIn → WitIn → Prop) (relOut : StmtOut → WitOut → Prop)
     (soundnessBound : ℝ≥0) : Prop :=
-  Protocol.soundness (PrvState := PrvState) pSpec oSpec verifier.toVerifier
-    relIn relOut soundnessBound
+  Protocol.soundness pSpec oSpec verifier.toVerifier relIn relOut soundnessBound
 
 def knowledgeSoundness (verifier : OracleVerifier pSpec oSpec StmtIn StmtOut)
     (relIn : StmtIn → WitIn → Prop) (relOut : StmtOut → WitOut → Prop)
     (knowledgeBound : ℝ≥0) : Prop :=
-  Protocol.knowledgeSoundness (PrvState := PrvState) pSpec oSpec verifier.toVerifier
-    relIn relOut knowledgeBound
+  Protocol.knowledgeSoundness pSpec oSpec verifier.toVerifier relIn relOut knowledgeBound
 
-end
+def rbrSoundness (verifier : OracleVerifier pSpec oSpec StmtIn StmtOut)
+    (relIn : StmtIn → WitIn → Prop) (relOut : StmtOut → WitOut → Prop)
+    (stateFunction : StateFunction pSpec oSpec verifier.toVerifier relOut.language)
+    (rbrSoundnessBound : Fin n → ℝ≥0) : Prop :=
+  Protocol.rbrSoundness pSpec oSpec verifier.toVerifier relIn relOut stateFunction rbrSoundnessBound
+
+def rbrKnowledgeSoundness (verifier : OracleVerifier pSpec oSpec StmtIn StmtOut)
+    (relIn : StmtIn → WitIn → Prop) (relOut : StmtOut → WitOut → Prop)
+    (stateFunction : StateFunction pSpec oSpec verifier.toVerifier relOut.language)
+    (rbrKnowledgeBound : Fin n → ℝ≥0) : Prop :=
+  Protocol.rbrKnowledgeSoundness pSpec oSpec verifier.toVerifier relIn relOut stateFunction
+    rbrKnowledgeBound
 
 end OracleProtocol
+
+end
