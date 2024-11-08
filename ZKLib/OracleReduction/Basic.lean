@@ -5,10 +5,7 @@ Authors: Quang Dao
 -/
 
 import VCVio
-import ZKLib.Relation.Basic
 import ZKLib.Data.Math.Fin
-import ZKLib.Data.Math.HList
-import Mathlib.Data.Fin.Fin2
 
 /-!
 # (Interactive) Oracle Reductions
@@ -31,7 +28,7 @@ the verifier can see the full messages. Our formalization also allows both prove
 to have access to some shared oracle.
 
 Note: the definition of IORs as defined above generalizes those found in the literature. When the
-output relation is the Boolean relation (where `StatementOut = Bool`), then we recover a generalized
+output relation is the Boolean relation (where `StmtOut = Bool`), then we recover a generalized
 version of Interactive Oracle Proofs (IOPs) [BCS16]. The particular IOP considered in [BCS16] may be
 called "point IOP" due to its query structure. We also get "polynomial IOP" [BCG+19] and "tensor
 IOP" [BCG20] (and other kinds of IOPs) from our definition.

@@ -5,7 +5,7 @@ Authors: Quang Dao
 -/
 
 import ZKLib.OracleReduction.Basic
-import ZKLib.Relation.Sumcheck
+import ZKLib.ProofSystem.Relation.Sumcheck
 
 /-!
 # The Sum-check Protocol

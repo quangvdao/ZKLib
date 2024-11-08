@@ -5,8 +5,6 @@ Authors: Quang Dao
 -/
 
 import Mathlib.Data.Matrix.Hadamard
-import ZKLib.Relation.Basic
-
 /-!
 # R1CS
 
@@ -39,9 +37,9 @@ structure Witness (index : Index R) where
   w : Fin index.witnessSize → R
 
 -- Relation structure for R1CS
-instance relation (index : Index R) : Relation (Statement R index) (Witness R index) where
-  isValid := fun stmt wit =>
-    let z : Fin index.n → R := Fin.append (Fin.append (λ _ => 1) stmt.x) wit.w
+def R1CSRel (index : Index R) : (Statement R index) → (Witness R index) → Prop :=
+  fun stmt wit =>
+    let z : Fin index.n → R := Fin.append (Fin.append (fun _ => 1) stmt.x) wit.w
     (index.A *ᵥ z) * (index.B *ᵥ z) = (index.C *ᵥ z)
 
 -- instance relation (index : Index R) : Relation (Statement index) (Witness index) where

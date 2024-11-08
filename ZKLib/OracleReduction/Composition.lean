@@ -5,7 +5,6 @@ Authors: Quang Dao
 -/
 
 import ZKLib.OracleReduction.Security
-import ZKLib.Data.Math.Fin
 
 /-!
   # Composition of Interactive (Oracle) Protocols with Compatible Relations

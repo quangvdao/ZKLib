@@ -5,7 +5,6 @@ Authors: Quang Dao
 -/
 
 import ZKLib.Data.MvPolynomial.Sumcheck
-import ZKLib.Relation.Basic
 
 /-!
 # Sumcheck Relation
@@ -17,16 +16,18 @@ This file defines the relation for the sumcheck protocol. The relation is parame
   - the degree of each variable $d_1, \dots, d_n$
   - the domain $D$ of the protocol, which is a finite subset of $R$.
 
-The witness of the sumcheck protocol is a multivariate polynomial $p(x_1, \dots, x_n)$ over $R$, of degree $d_i$ in variable $x_i$ for each $i \in \{1, \dots, n\}$.
+The witness of the sumcheck protocol is a multivariate polynomial $p(x_1, \dots, x_n)$ over $R$, of
+degree $d_i$ in variable $x_i$ for each $i \in \{1, \dots, n\}$.
 
-The statement of the sumcheck protocol is a value $T \in R$, supposed to be the sum of the polynomial over the domain $D^n$.
+The statement of the sumcheck protocol is a value $T \in R$, supposed to be the sum of the
+polynomial over the domain $D^n$.
 
-The sumcheck relation states that the following holds:
-`∑ y in D ^ n, p(y) = T`.
+The sumcheck relation states that the following holds: `∑ y in D ^ n, p(y) = T`.
 
 ## TODOs
 
-Extend the relation to capture sumcheck over modules. This will allow instantiating e.g. the Bulletproofs protocol as an instance of sumcheck.
+Extend the relation to capture sumcheck over modules. This will allow instantiating e.g. the
+Bulletproofs protocol as an instance of sumcheck.
 
 ## References
 
@@ -37,8 +38,6 @@ Extend the relation to capture sumcheck over modules. This will allow instantiat
 -/
 
 namespace Sumcheck
-
-open Relation
 
 noncomputable section
 

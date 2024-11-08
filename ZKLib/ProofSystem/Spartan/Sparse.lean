@@ -5,7 +5,7 @@ Authors: Quang Dao
 -/
 
 import ZKLib.OracleReduction.Basic
-import ZKLib.Relation.R1CS
+import ZKLib.ProofSystem.Relation.R1CS
 
 
 /-!

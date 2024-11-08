@@ -16,13 +16,18 @@ import ZKLib.OracleReduction.Basic
   - Zero-knowledge: This will be defined in the future
 -/
 
--- We first define security notions for interactive (non-oracle) protocols, and then for oracle
--- protocols?
-
--- For completeness and soundness, it doesn't matter whether the verifier is oracle or not
+section Relation
 
 def Function.language {α β} (rel : α → β → Prop) : Set α :=
   {stmt | ∃ wit, rel stmt wit}
+
+def trivialRel : Bool → Unit → Prop := fun b _ => b
+
+@[simp]
+theorem trivialRel_language : trivialRel.language = { true } := by
+  unfold Function.language trivialRel; simp
+
+end Relation
 
 noncomputable section
 
@@ -314,9 +319,9 @@ end Soundness
 section ZeroKnowledge
 
 -- The simulator should have programming access to the shared oracles `oSpec`
-def Simulator : Type := sorry
-  -- Statement → PMF (Verifier oSpec)
-
+structure Simulator (SimState : Type) where
+  oracleSim : SimOracle oSpec oSpec SimState
+  proverSim : StmtIn → SimState → PMF (Transcript pSpec × SimState)
 
 /-
   We define honest-verifier zero-knowledge as follows:
