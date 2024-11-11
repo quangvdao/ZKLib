@@ -1,2 +1,2 @@
 import ZKLib.ProofSystem.Sumcheck
-import ZKLib.ProofSystem.Spartan
+-- import ZKLib.ProofSystem.Spartan
