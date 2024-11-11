@@ -8,7 +8,7 @@ import VCVio
 import ZKLib.OracleReduction.Security
 
 /-!
-  # Oracle Commitment Schemes
+  # Commitment Schemes with Oracle Openings
 
   A commitment scheme, relative to an oracle `oSpec : OracleSpec ι`, and for a given function
   `oracle : Data → Query → Response` transforming underlying data `Data` into an oracle `Query →
@@ -58,6 +58,9 @@ variable [DecidableEq ι] {pSpec : ProtocolSpec n} [∀ i, Sampleable (pSpec.Cha
   {oSpec : OracleSpec ι} {Data : Type} [O : ToOracle Data] {Randomness : Type} [Fintype Randomness]
   {Commitment : Type} {PrvState : Type}
 
+/-- A commitment scheme satisfies **correctness** with error `correctnessError` if for all
+  `data : Data`, `randomness : Randomness`, and `query : O.Query`, the probability of accepting
+  upon executing commitment and opening procedures honestly is at least `1 - correctnessError`. -/
 def correctness (scheme : Scheme pSpec oSpec Data Randomness Commitment PrvState)
     (correctnessError : ℝ≥0) : Prop :=
   ∀ data : Data,
@@ -69,6 +72,8 @@ def correctness (scheme : Scheme pSpec oSpec Data Randomness Commitment PrvState
     let probAccept := Prod.fst <$> Prod.snd <$> Prod.snd <$> result
     probAccept True ≥ 1 - correctnessError
 
+/-- A commitment scheme satisfies **perfect correctness** if it satisfies correctness with no error.
+  -/
 def perfectCorrectness (scheme : Scheme pSpec oSpec Data Randomness Commitment PrvState) : Prop :=
   correctness scheme 0
 

@@ -22,20 +22,17 @@ def Fin.sumCommEquiv (m : ℕ) (n : ℕ) : Fin (m + n) ≃ (Fin n) ⊕ (Fin m) :
 
 namespace MvPolynomial
 
+variable {R : Type*} [CommSemiring R] {σ : Type*} {m n : ℕ}
+
+-- /-- Evaluate the first variable of a multivariate polynomial -/
+-- def evalFirstVar (p : MvPolynomial (Fin n) R) (r : R) (pos : n > 0) :
+--     MvPolynomial (Fin (n - 1)) R := by
+--   have : n = n - 1 + 1 := by omega
+--   rw [this] at p
+--   exact (finSuccEquiv R (n - 1) p).eval (C r)
+
+
 open scoped Polynomial
-
-variable {R : Type _} [CommSemiring R] {σ : Type*} {m n : ℕ}
-
-/-- Evaluate the first variable of a multivariate polynomial -/
-def evalFirstVar (p : MvPolynomial (Fin n) R) (r : R) (pos : n > 0) :
-    MvPolynomial (Fin (n - 1)) R := by
-  have : n = n - 1 + 1 := by omega
-  rw [this] at p
-  exact (finSuccEquiv R (n - 1) p).eval (C r)
-
-/-- Equivalence between `MvPolynomial (Fin 1) R` and `Polynomial R` -/
-def finOneEquiv : MvPolynomial (Fin 1) R ≃ₐ[R] Polynomial R :=
-  (finSuccEquiv R 0).trans (Polynomial.mapAlgEquiv (isEmptyAlgEquiv R (Fin 0)))
 
 section PartialEval
 
@@ -100,7 +97,7 @@ def sumAll (n : ℕ) (D : Fin n → Finset R) : MvPolynomial (Fin n) R →ₗ[R]
 def sumExceptFirst (n : ℕ) (D : Fin n → Finset R) :
     MvPolynomial (Fin (n + 1)) R →ₗ[R] Polynomial R := by
   rw [Nat.add_comm n 1]
-  exact finOneEquiv.toLinearMap.comp (sumPartial 1 n D)
+  exact (finOneEquiv R).toLinearMap.comp (sumPartial 1 n D)
 
 /-- Variant of `sumFinsetExceptFirst` where we replace `n` with `n - 1` -/
 def sumExceptFirst' (n : ℕ) (h : n > 0) (D : Fin (n - 1) → Finset R) :

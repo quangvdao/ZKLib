@@ -15,28 +15,6 @@ import Mathlib.Logic.Lemmas
 -/
 universe u v
 
-#check Fin.partialProd
-
--- TODO: put this elsewhere (for some reason `@[to_additive]` doesn't work)
-def List.partialSum {α : Type*} [AddMonoid α] (l : List α) : List α :=
-  [0] ++ match l with
-  | [] => []
-  | a :: l' => (partialSum l').map (a + ·)
-
-def List.partialProd {α : Type*} [Monoid α] (l : List α) : List α :=
-  [1] ++ match l with
-  | [] => []
-  | a :: l' => (partialProd l').map (a * ·)
-
-
-theorem List.partialProd_eq_Fin_partialProd {α : Type*} [Monoid α] (l : List α) :
-    List.partialProd l = List.ofFn (Fin.partialProd l.get) := by sorry
-  -- induction l with
-  -- | nil => simp [List.partialProd, List.ofFn]
-  -- | cons a l' ih => simp [List.partialProd, List.ofFn, ih]
-
-#eval [1, 2, 3].partialSum
-
 /-- Version of `funext_iff` for dependent functions `f : (x : α) → β x`. -/
 theorem funext_iff' {α : Sort u} {β : α → Sort v} {γ : α → Sort v}
     {f : (x : α) → β x} {g : (x : α) → γ x} (h : ∀ x, β x = γ x) :
@@ -45,9 +23,81 @@ theorem funext_iff' {α : Sort u} {β : α → Sort v} {γ : α → Sort v}
   subst this
   simp [funext_iff]
 
+namespace List
+
+-- TODO: put this elsewhere (for some reason `@[to_additive]` doesn't work)
+def partialSum {α : Type*} [AddMonoid α] (l : List α) : List α :=
+  [0] ++ match l with
+  | [] => []
+  | a :: l' => (partialSum l').map (a + ·)
+
+@[to_additive existing]
+def partialProd {α : Type*} [Monoid α] (l : List α) : List α :=
+  [1] ++ match l with
+  | [] => []
+  | a :: l' => (partialProd l').map (a * ·)
+
+@[simp]
+theorem partialSum_nil : [].partialSum = [0] := rfl
+
+variable {α : Type*} [AddMonoid α]
+
+@[simp]
+theorem partialSum_succ {a : α} {l : List α} :
+    (a :: l).partialSum = [0] ++ (partialSum l).map (a + ·) := rfl
+
+variable [Preorder α] [DecidableRel ((· < ·) : α → α → Prop)]
+
+-- Pinpoint the first element in the list whose partial sum up to that point is more than `j`
+def findSum (l : List α) (j : α) : Option α := l.partialSum.find? (j < ·)
+
+-- TODO: extend theorems to more general types than just `ℕ`
+
+theorem findSum_of_le_sum {l : List ℕ} {j : ℕ} (h : j < l.sum) : ∃ n, findSum l j = some n := by
+  match l with
+  | [] => simp only [sum_nil, not_lt_zero'] at h ⊢
+  | a :: l' =>
+    simp at h
+    sorry
+    -- by_cases h' : j < a
+    -- · use a
+    --   simp [findSum, h', findSome?_cons]
+    -- · simp [findSum, h'] at h
+    --   specialize @findSum_of_le_sum l' (j - a)
+    --   simp at h
+
+-- Pinpoint the first index in the list whose partial sum is more than `j`
+def findSumIdx (l : List α) (j : α) : ℕ := l.partialSum.findIdx (j < ·)
+
+-- Variant of `findSumIdx` with bounds
+def findSumIdx' (l : List ℕ) (j : Fin l.sum) : Fin l.length := ⟨findSumIdx l j, sorry⟩
+
+def findSumIdxWith (l : List ℕ) (j : Fin l.sum) : (i : Fin l.length) × Fin (l.get i) := sorry
+
+@[simp]
+theorem ranges_length_eq_self_length {l : List ℕ} : l.ranges.length = l.length := by
+  induction l with
+  | nil => simp only [List.ranges, List.length_nil]
+  | cons n l' ih => simp only [List.ranges, List.length_cons, List.length_map, ih]
+
+@[simp]
+theorem ranges_nil : List.ranges [] = [] := rfl
+
+@[simp]
+theorem ranges_succ {a : ℕ} {l : List ℕ} :
+    List.ranges (a :: l) = range a :: l.ranges.map (map (a + ·)) := rfl
+
+end List
+
 namespace Fin
 
 open Function
+
+theorem partialProd_eq_partialProd_list {α : Type*} {n : ℕ} [Monoid α] (a : Fin n → α) :
+    List.partialProd (List.ofFn a) = List.ofFn (Fin.partialProd a) := by sorry
+  -- induction l with
+  -- | nil => simp [List.partialProd, List.ofFn]
+  -- | cons a l' ih => simp [List.partialProd, List.ofFn, ih]
 
 theorem append_comp {n m : ℕ} {α : Sort*} {β : Sort*} {a : Fin n → α} {b : Fin m → α} (f : α → β)
     (i : Fin (n + m)) : append (f ∘ a) (f ∘ b) i = f (append a b i) := by
@@ -208,8 +258,6 @@ section Sum
 
 -- Append multiple `Fin` tuples?
 
-#print Fin.addCases
-
 def castSum (l : List ℕ) {n : ℕ} (h : n ∈ l) : Fin n → Fin l.sum := fun i =>
   match l with
   | [] => by contradiction
@@ -227,14 +275,6 @@ theorem castSum_castLT {l' : List ℕ} {i : ℕ} (j : Fin i) :
 theorem castSum_castAdd {n m : ℕ} (i : Fin n) : castSum [n, m] (by simp) i = castAdd m i := by
   simp [castSum]
 
--- Pinpoint the index in the list
-def findSumIdx (l : List ℕ) (j : ℕ) : ℕ := l.partialSum.findIdx (j < ·)
-
--- Variant of `findSumIdx` with bounds
-def findSumIdx' (l : List ℕ) (j : Fin l.sum) : Fin l.length := ⟨findSumIdx l j, sorry⟩
-
-def findSumIdxWith (l : List ℕ) (j : Fin l.sum) : (i : Fin l.length) × Fin (l.get i) := sorry
-
 def sumCases {l : List ℕ} {motive : Fin l.sum → Sort*}
     (cases : ∀ (n : ℕ) (h : n ∈ l) (i : Fin n), motive (castSum l h i))
     (i : Fin l.sum) : motive i := match l with
@@ -249,5 +289,75 @@ def sumCases {l : List ℕ} {motive : Fin l.sum → Sort*}
       -- refine sumCases (l := l') (motive := motive ∘ natAdd i') ?_ ⟨j.val - i', hj'⟩
 
 end Sum
+
+section Join
+
+variable {n : ℕ}
+
+def map {α β : Fin n → Sort*} (f : (i : Fin n) → α i → β i) (a : (i : Fin n) → α i) :
+    (i : Fin n) → β i := fun i => f i (a i)
+
+def range (n : ℕ) : Fin n → ℕ := fun i => i
+
+def ranges {n : ℕ} (a : Fin n → ℕ) : (i : Fin n) → Fin (a i) → ℕ :=
+  match n with
+  | 0 => fun i => elim0 i
+  | n + 1 => fun i => by
+    by_cases h : i = 0
+    · exact val
+    · letI rest := ranges (tail a) (i.pred h)
+      simp only [tail, pred, subNat_one_succ] at rest
+      exact fun j => rest j + a 0
+
+theorem ranges_eq_ranges_list {a : Fin n → ℕ} :
+    List.ofFn (fun i => List.ofFn (ranges a i)) = List.ranges (List.ofFn a) := by
+  induction n using Nat.strongRec with
+  | ind n IH => sorry
+
+/-- Find the first index `i` such that `k` is smaller than `∑ j < i, a j`, and return `none`
+  otherwise.
+  -/
+def findSumIdx? (a : Fin n → ℕ) (k : ℕ) : Option (Fin n) :=
+  find (fun i => k < ∑ j with j < i, a j)
+  -- find (fun i => find (fun j => k = ranges a i j) |>.isSome)
+
+#check find_eq_some_iff
+
+theorem findSumIdx?_is_some_iff_le_sum {a : Fin n → ℕ} {k : ℕ} :
+    (findSumIdx? a k).isSome ↔ k < ∑ i, a i := by
+  sorry
+
+/-- When `k` is less than `∑ i, a i`, `findSumIdx' a k` returns some index `idx < n` -/
+def findSumIdx (a : Fin n → ℕ) (k : Fin (∑ i, a i)) : Fin n :=
+  (findSumIdx? a k.val).get (findSumIdx?_is_some_iff_le_sum.mpr k.isLt)
+
+def remainderFromSum' (a : Fin n → ℕ) (k : ℕ) : ℕ := by
+  letI i := finSuccEquivLast.invFun (findSumIdx? a k)
+  exact k - ∑ j with j.1 < i.1, a j
+
+theorem remainderFromSum'_le_next {a : Fin n → ℕ} {k : Fin (∑ i, a i)} :
+    remainderFromSum' a k < a (findSumIdx a k) := sorry
+
+def remainderFromSum (a : Fin n → ℕ) (k : Fin (∑ i, a i)) : Fin (a (findSumIdx a k)) :=
+  ⟨remainderFromSum' a k, remainderFromSum'_le_next⟩
+
+variable {a : Fin n → ℕ} {α : (i : Fin n) → (j : Fin (a i)) → Sort*}
+
+def finSigmaFinEquiv {m : ℕ} {n : Fin m → ℕ} : (i : Fin m) × Fin (n i) ≃ Fin (∑ i, n i) where
+  toFun := fun ⟨i, j⟩ => ⟨∑ k with k < i, n k + j, sorry⟩
+  invFun := fun k => ⟨findSumIdx n k, remainderFromSum n k⟩
+  left_inv := sorry
+  right_inv := sorry
+
+def join (v : (i : Fin n) → (j : Fin (a i)) → α i j) (k : Fin (∑ i, a i)) :
+    α (findSumIdx a k) (remainderFromSum a k) := v (findSumIdx a k) (remainderFromSum a k)
+
+theorem join_addCases : True := sorry
+
+theorem join_eq_addCases : True := sorry
+
+theorem join_eq_join_list : True := sorry
+
+end Join
 
 end Fin

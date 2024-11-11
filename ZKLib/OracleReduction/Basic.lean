@@ -186,10 +186,10 @@ structure ProverIn (pSpec : ProtocolSpec n) (StmtIn WitIn PrvState : Type) where
 
 /-- Represents the interaction of a prover for a given protocol specification -/
 structure ProverRound (pSpec : ProtocolSpec n) (oSpec : OracleSpec ι) (PrvState : Type) where
-  /-- Receive a challenge and update the prover's state -/
-  receiveChallenge (i : ChallengeIndex pSpec) : PrvState → (pSpec.Challenge i) → PrvState
   /-- Send a message and update the prover's state -/
   sendMessage (i : MessageIndex pSpec) : PrvState → OracleComp oSpec (pSpec.Message i × PrvState)
+  /-- Receive a challenge and update the prover's state -/
+  receiveChallenge (i : ChallengeIndex pSpec) : PrvState → (pSpec.Challenge i) → PrvState
 
 /-- The output of the prover, which is a function from the prover's state to the output witness -/
 structure ProverOut (WitOut PrvState : Type) where

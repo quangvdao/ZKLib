@@ -4,7 +4,8 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Quang Dao
 -/
 
-import ZKLib.OracleReduction.Basic
+import ZKLib.OracleReduction.ToOracle
+import ZKLib.OracleReduction.Security
 import ZKLib.ProofSystem.Relation.Sumcheck
 
 /-!
@@ -17,34 +18,75 @@ underlying polynomials are represented using Mathlib's noncomputable types `Poly
 Other files will deal with implementations of the protocol, and we will prove that those
 implementations derive security from that of the abstract protocol.
 
-We split the sum-check protocol into the following stages:
+## Protocol Specification
 
-0. Before the protocol starts, we assume that the prover has already sent the multivariate
-   polynomial `P`, so that it can be in the statement of the relation.
+The sum-check protocol is parameterized by the following:
+- `R`: the underlying ring (for soundness, required to be finite and a domain)
+- `n`: the number of variables (also number of rounds)
+- `deg`: the individual degree bound for the polynomial
+- `D`: the set of `m` evaluation points for each variable (for some `m`), represented as an
+  injection `Fin m ↪ R`. The image of `D` as a finite subset of `R` is written as `Finset.univ.map
+  D`.
 
-1. For round `0`, the verifier sends nothing, and the prover sends the univariate polynomial `p_0`
-   for the first sum-check round.
+The sum-check relation has no witness. The statement for the `i`-th round, where `i ≤ n`, contains:
+- `poly : MvPolynomial (Fin n) R`, which is the multivariate polynomial that is summed over
+- `target : R`, which is the target value for sum-check
+- `challenges : Fin i → R`, which is the list of challenges sent from the verifier to the prover in
+  previous rounds
+- `earlyReject : Bool`, which is whether the verifier has already rejected
 
-The verifier checks that `p_0` satisfies `∑ x in domain, p_0.eval x = T`, where `T` is the target
-value of sum-check.
+The sum-check relation for the `i`-th round checks that:
+- `earlyReject = false`
+- `∑ x ∈ (univ.map D) ^ᶠ (n - i), poly ⸨challenges, x⸩ = target`.
 
-2. For round `i = 1` to `n - 1`, the verifier sends a challenge `r_{i-1} : R`, and the prover sends
-   back the univariate polynomial `p_i` for that round.
+Note that the last statement (when `i = n`) is the output statement of the sum-check protocol.
 
-The verifier then checks that `p_i` satisfies `∑ x in domain, p_i.eval x = p_{i - 1}.eval r_{i-1}`,
-where `p_{i-1}` is the polynomial from the previous round (added to the current round's statement).
+For `i = 0, ..., n - 1`, the `i`-th round of the sum-check protocol consists of the following:
 
-3. In the last round `i = n`, the verifier sends a challenge `r_n : R`, and the prover does not send
-   anything.
+1. The prover sends a univariate polynomial `p_i ∈ R⦃≤ deg⦄[X]` of degree at most `deg`. If the
+   prover is honest, then we have:
+   `p_i(X) = ∑ x ∈ (univ.map D) ^ᶠ (n - i - 1), poly ⸨X ⦃i⦄, challenges, x⸩`.
 
-The verifier checks that `p_{n-1}` satisfies `∑ x in domain, p_{n-1}.eval x = P.eval (fun i => r_i)`
+  Here, `poly ⸨X ⦃i⦄, challenges, x⸩` is the polynomial `poly` evaluated at the concatenation of the
+  prior challenges `challenges`, the `i`-th variable as the new indeterminate `X`, and the rest of
+  the values `x ∈ (univ.map D) ^ᶠ (n - i - 1)`.
+
+  In the oracle protocol, this polynomial `p_i` is turned into an oracle for which the verifier can
+  query for evaluations at arbitrary points.
+
+2. The verifier then sends the `i`-th challenge `r_i` sampled uniformly at random from `R`.
+
+3. The (oracle) verifier then performs queries for the evaluations of `p_i` at all points in
+`(univ.map D)`, and checks that: `∑ x in (univ.map D), p_i.eval x = target`.
+
+   It then outputs a statement for the next round as follows:
+   - `poly` is unchanged
+   - `target` is updated to `p_i.eval r_i`
+   - `challenges` equals the concatenation of the previous challenges and `r_i`
+   - `earlyReject` equals prior `earlyReject` and the result of the above check
+
+## Notes & TODOs
 
 Note that to represent sum-check as a series of IORs, we will need to implicitly constrain the
 degree of the polynomials via using subtypes, such as `Polynomial.degreeLE` and
 `MvPolynomial.degreeOf`. This is because the oracle verifier only gets oracle access to evaluating
-the polynomials, but does not see the polynomials in the clear. When this is compiled to an
-interactive proof, the corresponding polynomial commitment schemes will enforce that the declared
-degree bound holds, via letting the (non-oracle) verifier perform explicit degree checks.
+the polynomials, but does not see the polynomials in the clear.
+
+When this is compiled to an interactive proof, the corresponding polynomial commitment schemes will
+enforce that the declared degree bound holds, via letting the (non-oracle) verifier perform explicit
+degree checks.
+
+There are some generalizations that we could consider later:
+
+- Generalize to `degs : Fin n → ℕ` and `domain : Fin n → Finset R`, e.g. can vary the degree bound
+  and the summation domain for each variable
+
+- Generalize the challenges to come from a suitable subset of `R` (e.g. subtractive sets), and not
+  necessarily the whole domain. This is used in lattice-based protocols.
+
+- Sumcheck over modules instead of just rings. This will require extending `MvPolynomial` to have
+  such a notion of evaluation, something like `evalModule (x : σ → M) (p : MvPolynomial σ R) : M`,
+  where we have `[Module R M]`.
 
 -/
 
@@ -53,180 +95,142 @@ namespace Sumcheck
 noncomputable section
 namespace Spec
 
-open Polynomial MvPolynomial OracleComp
+open Polynomial MvPolynomial OracleSpec OracleComp ProtocolSpec Finset
 
--- For now, we assume uniform sampling from `R`
--- structure SamplingSet (R : Type _) where
---   pred : R → Prop
---   decPred : DecidablePred pred
---   inhabited : Inhabited (Subtype pred)
+-- The variables for sum-check
+variable (R : Type) [CommSemiring R] [Sampleable R] (n : ℕ) (deg : ℕ) {m : ℕ} (D : Fin m ↪ R)
 
+/-- Statement for sum-check, parameterized by the ring `R`, the number of variables `n`, the domain
+  `D`, and the round index `i ≤ n`
 
-/-- Public parameters for the sum-check protocol with `n` rounds -/
-structure Params (R : Type) (n : ℕ) where
-  degrees : Fin n → ℕ
-  -- Possible generalization in the future: `domain : Fin n → Finset R`
-  domain : Finset R
-
-variable {R : Type} [CommSemiring R] [Sampleable R] {n : ℕ} (params : Params R n)
-
-/-- Initial statement for sum-check -/
-structure Statement where
+Note that when `i = n`, this is the output statement of the sum-check protocol -/
+structure Statement (i : ℕ) (hi : i ≤ n) where
   -- The multivariate polynomial for sum-check
-  poly : MvPolynomial (Fin n) R
+  poly : R⦃≤ deg⦄[X Fin n]
   -- The target value for sum-check
   target : R
-  -- The degree bound for the polynomial (will put in the `poly` field directly as a subtype)
-  hPoly : ∀ j : Fin n, poly.degreeOf j ≤ params.degrees j
-
-/-- Statement for the `i`-th round of sum-check -/
-structure StatementRound (i : Fin n) where
-  -- The multivariate polynomial for sum-check
-  poly : MvPolynomial (Fin n) R
-  -- The degree bound for the polynomial (will put in the `poly` field directly as a subtype)
-  hPoly : ∀ j : Fin n, poly.degreeOf j ≤ params.degrees j
-  -- The target value for sum-check in each round
-  target : R
-  -- The message polynomial from the previous round
-  lastMessage : R[X]
   -- The challenges sent from the verifier to the prover from previous rounds
   challenges : Fin i → R
+  -- Whether the statement has already been rejected
+  earlyReject : Bool
 
-/-- The overall sum-check relation -/
-instance relation : Relation (Statement params) Unit where
-  isValid := fun stmt _ =>
-    sumAll n (fun _ => params.domain) stmt.poly = stmt.target
-      ∧ ∀ j : Fin n, stmt.poly.degreeOf j ≤ params.degrees j
+/-- The sum-check relation for the `i`-th round, for `i ≤ n` -/
+def relation (i : ℕ) (hi : i ≤ n) : (Statement R n deg i hi) → Unit → Prop :=
+  fun ⟨⟨poly, _⟩, target, challenges, earlyReject⟩ _ =>
+    earlyReject = false ∧ ∑ x ∈ (univ.map D) ^ᶠ (n - i), poly ⸨challenges, x⸩ = target
 
-/-- The sum-check relation for the `i`-th round -/
-instance relationRound (i : Fin n) :
-    Relation (StatementRound params i) Unit where
-  isValid := fun stmt _ =>
-    ∑ x ∈ params.domain, stmt.lastMessage.eval x = stmt.target
-      ∧ ∀ j : Fin n, stmt.poly.degreeOf j ≤ params.degrees j
+/-- Protocol specification for the `i`-th round of the sum-check protocol
 
-variable (params : Params R n)
+Consists of a message from prover to verifier of degree at most `deg`, and a message
+from verifier to prover of a field element in `R`. -/
+def pSpec : ProtocolSpec 2 := ![(.P_to_V, R⦃≤ deg⦄[X]), (.V_to_P, R)]
 
--- Let's try defining a single round as a reduction
+/-- Combination of the protocol specifications for all rounds -/
+def pSpecCombined (n : ℕ) : ProtocolSpec (n * 2) := by
+  simpa using Fin.join (fun (_ : Fin n) => pSpec R deg)
 
-def polynomialOracle : ToOracle R[X] where
-  Query := R
-  Response := R
-  respond := fun poly point => poly.eval point
+/-- There is only one message from the prover to the verifier -/
+instance : Unique (MessageIndex (pSpec R deg)) where
+  default := ⟨0, by simp [pSpec, getDir]⟩
+  uniq := fun ⟨i, hi⟩ => by
+    congr
+    contrapose hi
+    have : i = 1 := by omega
+    simp [pSpec, getDir, this]
 
-/-- Protocol spec for the first round, where the verifier sends no message,
-and the prover sends the polynomial `p_0` -/
-def pSpecFirst : ProtocolSpec 1 where
-  Challenge := fun _ => Empty
-  Message := fun _ => R[X]
+/-- There is only one challenge from the verifier to the prover -/
+instance : Unique (ChallengeIndex (pSpec R deg)) where
+  default := ⟨1, by simp [pSpec, getDir]⟩
+  uniq := fun ⟨i, hi⟩ => by
+    congr
+    contrapose hi
+    have : i = 0 := by omega
+    simp [pSpec, getDir, this]
 
-/-- Protocol spec for the intermediate rounds, where the verifier sends a challenge `r_{i-1}`,
-and the prover sends back the polynomial `p_i` -/
-def pSpecMiddle : ProtocolSpec 1 where
-  Challenge := fun _ => R
-  Message := fun _ => R[X]
+/-- Recognize that the (only) message from the prover to the verifier has type `R⦃≤ deg⦄[X]`, and
+  hence can be turned into an oracle for evaluating the polynomial -/
+instance : (i : MessageIndex (pSpec R deg)) → ToOracle ((pSpec R deg).Message i) := fun i => by
+  haveI : i = default := Unique.uniq _ i
+  simp [this, default, pSpec, Message, getType]
+  exact instToOraclePolynomialDegreeLE
 
-/-- Protocol spec for the last round, where the verifier sends a challenge `r_{n-1}`,
-and the prover does not send anything -/
-def pSpecLast : ProtocolSpec 1 where
-  Challenge := fun _ => R
-  Message := fun _ => Unit
+/-- Prover input for the `i`-th round of the sum-check protocol, where `i < n` -/
+def proverIn (i : Fin n) : ProverIn (pSpec R deg) (Statement R n deg i (by omega)) Unit
+    (Statement R n deg i (by omega)) where
+  load := fun stmt _ => stmt
 
-/- Note:
-1. If `n = 0`, then there is no round.
-2. If `n = 1`, then we only have the last round.
-3. If `n = 2`, then we have the first and last round.
-4. If `n ≥ 3`, then we have all rounds (including middle rounds).
--/
+/-- Prover interaction for the `i`-th round of the sum-check protocol, where `i < n`. This is only
+  well-defined for `n > 0` -/
+def proverRound (i : Fin n) (hn : n > 0) :
+    ProverRound (pSpec R deg) emptySpec (Statement R n deg i (by omega)) where
+  sendMessage := fun idx state => by
+    have ⟨⟨poly, _⟩, target, challenges, earlyReject⟩ := state
+    haveI : idx = default := Unique.uniq (inferInstance) idx
+    rw [this]
+    simp [pSpec, Message, getType, this, default]
+    let n' := n - 1
+    have : n = n' + 1 := by omega
+    simp_rw [this] at poly
+    exact pure ⟨ ⟨∑ x ∈ (univ.map D) ^ᶠ (n' - i), poly ⸨X ⦃i⦄, challenges, x⸩, sorry⟩, state ⟩
+  receiveChallenge := fun _ state _ => state
 
--- def pSpec (n : ℕ) : ProtocolSpec n
-  -- | 0 => isEmptyElim
-  -- | 1 => pSpecLast R
-  -- | n + 2 => pSpecFirst R ++ₚ (n ×ₚ pSpecMiddle R) ++ₚ pSpecLast R
+/-- Since there is no witness, the prover's output for each round `i < n` of the sum-check protocol
+  is trivial -/
+def proverOut (i : Fin n) : ProverOut Unit (Statement R n deg i (by omega)) where
+  output := fun _ => ()
 
-/-- Type signature for the sum-check prover's state -/
-@[ext]
-structure PrvState (params : Params R n) where
-  poly : MvPolynomial (Fin n) R
-  -- { x : MvPolynomial (Fin (n - i)) R // ∀ j, x.degreeOf j ≤ params.degrees (Fin.castAdd i j) }
-  chals : List R
+/-- The overall prover for the `i`-th round of the sum-check protocol, where `i < n`. This is only
+  well-defined for `n > 0`, since when `n = 0` there is no protocol. -/
+def prover (i : Fin n) (hn : n > 0) : Prover (pSpec R deg) emptySpec
+    (Statement R n deg i (by omega)) Unit (Statement R n deg (i + 1) (by omega)) Unit
+    (Statement R n deg i (by omega)) where
+  toProverIn := proverIn R n deg i
+  toProverRound := proverRound R n deg D i hn
+  toProverOut := proverOut R n deg i
 
-/-- Initialization of the sum-check prover -/
-def proverInit : ProverInit pSpecFirst emptySpec (PrvState params) (Statement params) Unit where
-  load := fun stmt _ => do return { poly := stmt.poly, chals := [] }
+/-- The default value for the tuple (message index, query, response) -/
+instance : Inhabited ((i : MessageIndex (pSpec R deg)) × ToOracle.Query ((pSpec R deg).Message i)
+    × ToOracle.Response ((pSpec R deg).Message i)) where
+  default := ⟨default,
+    by simp [pSpec, Message, getType, default, instToOracleMessagePSpec,
+      instToOraclePolynomialDegreeLE]; exact 0,
+    by simp [pSpec, Message, getType, default, instToOracleMessagePSpec,
+      instToOraclePolynomialDegreeLE]; exact 0⟩
 
-/-- Honest sum-check prover for the first round -/
-def proverFirst (h : n > 0) : ProverRound (pSpecFirst R) emptySpec (PrvState R (n := n)) where
-  prove := fun 0 _ state => by
-    -- Compute the message
-    letI message := sumExceptFirst' n h (fun _ => params.domain) state.poly
-    exact pure ⟨ message, state ⟩
+/-- The (non-oracle) verifier of the sum-check protocol for the `i`-th round, where `i < n` -/
+def verifier (i : Fin n) : Verifier (pSpec R deg) emptySpec
+    (Statement R n deg i (by omega)) (Statement R n deg (i + 1) (by omega)) where
+  verify := fun ⟨poly, target, challenges, earlyReject⟩ transcript => by
+    let ⟨p_i, _⟩ : R⦃≤ deg⦄[X] := transcript 0
+    let r_i : R := transcript 1
+    let accept := decide (∑ x ∈ (univ.map D), p_i.eval x = target)
+    exact pure ⟨poly, p_i.eval r_i, Fin.snoc challenges r_i, earlyReject ∨ ¬ accept⟩
 
-/-- Honest sum-check verifier for the first round -/
-def verifierFirst : Verifier (pSpecFirst R) emptySpec (Statement R params) where
-  verify := fun stmt transcript => do
-    -- Compute the sum of the message polynomial evaluated over the domain
-    letI sum := ∑ x in params.domain, (transcript.messages 0).eval x
-    -- Return the `Bool` value of deciding whether `sum = stmt.target`
-    return decide (sum = stmt.target)
-
-/-- Honest sum-check prover for the intermediate round `i` -/
-def proverMiddle (i : ℕ) : ProverRound (pSpecMiddle R) emptySpec (PrvState R (n := n)) where
-  prove := fun 0 chal state => by
-    -- Compute the message for this round
-    letI message := sumExceptFirst' n (by sorry) (fun _ => params.domain) state.poly
-    -- Compute the target for this round
-    -- Update the state
-    exact pure ⟨ message, state ⟩
-
-/-- Honest sum-check verifier for the intermediate round `i` -/
-def verifierMiddle : Verifier (pSpecMiddle R) emptySpec (Statement R params) where
-  verify := fun stmt transcript => do
-    -- Compute the sum over the domain
-    letI sum := ∑ x in params.domain, (transcript.messages 0).eval x
-    -- Return the `Bool` value of deciding whether `sum = stmt.target`
-    return decide (sum = stmt.target)
-
-/-- Honest sum-check prover for the last round -/
-def proverLast : ProverRound (pSpecLast R) emptySpec (PrvState R (n := n)) where
-  prove := fun 0 _ state => by
-    simp [pSpecLast]
-    exact pure ⟨ (), state ⟩
-
-/-- Honest sum-check verifier for the last round -/
-def verifierLast (h : n > 0) : Verifier (pSpecLast R) emptySpec
-    (StatementRound R params ⟨n - 1, by omega⟩) where
-  verify := fun stmt transcript => do
-    -- Compute the evaluation of the multivariate polynomial
-    -- at the challenges sent by the verifier
-    have priorChallenges : Fin (n - 1) → R := stmt.challenges
-    have finalChallenge : R := transcript.challenges 0
-    letI evalPoint : Fin n → R := by
-      have : n - 1 + 1 = n := by omega
-      exact this ▸ Fin.snoc priorChallenges finalChallenge
-    letI eval := MvPolynomial.eval evalPoint stmt.poly
-    return decide (eval = stmt.target)
-
-/-
-2. For round `i = 1` to `n - 1`, the verifier sends a challenge `r_{i-1} : R`, and the prover sends back the univariate polynomial `p_i` for that round.
-
-The verifier then checks that `p_i` satisfies `∑ x in domain, p_i.eval x = p_{i - 1}.eval r_{i-1}`, where `p_{i-1}` is the polynomial from the previous round (added to the current round's statement).
-
-3. In the last round `i = n`, the verifier sends a challenge `r_n : R`, and the prover does not send anything.
-
-The verifier checks that `p_{n-1}` satisfies `∑ x in domain, p_{n-1}.eval x = P.eval (fun i => r_i)`.
--/
-
-
-
-def protocolFirst (h : n > 1) : Protocol (pSpecFirst R) emptySpec (PrvState R (n := n)) (Statement R params) Unit :=
-  Protocol.mk (Prover.mk (proverFirst R params (by omega)) (proverInit R params)) (verifierFirst R params)
-
--- def protocolMiddle (h : n > 1) : Protocol (pSpecMiddle R) emptySpec (PrvState R (n := n)) (Statement R params) Unit :=
---   Protocol.mk (proverMiddle R params) (verifierMiddle R params)
-
--- def protocolLast (h : n > 0) : Protocol (pSpecLast R) emptySpec (PrvState R (n := n)) (Statement R params) Unit :=
---   Protocol.mk (proverLast R params) (verifierLast R params)
+/-- The oracle verifier for the `i`-th round, where `i < n` -/
+def oracleVerifier (i : Fin n) : OracleVerifier (pSpec R deg) emptySpec
+    (Statement R n deg i (by omega)) (Statement R n deg (i + 1) (by omega)) where
+  -- Queries for the evaluations of the polynomial at all points in `D`,
+  -- plus one query for the evaluation at the challenge `r_i`
+  genQueries := fun _ chal => List.ofFn (fun j => ⟨default, D j⟩) ++ [⟨default, chal default⟩]
+  -- Check that the sum of the evaluations equals the target, and updates the statement accordingly
+  -- (the new target is the evaluation of the polynomial at the challenge `r_i`)
+  verify := fun ⟨poly, target, challenges, earlyReject⟩ chal responses => by
+    simp [ResponseList] at responses
+    have f : (i : MessageIndex (pSpec R deg)) × ToOracle.Query ((pSpec R deg).Message i)
+        × ToOracle.Response ((pSpec R deg).Message i) → R := fun ⟨i, q, r⟩ => by
+      haveI : i = default := Unique.uniq (inferInstance) i
+      subst this
+      simp [pSpec, Message, getType, default] at r
+      exact r
+    letI accept := decide ((responses.dropLast.map f).sum = target)
+    letI newTarget : R := by
+      haveI newTarget := (List.getLastI responses).2.2
+      haveI : responses.getLastI.fst = default := Unique.uniq (inferInstance) _
+      rw [this] at newTarget
+      simp [pSpec, Message, getType, default, instToOracleMessagePSpec,
+        instToOraclePolynomialDegreeLE] at newTarget
+      exact newTarget
+    exact pure ⟨poly, newTarget, Fin.snoc challenges (chal default), earlyReject ∨ ¬ accept⟩
 
 section Security
 
@@ -240,8 +244,13 @@ section Security
 --   simp at valid; simp
 --   sorry
 
--- /-- Bad function for round-by-round soundness -/
--- def badFunction : @BadFunction (pSpec (R := R)) (relation R params) := sorry
+-- /-- State function for round-by-round soundness -/
+-- def stateFunction : @StateFunction (pSpec (R := R)) (relation R params) := sorry
+
+-- What is the state function?
+-- For empty transcript, outputs whether the relation holds
+-- After message `p_i` from the prover, the state
+
 
 -- /-- Round-by-round soundness theorem for sumcheck -/
 -- theorem round_by_round_soundness : roundByRoundSoundness (verifier params) (badFunction params)
