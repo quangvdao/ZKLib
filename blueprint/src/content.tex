@@ -47,51 +47,52 @@ After the interaction phase, the verifier may then run some verification procedu
 
 Finally, we come to the definition of an interactive (oracle) protocol, which is a combination of its type signature, a prover for that type signature, and an (oracle) verifier for that type signature.
 
-\begin{definition}[Interactive Protocol]
-    \label{def:interactive_protocol}
-    \lean{Protocol}
-    An interactive protocol is a combination of a type signature \verb|ProtocolSpec|, a prover for \verb|ProtocolSpec|, and a verifier for \verb|ProtocolSpec|.
+\begin{definition}[Interactive Reduction]
+    \label{def:interactive_reduction}
+    \lean{Reduction}
+    An interactive reduction is a combination of a type signature \verb|ProtocolSpec|, a prover for \verb|ProtocolSpec|, and a verifier for \verb|ProtocolSpec|.
 \end{definition}
 
-\begin{definition}[Interactive Oracle Protocol]\label{def:interactive_oracle_protocol}
-    \lean{OracleProtocol}
-    An interactive oracle protocol is a combination of a type signature \verb|ProtocolSpec|, a prover for \verb|ProtocolSpec|, and an oracle verifier for \verb|ProtocolSpec|.
+\begin{definition}[Interactive Oracle Reduction]
+    \label{def:interactive_oracle_reduction}
+    \lean{OracleReduction}
+    An interactive oracle reduction is a combination of a type signature \verb|ProtocolSpec|, a prover for \verb|ProtocolSpec|, and an oracle verifier for \verb|ProtocolSpec|.
 \end{definition}
 
-We can now define properties of interactive protocols. The two main properties we consider in this project are completeness and various notions of soundness. We will cover zero-knowledge at a later stage.
+We can now define properties of interactive reductions. The two main properties we consider in this project are completeness and various notions of soundness. We will cover zero-knowledge at a later stage.
 
 \begin{definition}[Completeness]
     \label{def:completeness}
-    \lean{Protocol.completeness}
+    \lean{Reduction.completeness}
 \end{definition}
 
 For soundness, we need to consider different notions, such as (plain) soundness, knowledge soundness, \emph{round-by-round} soundness, and round-by-round knowledge soundness. The last notion is the strongest and is necessary for security of the SNARK obtained from the interactive protocol after composing with a commitment scheme and applying the Fiat-Shamir transform.
 
 \begin{definition}[Soundness]
     \label{def:soundness}
-    \lean{Protocol.soundness}
+    \lean{Reduction.soundness}
 \end{definition}
 
 \begin{definition}[Knowledge Soundness]
     \label{def:knowledge_soundness}
-    % \lean{Protocol.knowledgeSoundness}
+    \lean{Reduction.knowledgeSoundness}
 \end{definition}
 
 To define round-by-round (knowledge) soundness, we need to define the notion of a \emph{state function}. This is a (possibly inefficient) function $\mathsf{StateF}$ that, for every challenge sent by the verifier, takes in the transcript of the protocol so far and outputs whether the state is doomed or not. Roughly speaking, the requirement of round-by-round soundness is that, for any (possibly malicious) prover $P$, if the state function outputs that the state is doomed on some partial transcript of the protocol, then the verifier will reject with high probability.
 
 \begin{definition}[State Function]
     \label{def:state_function}
-    % \lean{Protocol.stateFunction}
+    \lean{Reduction.stateFunction}
 \end{definition}
 
 \begin{definition}[Round-by-Round Soundness]
     \label{def:round_by_round_soundness}
-    % \lean{Protocol.roundByRoundSoundness}
+    \lean{Reduction.rbrSoundness}
 \end{definition}
 
 \begin{definition}[Round-by-Round Knowledge Soundness]
     \label{def:round_by_round_knowledge_soundness}
-    % \lean{Protocol.roundByRoundKnowledgeSoundness}
+    \lean{Reduction.rbrKnowledgeSoundness}
 \end{definition}
 
 \section{Composition}
@@ -100,30 +101,30 @@ The reason why we consider interactive (oracle) reductions at the core of our fo
 
 This section is devoted to the composition of interactive (oracle) reductions, and proofs that the resulting reductions inherit the security properties of the two (or more) constituent reductions.
 
-\begin{definition}[Composition of Two Protocol Type Signatures]
-    \label{def:protocol_spec_composition}
-    \lean{ProtocolSpec.append}
-\end{definition}
+% \begin{definition}[Composition of Two Protocol Type Signatures]
+%     \label{def:protocol_spec_composition}
+%     \lean{ProtocolSpec.append}
+% \end{definition}
 
-\begin{definition}[Composition of Two Provers]
-    \label{def:prover_composition}
-    \lean{Prover.append}
-\end{definition}
+% \begin{definition}[Composition of Two Provers]
+%     \label{def:prover_composition}
+%     \lean{Prover.append}
+% \end{definition}
 
-\begin{definition}[Composition of Two Verifiers]
-    \label{def:verifier_composition}
-    \lean{Verifier.append}
-\end{definition}
+% \begin{definition}[Composition of Two Verifiers]
+%     \label{def:verifier_composition}
+%     \lean{Verifier.append}
+% \end{definition}
 
-\begin{definition}[Composition of Two Oracle Verifiers]
-    \label{def:oracle_verifier_composition}
-    \lean{OracleVerifier.append}
-\end{definition}
+% \begin{definition}[Composition of Two Oracle Verifiers]
+%     \label{def:oracle_verifier_composition}
+%     \lean{OracleVerifier.append}
+% \end{definition}
 
-\begin{definition}[Composition of Two Interactive Protocols]
-    \label{def:interactive_protocol_composition}
-    \lean{Protocol.append}
-\end{definition}
+% \begin{definition}[Composition of Two Interactive Protocols]
+%     \label{def:interactive_protocol_composition}
+%     \lean{Reduction.append}
+% \end{definition}
 
 \chapter{Commitment Schemes}
 
