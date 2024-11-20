@@ -33,7 +33,7 @@ noncomputable section
 
 namespace Reduction
 
-open OracleComp OracleSpec
+open OracleComp OracleSpec ProtocolSpec
 open scoped NNReal
 
 -- open unitInterval
@@ -61,7 +61,7 @@ def completeness (reduction : Reduction pSpec oSpec StmtIn WitIn StmtOut WitOut 
     (completenessError : ℝ≥0) : Prop :=
   ∀ stmtIn : StmtIn,
   ∀ witIn : WitIn,
-    relIn stmtIn witIn = true →
+    relIn stmtIn witIn = True →
       let newPair := evalDist (Prod.snd <$> Prod.snd <$> reduction.run stmtIn witIn)
       (relOut.uncurry <$> newPair) True ≥ 1 - completenessError
 
@@ -113,7 +113,11 @@ def soundness (verifier : Verifier pSpec oSpec StmtIn StmtOut) (relIn : StmtIn �
 
   This form of extractor suffices for proving knowledge soundness of most hash-based IOPs.
 -/
-def Extractor := StmtIn → StmtOut → WitOut → Transcript pSpec → QueryLog oSpec → WitIn
+def StraightlineExtractor := StmtIn → StmtOut → WitOut → Transcript pSpec → QueryLog oSpec → WitIn
+
+-- How would one define a rewinding extractor? It should have oracle access to the prover's
+-- functions (receive challenges and send messages), and be able to observe & simulate the prover's
+-- oracle queries
 
 /--
   There exists an extractor such that for all
@@ -123,7 +127,7 @@ def Extractor := StmtIn → StmtOut → WitOut → Transcript pSpec → QueryLog
 def knowledgeSoundness (verifier : Verifier pSpec oSpec StmtIn StmtOut)
     (relIn : StmtIn → WitIn → Prop) (relOut : StmtOut → WitOut → Prop)
     (knowledgeBound : ℝ≥0) : Prop :=
-  ∃ extractor : Extractor pSpec oSpec,
+  ∃ extractor : StraightlineExtractor pSpec oSpec,
   ∀ stmtIn : StmtIn,
   ∀ witIn : WitIn,
   ∀ PrvState : Type,
@@ -391,6 +395,8 @@ def rbrKnowledgeSoundness (verifier : OracleVerifier pSpec oSpec StmtIn StmtOut)
     (rbrKnowledgeBound : Fin n → ℝ≥0) : Prop :=
   Reduction.rbrKnowledgeSoundness pSpec oSpec verifier.toVerifier relIn relOut stateFunction
     rbrKnowledgeBound
+
+#check finSuccEquiv'
 
 end OracleReduction
 

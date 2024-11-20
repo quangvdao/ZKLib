@@ -87,9 +87,17 @@ def ProtocolSpec (n : ℕ) := Fin n → Direction × Type
 
 variable {n : ℕ}
 
-abbrev ProtocolSpec.getDir (pSpec : ProtocolSpec n) (i : Fin n) := pSpec i |>.1
+namespace ProtocolSpec
 
-abbrev ProtocolSpec.getType (pSpec : ProtocolSpec n) (i : Fin n) := pSpec i |>.2
+abbrev getDir (pSpec : ProtocolSpec n) (i : Fin n) := pSpec i |>.1
+
+abbrev getType (pSpec : ProtocolSpec n) (i : Fin n) := pSpec i |>.2
+
+@[simp]
+theorem getDir_apply (pSpec : ProtocolSpec n) (i : Fin n) : pSpec.getDir i = (pSpec i).1 := rfl
+
+@[simp]
+theorem getType_apply (pSpec : ProtocolSpec n) (i : Fin n) : pSpec.getType i = (pSpec i).2 := rfl
 
 /-- Subtype of `Fin n` for the indices corresponding to messages in a protocol specification -/
 def MessageIndex (pSpec : ProtocolSpec n) :=
@@ -101,13 +109,17 @@ def ChallengeIndex (pSpec : ProtocolSpec n) :=
 
 /-- The type of the `i`-th message in a protocol specification -/
 @[inline, reducible]
-def ProtocolSpec.Message (pSpec : ProtocolSpec n) (i : MessageIndex pSpec) :=
+def Message (pSpec : ProtocolSpec n) (i : MessageIndex pSpec) :=
   pSpec.getType i.val
 
 /-- The type of the `i`-th challenge in a protocol specification -/
 @[inline, reducible]
-def ProtocolSpec.Challenge (pSpec : ProtocolSpec n) (i : ChallengeIndex pSpec) :=
+def Challenge (pSpec : ProtocolSpec n) (i : ChallengeIndex pSpec) :=
   pSpec.getType i.val
+
+end ProtocolSpec
+
+open ProtocolSpec
 
 /-- The transcript of an interactive protocol, which is a list of messages and challenges -/
 @[inline, reducible]
@@ -307,15 +319,10 @@ variable {n : ℕ} {ι : Type} [DecidableEq ι] {pSpec : ProtocolSpec n} {oSpec 
 def Prover.runAux [∀ i, Sampleable (pSpec.Challenge i)] (stmt : StmtIn) (wit : WitIn)
     (i : Fin (n + 1)) (prover : Prover pSpec oSpec StmtIn WitIn StmtOut WitOut PrvState) :
       OracleComp (oSpec ++ₒ challengeOracle pSpec)
-        (PartialTranscript pSpec i × QueryLog oSpec × PrvState) := by
-  induction i using Fin.induction with
-  | zero => exact
-    (do
-      -- let ⟨state, queryLog⟩ ← liftComp (simulate loggingOracle ∅ <| pure (prover.load stmt wit))
-      letI state := prover.load stmt wit
-      return ⟨emptyPartialTranscript, ∅, state⟩)
-  | succ j ih => exact
-    (do
+        (PartialTranscript pSpec i × QueryLog oSpec × PrvState) :=
+  Fin.induction
+    (pure ⟨emptyPartialTranscript, ∅, prover.load stmt wit⟩)
+    (fun j ih => do
       let ⟨transcript, queryLog, state⟩ ← ih
       match hDir : pSpec.getDir j with
       | .V_to_P => do
@@ -327,9 +334,9 @@ def Prover.runAux [∀ i, Sampleable (pSpec.Challenge i)] (stmt : StmtIn) (wit :
       | .P_to_V => do
         let ⟨⟨msg, newState⟩, newQueryLog⟩ ← liftComp
           (simulate loggingOracle queryLog (prover.sendMessage ⟨j, hDir⟩ state))
-        letI newTranscript := transcript.snoc (by simp) msg
-        return ⟨newTranscript, newQueryLog, newState⟩
-      )
+        letI newTranscript := transcript.snoc j.isLt msg
+        return ⟨newTranscript, newQueryLog, newState⟩)
+    i
 
 /--
   Run the prover in an interactive protocol. Returns the transcript along with the final prover's
@@ -339,16 +346,15 @@ def Prover.run [∀ i, Sampleable (pSpec.Challenge i)] (stmt : StmtIn) (wit : Wi
     (prover : Prover pSpec oSpec StmtIn WitIn StmtOut WitOut PrvState) :
       OracleComp (oSpec ++ₒ challengeOracle pSpec)
         (Transcript pSpec × QueryLog oSpec × WitOut) := do
-  let ⟨transcript, queryLog, state⟩ ← prover.runAux stmt wit ⟨n, by omega⟩
-  return ⟨transcript.toFull (by simp), queryLog, prover.output state⟩
+  let ⟨transcript, queryLog, state⟩ ← prover.runAux stmt wit ⟨n, n.lt_add_one⟩
+  return ⟨transcript.toFull (by simp only [le_refl]), queryLog, prover.output state⟩
 
 /-- Run the (non-oracle) verifier in the interactive protocol. Simply reads the statement and the
   transcript, and outputs a decision.
 -/
 def Verifier.run (stmt : StmtIn) (transcript : Transcript pSpec)
-    (verifier : Verifier pSpec oSpec StmtIn StmtOut) : OracleComp oSpec StmtOut := do
-  let newStmt ← verifier.verify stmt transcript
-  return newStmt
+    (verifier : Verifier pSpec oSpec StmtIn StmtOut) : OracleComp oSpec StmtOut :=
+  verifier.verify stmt transcript
 
 /-- Run the oracle verifier in the interactive protocol. Returns the verifier's output and the log
   of queries made by the verifier.
@@ -413,5 +419,19 @@ theorem OracleReduction.run_eq_run_reduction [DecidableEq ι] [∀ i, Sampleable
       Prod.snd <$> oracleReduction.run stmt wit = oracleReduction.toReduction.run stmt wit := by
   simp [OracleReduction.run, Reduction.run, OracleReduction.toReduction, OracleVerifier.run,
     Verifier.run, OracleVerifier.toVerifier, liftComp]
+
+/-- Type class that classifies reductions consisting of a single round of interaction, with the
+  prover speaking first and the verifier speaking last.
+
+We assume that the prover may send multiple messages before the verifier sends a single message. -/
+class IsSingleRound (pSpec : ProtocolSpec (n + 1)) where
+  prover_first : ∀ i, i < (Fin.last n) → pSpec.getDir i = .P_to_V
+  verifier_last : pSpec.getDir (.last n) = .V_to_P
+
+-- /-- Type class that classifies provers whose interaction does not update the state
+-- (as is often the
+--   case in specifications, where the state is just the statement + witness)-/
+-- class UnchangedState (proverRound : ProverRound pSpec oSpec PrvState) where
+--   sendMessage_const : ∀ {i : MessageIndex pSpec}, (proverRound.sendMessage i)
 
 end Execution

@@ -95,7 +95,8 @@ macro_rules (kind := mvEvalToPolynomial)
       `(Polynomial.map (MvPolynomial.eval (Fin.append (Fin.append $x $y) $z ∘ Fin.cast (by omega)))
         (MvPolynomial.finSuccEquiv' _ $i $p))
 
--- State theorems here showing that the notation is correct
+-- Examples showing that the notation is correct
+
 example {a b n : ℕ} (x : Fin a → ℕ) (y : Fin b → ℕ) (p : ℕ[X Fin n]) (h : a + b + 1 = n) :
   p ⸨x, ![n], y⸩ =
     MvPolynomial.eval (Fin.append (Fin.append x ![n]) y ∘ Fin.cast (by omega)) p := rfl
