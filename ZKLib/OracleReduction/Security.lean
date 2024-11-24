@@ -136,9 +136,10 @@ def knowledgeSoundness (verifier : Verifier pSpec oSpec StmtIn StmtOut)
     let result := evalDist (reduction.run stmtIn witIn)
     let transcript := Prod.fst <$> result
     let queryLog := Prod.fst <$> Prod.snd <$> result
-    let stmtOut := Prod.fst <$> Prod.snd <$> Prod.snd <$> result
-    let witOut := Prod.snd <$> Prod.snd <$> Prod.snd <$> result
-    if (relOut <$> stmtOut <*> witOut) True > knowledgeBound then
+    let newPair := Prod.snd <$> Prod.snd <$> result
+    let stmtOut := Prod.fst <$> newPair
+    let witOut := Prod.snd <$> newPair
+    if (relOut.uncurry <$> newPair) True > knowledgeBound then
       let extractedWitIn := extractor stmtIn <$> stmtOut <*> witOut <*> transcript <*> queryLog
       let validWit := relIn stmtIn <$> extractedWitIn
       validWit True ≥ 1 - knowledgeBound
@@ -280,12 +281,28 @@ In other words, we have a lattice of security notions, with `knowledge` and `rou
 two strengthenings of soundness.
 -/
 
-/-- Knowledge soundness with knowledge error `knowledgeBound` implies soundness with the same
+/-- Knowledge soundness with knowledge error `knowledgeBound < 1` implies soundness with the same
 soundness error `knowledgeBound`. -/
 theorem knowledgeSoundness_implies_soundness (verifier : Verifier pSpec oSpec StmtIn StmtOut)
-    (relIn : StmtIn → WitIn → Prop) (relOut : StmtOut → WitOut → Prop) (knowledgeBound : ℝ≥0) :
+    (relIn : StmtIn → WitIn → Prop) (relOut : StmtOut → WitOut → Prop)
+    (knowledgeBound : ℝ≥0) (hLt : knowledgeBound < 1) :
       knowledgeSoundness pSpec oSpec verifier relIn relOut knowledgeBound →
-        soundness pSpec oSpec verifier relIn relOut knowledgeBound := by sorry
+        soundness pSpec oSpec verifier relIn relOut knowledgeBound := by
+  simp only [knowledgeSoundness, soundness, Functor.map_map, gt_iff_lt, ge_iff_le,
+    tsub_le_iff_right, if_true_right, evalDist_map, forall_exists_index]
+  intro extractor hKS stmtIn hStmtIn witIn PrvState prover
+  have hKS' := hKS stmtIn witIn PrvState prover
+  clear hKS
+  contrapose! hKS'
+  constructor
+  · convert hKS'
+    simp only [Seq.seq, Functor.map, PMF.bind_bind, Function.comp_apply, PMF.pure_bind,
+      PMF.bind_map]
+    congr
+  · simp only [Function.language, Set.mem_setOf_eq, not_exists] at hStmtIn
+    simp only [Functor.map, Seq.seq, PMF.bind_bind, Function.comp_apply, PMF.pure_bind, hStmtIn,
+      PMF.bind_const, PMF.pure_apply, eq_iff_iff, iff_false, not_true_eq_false, ↓reduceIte,
+      zero_add, ENNReal.coe_lt_one_iff, hLt]
 
 /-- Round-by-round soundness with error `rbrSoundnessBound` implies soundness with error
 `∑ i, rbrSoundnessBound i`, where the sum is over all rounds `i`. -/
