@@ -254,8 +254,9 @@ def OracleVerifier.toVerifier {pSpec : ProtocolSpec n} {oSpec : OracleSpec ι}
     (verifier : OracleVerifier pSpec oSpec StmtIn StmtOut) :
     Verifier pSpec oSpec StmtIn StmtOut where
   verify := fun stmt transcript => do
-    let queries := verifier.genQueries stmt transcript.challenges
-    let responses ← queries.mapM (fun ⟨j, q⟩ => pure ⟨j, q, (O j).oracle (transcript.messages j) q⟩)
+    letI queries := verifier.genQueries stmt transcript.challenges
+    letI responses := queries.map
+      (fun q => ⟨q.1, q.2, (O q.1).oracle (transcript.messages q.1) q.2⟩)
     verifier.verify stmt transcript.challenges responses
 
 /-- Make `OracleVerifier.toVerifier` a coercion -/
@@ -364,7 +365,7 @@ def OracleVerifier.run [O : ∀ i, ToOracle (pSpec.Message i)] (stmt : StmtIn)
       OracleComp oSpec (ResponseList pSpec × StmtOut) := do
   let queries := verifier.genQueries stmt transcript.challenges
   let oracles := fun i => (O i).oracle (transcript.messages i)
-  let responses ← queries.mapM (fun ⟨j, q⟩ => pure ⟨j, q, oracles j q⟩)
+  let responses := queries.map (fun q => ⟨q.1, q.2, oracles q.1 q.2⟩)
   let decision ← verifier.verify stmt transcript.challenges responses
   return ⟨responses, decision⟩
 

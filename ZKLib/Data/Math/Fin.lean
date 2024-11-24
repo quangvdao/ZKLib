@@ -93,6 +93,16 @@ namespace Fin
 
 open Function
 
+/-- `Fin.insertNth 0` is equivalent to `Fin.cases`. -/
+theorem insertNth_zero_eq_cases {n : ℕ} {α : Fin (n + 1) → Sort u} :
+    insertNth 0 = cases (motive := α) := by
+  funext x p j
+  induction j using Fin.cases with
+  | zero => simp only [insertNth, succAboveCases, ↓reduceDIte, cases_zero]
+  | succ j =>
+    simp only [insertNth, succAboveCases, not_lt_zero, ↓reduceDIte, cases_succ, Fin.succ_ne_zero]
+    congr
+
 theorem partialProd_eq_partialProd_list {α : Type*} {n : ℕ} [Monoid α] (a : Fin n → α) :
     List.partialProd (List.ofFn a) = List.ofFn (Fin.partialProd a) := by sorry
   -- induction l with
@@ -290,7 +300,7 @@ def sumCases {l : List ℕ} {motive : Fin l.sum → Sort*}
 
 end Sum
 
-section Join
+section FinSigmaFinEquiv
 
 variable {n : ℕ}
 
@@ -316,41 +326,96 @@ theorem ranges_eq_ranges_list {a : Fin n → ℕ} :
 
 /-- Find the first index `i` such that `k` is smaller than `∑ j < i, a j`, and return `none`
   otherwise.
+
+  This is the dependent version of `Fin.divNat`.
   -/
-def findSumIdx? (a : Fin n → ℕ) (k : ℕ) : Option (Fin n) :=
-  find (fun i => k < ∑ j with j < i, a j)
-  -- find (fun i => find (fun j => k = ranges a i j) |>.isSome)
+def divSum? {m : ℕ} (n : Fin m → ℕ) (k : ℕ) : Option (Fin m) :=
+  find (fun i => k < ∑ j, n (castLE i.isLt j))
 
-#check find_eq_some_iff
+theorem divSum?_is_some_iff_lt_sum {m : ℕ} {n : Fin m → ℕ} {k : ℕ} :
+    (divSum? n k).isSome ↔ k < ∑ i, n i := by
+  constructor
+  · intro h
+    simp only [divSum?, Nat.succ_eq_add_one, castLE, isSome_find_iff] at h
+    obtain ⟨i, hi⟩ := h
+    have : i.val + 1 + (m - i.val - 1) = m := by omega
+    rw [← Fin.sum_congr' _ this, Fin.sum_univ_add]
+    simp only [cast, coe_castAdd, coe_natAdd, gt_iff_lt]
+    exact Nat.lt_add_right _ hi
+  · intro isLt
+    have : m ≠ 0 := fun h => by subst h; simp at isLt
+    refine Fin.isSome_find_iff.mpr ?_
+    have hm : (m - 1) + 1 = m := by omega
+    refine ⟨Fin.cast hm (Fin.last (m - 1)), ?_⟩
+    simp only [coe_cast, val_last, Nat.succ_eq_add_one, Fin.castLE_of_eq hm,
+        Fin.sum_congr' n hm, isLt]
 
-theorem findSumIdx?_is_some_iff_le_sum {a : Fin n → ℕ} {k : ℕ} :
-    (findSumIdx? a k).isSome ↔ k < ∑ i, a i := by
-  sorry
+def divSum {m : ℕ} {n : Fin m → ℕ} (k : Fin (∑ j, n j)) : Fin m :=
+  (divSum? n k).get (divSum?_is_some_iff_lt_sum.mpr k.isLt)
 
-/-- When `k` is less than `∑ i, a i`, `findSumIdx' a k` returns some index `idx < n` -/
-def findSumIdx (a : Fin n → ℕ) (k : Fin (∑ i, a i)) : Fin n :=
-  (findSumIdx? a k.val).get (findSumIdx?_is_some_iff_le_sum.mpr k.isLt)
+theorem sum_le_of_divSum?_eq_some {m : ℕ} {n : Fin m → ℕ} {k : Fin (∑ j, n j)} {i : Fin m}
+    (hi : divSum? n k = some i) : ∑ j : Fin i, n (castLE i.isLt.le j) ≤ k := by
+  by_cases hi' : 0 = i.val
+  · rw [← Fin.sum_congr' _ hi']
+    simp only [Finset.univ_eq_empty, Finset.sum_empty, _root_.zero_le]
+  · have : (i.val - 1) + 1 = i.val := by omega
+    rw [← Fin.sum_congr' _ this]
+    have := Fin.find_min (Option.mem_def.mp hi) (j := ⟨i.val - 1, by omega⟩) <| Fin.lt_def.mpr
+      (by simp only [and_true]; omega)
+    exact not_lt.mp this
 
-def remainderFromSum' (a : Fin n → ℕ) (k : ℕ) : ℕ := by
-  letI i := finSuccEquivLast.invFun (findSumIdx? a k)
-  exact k - ∑ j with j.1 < i.1, a j
+def modSum {m : ℕ} {n : Fin m → ℕ} (k : Fin (∑ j, n j)) : Fin (n (divSum k)) :=
+  ⟨k - ∑ j, n (Fin.castLE (divSum k).isLt.le j), by
+    have divSum_mem : divSum k ∈ divSum? n k := by
+      simp only [divSum, divSum?, Option.mem_def, Option.some_get]
+    have hk : k < ∑ j, n (Fin.castLE (divSum k).isLt j) := Fin.find_spec _ divSum_mem
+    simp only [Fin.sum_univ_succAbove _ (Fin.last (divSum k)), val_last, succAbove_last] at hk
+    rw [Nat.sub_lt_iff_lt_add' (sum_le_of_divSum?_eq_some divSum_mem)]
+    exact hk⟩
 
-theorem remainderFromSum'_le_next {a : Fin n → ℕ} {k : Fin (∑ i, a i)} :
-    remainderFromSum' a k < a (findSumIdx a k) := sorry
+open Finset in
+/-- Equivalence between `(i : Fin m) × Fin (n i)` and `Fin (∑ i, n i)`. -/
+def finSigmaFinEquiv {m : ℕ} {n : Fin m → ℕ} : (i : Fin m) × Fin (n i) ≃ Fin (∑ i, n i) :=
+  .ofRightInverseOfCardLE (le_of_eq <| by simp_rw [Fintype.card_sigma, Fintype.card_fin])
+    (fun ⟨i, j⟩ => ⟨∑ k, n (Fin.castLE i.isLt.le k) + j, by
+      have hi : i.val + 1 + (m - i.val - 1) = m := by omega
+      conv_rhs => rw [← Fin.sum_congr' n hi, Fin.sum_univ_add, Fin.sum_univ_add, add_assoc]
+      have hk {k : Fin i} : Fin.castLE i.isLt.le k =
+            Fin.cast hi (Fin.castAdd (m - i - 1) (Fin.castAdd 1 k)) := by
+        simp only [Fin.castLE, Fin.cast, Fin.coe_castAdd]
+      simp_rw [hk, Nat.add_lt_add_iff_left, univ_unique, sum_singleton]
+      exact Nat.lt_add_right _ (by simp only [Fin.cast, Fin.coe_castAdd, Fin.coe_natAdd,
+          Fin.val_eq_zero, add_zero, Fin.is_lt])⟩)
+    (fun k => ⟨k.divSum, k.modSum⟩)
+    (by
+      intro a
+      induction n using Fin.consInduction with
+      | h0 =>
+        simp only [univ_eq_empty, sum_empty] at a
+        exact Fin.elim0 a
+      | h =>
+        ext
+        exact Nat.add_sub_cancel' (Fin.sum_le_of_divSum?_eq_some (Option.some_get _).symm))
 
-def remainderFromSum (a : Fin n → ℕ) (k : Fin (∑ i, a i)) : Fin (a (findSumIdx a k)) :=
-  ⟨remainderFromSum' a k, remainderFromSum'_le_next⟩
+@[simp]
+theorem finSigmaFinEquiv_apply {m : ℕ} {n : Fin m → ℕ} (k : (i : Fin m) × Fin (n i)) :
+    (finSigmaFinEquiv k : ℕ) = ∑ i : Fin k.1, n (Fin.castLE k.1.isLt.le i) + k.2 := rfl
+
+theorem finSigmaFinEquiv_pair {m : ℕ} {n : Fin m → ℕ} (i : Fin m) (k : Fin (n i)) :
+    (finSigmaFinEquiv ⟨i, k⟩ : ℕ) = ∑ j, n (Fin.castLE i.isLt.le j) + k := by
+  simp only [finSigmaFinEquiv, ↓reduceDIte, Equiv.ofRightInverseOfCardLE_apply]
+
+end FinSigmaFinEquiv
+section Join
 
 variable {a : Fin n → ℕ} {α : (i : Fin n) → (j : Fin (a i)) → Sort*}
 
-def finSigmaFinEquiv {m : ℕ} {n : Fin m → ℕ} : (i : Fin m) × Fin (n i) ≃ Fin (∑ i, n i) where
-  toFun := fun ⟨i, j⟩ => ⟨∑ k with k < i, n k + j, sorry⟩
-  invFun := fun k => ⟨findSumIdx n k, remainderFromSum n k⟩
-  left_inv := sorry
-  right_inv := sorry
+def join (v : (i : Fin n) → (j : Fin (a i)) → α i j) (k : Fin (∑ i, a i)) : α k.divSum k.modSum :=
+  v k.divSum k.modSum
 
-def join (v : (i : Fin n) → (j : Fin (a i)) → α i j) (k : Fin (∑ i, a i)) :
-    α (findSumIdx a k) (remainderFromSum a k) := v (findSumIdx a k) (remainderFromSum a k)
+#check List.join_join
+
+#check List.join_append
 
 theorem join_addCases : True := sorry
 

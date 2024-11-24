@@ -69,7 +69,6 @@ def ToOracle.append {pSpec₁ : ProtocolSpec n} {pSpec₂ : ProtocolSpec m}
     [O₁ : ∀ i, ToOracle (pSpec₁.Message i)] [O₂ : ∀ i, ToOracle (pSpec₂.Message i)] :
         ∀ i, ToOracle ((pSpec₁ ++ₚ pSpec₂).Message i) := fun ⟨i, h⟩ => by
   dsimp [ProtocolSpec.append, ProtocolSpec.getDir] at h ⊢
-  dsimp [ProtocolSpec.Message, ProtocolSpec.getType]
   by_cases h' : i < n
   · rw [← Fin.castAdd_castLT m i h', Fin.append_left] at h ⊢
     exact O₁ ⟨i.castLT h', h⟩
