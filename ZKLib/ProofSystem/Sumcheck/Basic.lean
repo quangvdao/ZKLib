@@ -133,36 +133,21 @@ def pSpec : ProtocolSpec 2 := ![(.P_to_V, R⦃≤ deg⦄[X]), (.V_to_P, R)]
 def pSpecCombined (n : ℕ) : ProtocolSpec (n * 2) := by
   simpa using Fin.join (fun (_ : Fin n) => pSpec R deg)
 
-/-- There is only one message from the prover to the verifier -/
-instance : Unique (MessageIndex (pSpec R deg)) where
-  default := ⟨0, by simp [pSpec, getDir]⟩
-  uniq := fun ⟨i, hi⟩ => by
-    congr
-    contrapose hi
-    have : i = 1 := by omega
-    simp [pSpec, getDir, this]
-
-/-- There is only one challenge from the verifier to the prover -/
-instance : Unique (ChallengeIndex (pSpec R deg)) where
-  default := ⟨1, by simp [pSpec, getDir]⟩
-  uniq := fun ⟨i, hi⟩ => by
-    congr
-    contrapose hi
-    have : i = 0 := by omega
-    simp [pSpec, getDir, this]
+instance : IsSingleRound (pSpec R deg) where
+  prover_first' := by simp [pSpec, getDir]
+  verifier_last' := by simp [pSpec, getDir, Neg.neg]
 
 /-- Recognize that the (only) message from the prover to the verifier has type `R⦃≤ deg⦄[X]`, and
   hence can be turned into an oracle for evaluating the polynomial -/
-instance : (i : MessageIndex (pSpec R deg)) → ToOracle ((pSpec R deg).Message i) := fun i => by
-  haveI : i = default := Unique.uniq _ i
-  simp [this, default, pSpec, Message, getType]
+instance instToOracleMessagePSpec : ToOracle ((pSpec R deg).Message default) := by
+  simp only [pSpec, default, getDir_apply, getType_apply, Matrix.cons_val_zero]
   exact instToOraclePolynomialDegreeLE
 
-instance : (i : ChallengeIndex (pSpec R deg)) → Sampleable ((pSpec R deg).Challenge i) :=
-  fun i => by
-    haveI : i = default := Unique.uniq _ i
-    simp [this, default, pSpec, Challenge, getType]
-    infer_instance
+/-- Recognize that the challenge from the verifier to the prover has type `R`, and hence can be
+  sampled uniformly at random -/
+instance instSampleableChallengePSpec : Sampleable ((pSpec R deg).Challenge default) := by
+  simp only [pSpec, default, getDir_apply, getType_apply, Matrix.cons_val_one, Matrix.head_cons]
+  infer_instance
 
 /-- Prover input for the `i`-th round of the sum-check protocol, where `i < n` -/
 def proverIn (i : Fin n) : ProverIn (pSpec R deg) (Statement R n deg i (by omega)) Unit
@@ -177,11 +162,10 @@ def proverRound (i : Fin n) (hn : n > 0) :
     ProverRound (pSpec R deg) oSpec (Statement R n deg i (by omega)) where
   sendMessage := fun idx state => by
     have ⟨⟨poly, hp⟩, target, challenges, earlyReject⟩ := state
-    haveI : idx = default := Unique.uniq (inferInstance) idx
-    rw [this]
+    haveI : idx = default := Unique.uniq _ idx
     simp [pSpec, Message, getType, this, default]
     let n' := n - 1
-    have : n = n' + 1 := by omega
+    haveI : n = n' + 1 := by omega
     simp_rw [this] at hp poly
     exact pure ⟨ ⟨∑ x ∈ (univ.map D) ^ᶠ (n' - i), poly ⸨X ⦃i⦄, challenges, x⸩, by
       refine Polynomial.mem_degreeLE.mpr ?_
@@ -211,20 +195,17 @@ def prover (i : Fin n) (hn : n > 0) : Prover (pSpec R deg) oSpec
 instance : Inhabited ((i : MessageIndex (pSpec R deg)) × ToOracle.Query ((pSpec R deg).Message i)
     × ToOracle.Response ((pSpec R deg).Message i)) where
   default := ⟨default,
-    by simp [pSpec, Message, getType, default, instToOracleMessagePSpec,
-      instToOraclePolynomialDegreeLE]; exact 0,
-    by simp [pSpec, Message, getType, default, instToOracleMessagePSpec,
-      instToOraclePolynomialDegreeLE]; exact 0⟩
+    by simpa (config := {autoUnfold := true}) [instToOracleMessagePSpec] using 0,
+    by simpa (config := {autoUnfold := true}) [instToOracleMessagePSpec] using 0⟩
 
 /-- The (non-oracle) verifier of the sum-check protocol for the `i`-th round, where `i < n` -/
 def verifier (i : Fin n) : Verifier (pSpec R deg) oSpec
     (Statement R n deg i (by omega)) (Statement R n deg (i + 1) (by omega)) where
   verify := fun ⟨poly, target, challenges, earlyReject⟩ transcript =>
-    -- have ⟨p_i, _⟩ : R⦃≤ deg⦄[X] := transcript 0
-    -- let r_i : R := transcript 1
-    letI accept := decide (∑ x ∈ (univ.map D), (transcript 0).1.eval x = target)
-    pure ⟨poly, (transcript 0).1.eval (transcript 1),
-      Fin.snoc challenges (transcript 1), earlyReject ∨ ¬ accept⟩
+    have ⟨p_i, _⟩ : R⦃≤ deg⦄[X] := transcript 0
+    letI r_i : R := transcript 1
+    letI accept := decide (∑ x ∈ (univ.map D), p_i.eval x = target)
+    pure ⟨poly, p_i.eval r_i, Fin.snoc challenges r_i, earlyReject ∨ ¬ accept⟩
 
 /-- The oracle verifier for the `i`-th round, where `i < n` -/
 def oracleVerifier (i : Fin n) : OracleVerifier (pSpec R deg) oSpec
@@ -238,18 +219,15 @@ def oracleVerifier (i : Fin n) : OracleVerifier (pSpec R deg) oSpec
     simp [ResponseList] at responses
     have f : (i : MessageIndex (pSpec R deg)) × ToOracle.Query ((pSpec R deg).Message i)
         × ToOracle.Response ((pSpec R deg).Message i) → R := fun ⟨i, q, r⟩ => by
-      haveI : i = default := Unique.uniq (inferInstance) i
+      haveI : i = default := Unique.uniq _ i
       subst this
-      simp [pSpec, Message, getType, default] at r
-      exact r
+      simpa (config := {autoUnfold := true}) using r
     letI accept := decide ((responses.dropLast.map f).sum = target)
     letI newTarget : R := by
       haveI newTarget := (List.getLastD responses default).2.2
-      haveI : (responses.getLastD default).fst = default := Unique.uniq (inferInstance) _
+      haveI : (responses.getLastD default).fst = default := Unique.uniq _ _
       rw [this] at newTarget
-      simp [pSpec, Message, getType, default, instToOracleMessagePSpec,
-        instToOraclePolynomialDegreeLE] at newTarget
-      exact newTarget
+      simpa (config := {autoUnfold := true}) using newTarget
     exact pure ⟨poly, newTarget, Fin.snoc challenges (chal default), earlyReject ∨ ¬ accept⟩
 
 /-- The sum-check reduction for the `i`-th round, where `i < n` and `n > 0` -/
@@ -272,50 +250,14 @@ variable {R : Type} [CommSemiring R] [Sampleable R] {n : ℕ} {deg : ℕ} {m : �
   {ι : Type} [DecidableEq ι] {oSpec : OracleSpec ι} {hn : n > 0} {i : Fin n}
 
 @[simp]
-theorem Fin.induction_one {motive : Fin 2 → Sort*} {zero : motive 0}
-    {succ : ∀ i : Fin 1, motive (Fin.castSucc i) → motive i.succ} :
-      Fin.induction (motive := motive) zero succ (1 : Fin 2) = succ 0 zero := rfl
-
-@[simp]
-theorem Fin.induction_two {motive : Fin 3 → Sort*} {zero : motive 0}
-    {succ : ∀ i : Fin 2, motive (Fin.castSucc i) → motive i.succ} :
-      Fin.induction (motive := motive) zero succ (2 : Fin 3) = succ 1 (succ 0 zero) := rfl
-
-@[simp]
 theorem PMF.eq_pure_iff_ge_one {α : Type*} {p : PMF α} {a : α} : p = pure a ↔ p a ≥ 1 := by
   constructor <;> intro h
   · sorry
   · ext b
-    simp [pure]
+    simp only [pure, PMF.pure_apply]
     by_cases hb : b = a
     · simp [hb]; exact le_antisymm (PMF.coe_le_one p a) h
     · simp [hb]; sorry
-
-example (a n : ℕ) (ha : a ≤ n) (ha' : a ≥ n) : a = n := by exact Nat.le_antisymm ha ha'
-
-namespace List
-
-universe u v w
-
-variable {m : Type u → Type v} [Monad m] [LawfulMonad m] {α : Type w} {β : Type u}
-    (f : α → β) (l : List α)
-
-theorem mapM_pure : mapM (m := m) (fun x => pure (f x)) l = pure (.map f l) := by
-  rw [← List.mapM'_eq_mapM]
-  induction l with
-  | nil => simp only [mapM', List.map_nil]
-  | cons x xs ih => simp only [mapM', ih, bind_pure_comp, map_pure, List.map_cons]
-
-theorem mapM_single (f : α → m β) (a : α) : List.mapM f [a] = return [← f a] := by
-  rw [← List.mapM'_eq_mapM]
-  simp only [mapM', bind_pure_comp, map_pure]
-
-@[simp]
-theorem getLastI_append_single [Inhabited α] (x : α) : (l ++ [x]).getLastI = x := by
-  simp only [List.getLastI_eq_getLast?, List.getLast?_append, List.getLast?_singleton,
-    Option.or_some]
-
-end List
 
 omit [DecidableEq ι] in
 /-- The oracle verifier does the same thing as the non-oracle verifier -/
@@ -326,12 +268,14 @@ theorem oracleVerifier_eq_verifier :
     Bool.decide_or, Bool.decide_eq_true, bind_pure_comp, verifier, sum_map,
     Verifier.mk.injEq, pSpec, instToOracleMessagePSpec]
   funext stmt transcript
-  -- rcases (transcript 0) with ⟨p_i, _⟩
-  -- rcases (transcript 1) with r_i
+  split; next x p_i hp_i hEq =>
+  have : p_i = (transcript 0).1 := by simp only [hEq]
+  subst this
   simp [default, Transcript.messages, Transcript.challenges, instToOraclePolynomialDegreeLE]
   constructor
   · rw [cast_eq_iff_heq, List.map_append _ _ _]
-    simp only [Fin.isValue, List.map_cons, Matrix.cons_val_zero, cast_eq, List.map_nil]
+    simp only [Fin.isValue, List.map_cons, Matrix.cons_val_zero, cast_eq, List.map_nil,
+      instToOracleMessageOfDefaultMessageIndex]
     rw [List.getLastD_concat _ _ _]
   · congr
     simp only [List.ofFn, Fin.foldr_eq_foldr_list, List.map_eq_foldr]
@@ -341,30 +285,14 @@ theorem oracleVerifier_eq_verifier :
     | zero => simp only [Fin.list_zero, List.finRange_zero]
     | succ n ih => simp only [Fin.list_succ, ih, List.finRange_succ_eq_map]
 
--- First, simplify the running of the reduction
--- theorem reduction_eq (stmt : Statement R n deg i (by omega)) :
---     evalDist ((reduction R n deg D oSpec hn i).run stmt ()) =
---       (do
---         let r ← PMF.uniformOfFintype R
---         return ⟨emptyTranscript, ∅, stmt, ()⟩) := sorry
-
-@[simp]
-theorem OracleSpec.append_range_left {ι₁ ι₂ : Type} {spec₁ : OracleSpec ι₁} {spec₂ : OracleSpec ι₂}
-    (i : ι₁) : (spec₁ ++ₒ spec₂).range (Sum.inl i) = spec₁.range i := by
-  simp only [append]
-
-@[simp]
-theorem OracleSpec.append_range_right {ι₁ ι₂ : Type} {spec₁ : OracleSpec ι₁} {spec₂ : OracleSpec ι₂}
-    (i : ι₂) : (spec₁ ++ₒ spec₂).range (Sum.inr i) = spec₂.range i := by
-  simp only [append]
-
 set_option trace.profiler true
 
 /-- Completeness theorem for sumcheck-/
 theorem perfect_completeness : (reduction R n deg D oSpec hn i).perfectCompleteness
     (pSpec R deg) oSpec (relation R n deg D i (by omega))
       (relation R n deg D (i + 1) (by omega)) := by
-  unfold perfectCompleteness completeness run Prover.run Prover.runAux Verifier.run relation
+  unfold perfectCompleteness completeness run
+  simp_rw [Prover.run_of_isSingleRound]
   intro ⟨⟨poly, hPoly⟩, target, challenges, earlyReject⟩ _ hValid
   simp only [eq_iff_iff, iff_true] at hValid
   obtain ⟨hReject, hSum⟩ := hValid
@@ -373,17 +301,14 @@ theorem perfect_completeness : (reduction R n deg D oSpec hn i).perfectCompleten
   norm_num
   refine PMF.eq_pure_iff_ge_one.mp ?_
   ext p
-  simp only [pSpec, evalDist, challengeOracle, getType_apply, getDir_apply, append,
-    Matrix.cons_val_one, Matrix.head_cons, Fin.succ_one_eq_two, eq_mp_eq_cast, reduction, prover,
-    proverIn, proverRound, eq_mpr_eq_cast, proverOut, verifier, Matrix.cons_val_zero, sum_map,
-    Bool.decide_or, Bool.decide_eq_true, decide_not, SubSpec.liftComp, simulate', simulate,
-    PartialTranscript.toFull, map_pure, PMF.bind_bind, PMF.pure_bind, Function.comp_apply,
-    PartialTranscript.snoc, lt_self_iff_false, zero_lt_one]
-  simp only [map_eq_bind_pure_comp, bind, pure, PMF.bind_bind,
-    PMF.pure_bind, Function.comp_apply, Function.uncurry_apply_pair, Bool.or_eq_false_iff,
-    Bool.not_eq_eq_eq_not, Bool.not_false, decide_eq_true_eq, PMF.bind_apply,
-    PMF.uniformOfFintype_apply, PMF.pure_apply, eq_iff_iff, mul_ite,
-    mul_one, mul_zero]
+  simp only [pSpec, getType_apply, getDir_apply, evalDist, eq_mp_eq_cast, reduction, prover,
+    proverIn, proverRound, eq_mpr_eq_cast, proverOut, verifier, Matrix.cons_val_zero,
+    sum_map, decide_eq_true_eq, Bool.decide_or, Bool.decide_eq_true, decide_not, challengeOracle,
+    append, SubSpec.liftComp, simulate', simulate, Transcript.mk2, map_pure, bind_pure_comp,
+    PMF.pure_bind, Function.comp_apply]
+  simp only [map_eq_bind_pure_comp, bind, pure, PMF.bind_bind, PMF.pure_bind, Function.comp_apply,
+    Function.uncurry_apply_pair, PMF.bind_apply, PMF.uniformOfFintype_apply, PMF.pure_apply,
+    eq_iff_iff, eq_mp_eq_cast, mul_ite, mul_one, mul_zero, iff_true]
   by_cases hp : p = True
   · simp [hp, hReject]
     sorry
@@ -392,6 +317,7 @@ theorem perfect_completeness : (reduction R n deg D oSpec hn i).perfectCompleten
     intro r
     constructor
     · simp_rw [Polynomial.eval_finset_sum _ _ _, ← hSum]
+      simp only [Bool.not_eq_eq_eq_not, Bool.not_false, decide_eq_true_eq]
       sorry
     · simp_rw [Polynomial.eval_finset_sum _ _ _]
       sorry

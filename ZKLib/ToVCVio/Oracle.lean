@@ -4,6 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Quang Dao
 -/
 import VCVio
+import Batteries.Data.Array.Monadic
 
 /-!
   # Deterministic Oracle Simulation
@@ -16,8 +17,11 @@ import VCVio
 
 open OracleSpec OracleComp
 
+variable {ι : Type} {α β γ : Type}
+
 /--
-  A function that implements the oracle interface specified by `spec`, and queries no further oracles.
+  A function that implements the oracle interface specified by `spec`, and queries no further
+  oracles.
 -/
 def Oracle (spec : OracleSpec ι) := (i : ι) → spec.domain i → spec.range i
 
@@ -28,7 +32,7 @@ variable [DecidableEq α] [DecidableEq β] [Inhabited β] [Fintype β] [Inhabite
 -- the stateless oracle introduces a useless `Unit` to the internal state which we mask
 -- `simulate` with this will answer queries with `f` and log input and outputs
 def oracleize (f : α → β) : (α →ₒ β) →[QueryLog (α →ₒ β)]ₛₒ (α →ₒ β) :=
-  (loggingOracle ∘ₛₒ statelessOracle (λ () t ↦ return f t)).maskState
+  (loggingOracle ∘ₛₒ statelessOracle (fun _ t ↦ return f t)).maskState
     (Equiv.punitProd (α →ₒ β).QueryLog)
 
 /--
@@ -67,12 +71,23 @@ def singleUseOracle {ι : Type} [DecidableEq ι] {spec : OracleSpec ι} :
     spec →[ι → ℕ]ₛₒ spec :=
   boundedUseOracle (fun _ ↦ 1)
 
+@[simp]
+theorem OracleSpec.append_range_left {ι₁ ι₂ : Type} {spec₁ : OracleSpec ι₁} {spec₂ : OracleSpec ι₂}
+    (i : ι₁) : (spec₁ ++ₒ spec₂).range (Sum.inl i) = spec₁.range i := by
+  simp only [append]
+
+@[simp]
+theorem OracleSpec.append_range_right {ι₁ ι₂ : Type} {spec₁ : OracleSpec ι₁} {spec₂ : OracleSpec ι₂}
+    (i : ι₂) : (spec₁ ++ₒ spec₂).range (Sum.inr i) = spec₂.range i := by
+  simp only [append]
 
 set_option linter.unusedVariables false in
 /-- `SatisfiesM` for `OracleComp` -/
 @[simp]
-theorem SatisfiesM_OracleComp_eq : SatisfiesM (m := OracleComp spec) p x ↔
-    (∀ a, x = pure' _ a → p a) ∧ (∀ i q oa, x = queryBind' i q _ oa → ∀ a, SatisfiesM (m := OracleComp spec) p (oa a)) where
+theorem SatisfiesM_OracleComp_eq {p : α → Prop} {x : OracleComp spec α} :
+    SatisfiesM (m := OracleComp spec) p x ↔
+      (∀ a, x = pure' _ a → p a) ∧
+        (∀ i q oa, x = queryBind' i q _ oa → ∀ a, SatisfiesM (m := OracleComp spec) p (oa a)) where
   mp h := by
     obtain ⟨ x', hx' ⟩ := h
     constructor

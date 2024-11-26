@@ -90,6 +90,26 @@ end Function
 
 namespace List
 
+universe u v w
+
+variable {m : Type u → Type v} [Monad m] [LawfulMonad m] {α : Type w} {β : Type u}
+    (f : α → β) (l : List α)
+
+theorem mapM_pure : mapM (m := m) (fun x => pure (f x)) l = pure (.map f l) := by
+  rw [← List.mapM'_eq_mapM]
+  induction l with
+  | nil => simp only [mapM', List.map_nil]
+  | cons x xs ih => simp only [mapM', ih, bind_pure_comp, map_pure, List.map_cons]
+
+theorem mapM_single (f : α → m β) (a : α) : List.mapM f [a] = return [← f a] := by
+  rw [← List.mapM'_eq_mapM]
+  simp only [mapM', bind_pure_comp, map_pure]
+
+@[simp]
+theorem getLastI_append_single [Inhabited α] (x : α) : (l ++ [x]).getLastI = x := by
+  simp only [List.getLastI_eq_getLast?, List.getLast?_append, List.getLast?_singleton,
+    Option.or_some]
+
 variable {α : Type*} {unit : α}
 
 @[simp] theorem leftpad_eq_self (l : List α) (n : Nat) (h : l.length ≥ n) :

@@ -190,6 +190,8 @@ end StateRestoration
 
 section RoundByRound
 
+instance : Fintype (pSpec.ChallengeIndex) := Subtype.fintype (fun i => pSpec.getDir i = .V_to_P)
+
 structure StateFunction (verifier : Verifier pSpec oSpec StmtIn StmtOut) (language : Set StmtOut)
     where
   fn : (m : ℕ) → StmtIn → PartialTranscript pSpec m → Prop
@@ -217,18 +219,18 @@ structure StateFunction (verifier : Verifier pSpec oSpec StmtIn StmtOut) (langua
 def rbrSoundness (verifier : Verifier pSpec oSpec StmtIn StmtOut)
     (relIn : StmtIn → WitIn → Prop) (relOut : StmtOut → WitOut → Prop)
     (stateFunction : StateFunction pSpec oSpec verifier relOut.language)
-    (rbrSoundnessBound : Fin n → ℝ≥0) : Prop :=
+    (rbrSoundnessBound : pSpec.ChallengeIndex → ℝ≥0) : Prop :=
   ∀ stmtIn ∉ relIn.language,
   ∀ witIn : WitIn,
   ∀ PrvState : Type,
   ∀ prover : Prover pSpec oSpec StmtIn WitIn StmtOut WitOut PrvState,
-  ∀ i : ChallengeIndex pSpec,
+  ∀ i : pSpec.ChallengeIndex,
     let partialTranscript := Prod.fst <$> evalDist (prover.runAux stmtIn witIn i.1.castSucc)
     let challenge := PMF.uniformOfFintype (pSpec.Challenge i)
     let nextTranscript := PartialTranscript.snoc i.1.isLt <$> challenge <*> partialTranscript
     let stateIdx := stateFunction.fn i.1 stmtIn <$> partialTranscript
     let stateIdxSucc := stateFunction.fn (i.1 + 1) stmtIn <$> nextTranscript
-    ((· = False ∧ · = True) <$> stateIdx <*> stateIdxSucc) True ≤ rbrSoundnessBound i.1
+    ((· = False ∧ · = True) <$> stateIdx <*> stateIdxSucc) True ≤ rbrSoundnessBound i
 
 /-- A round-by-round extractor with index `m` is given the input statement, a partial transcript
   of length `m`, the query log, and returns a witness to the statement.
@@ -248,13 +250,13 @@ def RBRExtractor (m : ℕ) := StmtIn → PartialTranscript pSpec m → QueryLog 
 def rbrKnowledgeSoundness (verifier : Verifier pSpec oSpec StmtIn StmtOut)
     (relIn : StmtIn → WitIn → Prop) (relOut : StmtOut → WitOut → Prop)
     (stateFunction : StateFunction pSpec oSpec verifier relOut.language)
-    (rbrKnowledgeBound : Fin n → ℝ≥0) : Prop :=
+    (rbrKnowledgeBound : pSpec.ChallengeIndex → ℝ≥0) : Prop :=
   ∃ extractor : (m : ℕ) → @RBRExtractor _ _ pSpec oSpec StmtIn WitIn m,
   ∀ stmtIn : StmtIn,
   ∀ witIn : WitIn,
   ∀ PrvState : Type,
   ∀ prover : Prover pSpec oSpec StmtIn WitIn StmtOut WitOut PrvState,
-  ∀ i : ChallengeIndex pSpec,
+  ∀ i : pSpec.ChallengeIndex,
     let result := evalDist (prover.runAux stmtIn witIn i.1.castSucc)
     let partialTranscript := Prod.fst <$> result
     let queryLog := Prod.fst <$> Prod.snd <$> result
@@ -265,7 +267,7 @@ def rbrKnowledgeSoundness (verifier : Verifier pSpec oSpec StmtIn StmtOut)
     let stateIdxSucc := stateFunction.fn (i.1 + 1) stmtIn <$> nextTranscript
     let validWit := relIn stmtIn <$> extractedWitIn
     ((· = False ∧ · = True ∧ · = False) <$> stateIdx <*> stateIdxSucc <*> validWit) True ≤
-      rbrKnowledgeBound i.1
+      rbrKnowledgeBound i
 
 end RoundByRound
 
@@ -309,7 +311,7 @@ theorem knowledgeSoundness_implies_soundness (verifier : Verifier pSpec oSpec St
 theorem rbrSoundness_implies_soundness (verifier : Verifier pSpec oSpec StmtIn StmtOut)
     (relIn : StmtIn → WitIn → Prop) (relOut : StmtOut → WitOut → Prop)
     (stateFunction : StateFunction pSpec oSpec verifier relOut.language)
-    (rbrSoundnessBound : Fin n → ℝ≥0) :
+    (rbrSoundnessBound : pSpec.ChallengeIndex → ℝ≥0) :
       rbrSoundness pSpec oSpec verifier relIn relOut stateFunction rbrSoundnessBound →
         soundness pSpec oSpec verifier relIn relOut (∑ i, rbrSoundnessBound i) := by sorry
 
@@ -318,7 +320,7 @@ soundness with the same error `rbrKnowledgeBound`. -/
 theorem rbrKnowledgeSoundness_implies_rbrSoundness (verifier : Verifier pSpec oSpec StmtIn StmtOut)
     (relIn : StmtIn → WitIn → Prop) (relOut : StmtOut → WitOut → Prop)
     (stateFunction : StateFunction pSpec oSpec verifier relOut.language)
-    (rbrKnowledgeBound : Fin n → ℝ≥0) :
+    (rbrKnowledgeBound : pSpec.ChallengeIndex → ℝ≥0) :
       rbrKnowledgeSoundness pSpec oSpec verifier relIn relOut stateFunction rbrKnowledgeBound →
         rbrSoundness pSpec oSpec verifier relIn relOut stateFunction rbrKnowledgeBound := by sorry
 
@@ -328,7 +330,7 @@ theorem rbrKnowledgeSoundness_implies_knowledgeSoundness
     (verifier : Verifier pSpec oSpec StmtIn StmtOut)
     (relIn : StmtIn → WitIn → Prop) (relOut : StmtOut → WitOut → Prop)
     (stateFunction : StateFunction pSpec oSpec verifier relOut.language)
-    (rbrKnowledgeBound : Fin n → ℝ≥0) :
+    (rbrKnowledgeBound : pSpec.ChallengeIndex → ℝ≥0) :
       rbrKnowledgeSoundness pSpec oSpec verifier relIn relOut stateFunction rbrKnowledgeBound →
         knowledgeSoundness pSpec oSpec verifier relIn relOut (∑ i, rbrKnowledgeBound i) := by sorry
 
@@ -402,18 +404,16 @@ def knowledgeSoundness (verifier : OracleVerifier pSpec oSpec StmtIn StmtOut)
 def rbrSoundness (verifier : OracleVerifier pSpec oSpec StmtIn StmtOut)
     (relIn : StmtIn → WitIn → Prop) (relOut : StmtOut → WitOut → Prop)
     (stateFunction : StateFunction pSpec oSpec verifier.toVerifier relOut.language)
-    (rbrSoundnessBound : Fin n → ℝ≥0) : Prop :=
+    (rbrSoundnessBound : pSpec.ChallengeIndex → ℝ≥0) : Prop :=
   Reduction.rbrSoundness pSpec oSpec verifier.toVerifier relIn relOut stateFunction
     rbrSoundnessBound
 
 def rbrKnowledgeSoundness (verifier : OracleVerifier pSpec oSpec StmtIn StmtOut)
     (relIn : StmtIn → WitIn → Prop) (relOut : StmtOut → WitOut → Prop)
     (stateFunction : StateFunction pSpec oSpec verifier.toVerifier relOut.language)
-    (rbrKnowledgeBound : Fin n → ℝ≥0) : Prop :=
+    (rbrKnowledgeBound : pSpec.ChallengeIndex → ℝ≥0) : Prop :=
   Reduction.rbrKnowledgeSoundness pSpec oSpec verifier.toVerifier relIn relOut stateFunction
     rbrKnowledgeBound
-
-#check finSuccEquiv'
 
 end OracleReduction
 
