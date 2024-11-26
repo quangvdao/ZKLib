@@ -6,7 +6,7 @@ Authors: Quang Dao
 
 import Mathlib.InformationTheory.Hamming
 import Mathlib.LinearAlgebra.Lagrange
-import Mathlib.Data.Set.Finite
+import Mathlib.Data.Set.Finite.Lattice
 
 /-!
   # Basics of Coding Theory

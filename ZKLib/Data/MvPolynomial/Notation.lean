@@ -25,13 +25,9 @@ section Equiv
 
 variable (R : Type*) [CommSemiring R] {n : ℕ}
 
-/-- The algebra isomorphism between multivariable polynomials in `Fin (n + 1)` and polynomials over
-  multivariable polynomials in `Fin n`, where the `i`-th variable is the indeterminate `X`.
-
-  For `i = 0`, this is definitionally the same as `finSuccEquiv`. -/
-def finSuccEquiv' (i : Fin (n + 1)) :
-    MvPolynomial (Fin (n + 1)) R ≃ₐ[R] Polynomial (MvPolynomial (Fin n) R) :=
-  (renameEquiv R (_root_.finSuccEquiv' i)).trans (optionEquivLeft R (Fin n))
+-- def finSuccEquiv' (i : Fin (n + 1)) :
+--     MvPolynomial (Fin (n + 1)) R ≃ₐ[R] Polynomial (MvPolynomial (Fin n) R) :=
+--   (renameEquiv R (_root_.finSuccEquiv' i)).trans (optionEquivLeft R (Fin n))
 
 /-- Equivalence between `MvPolynomial (Fin 1) R` and `Polynomial R` -/
 def finOneEquiv : MvPolynomial (Fin 1) R ≃ₐ[R] Polynomial R :=
