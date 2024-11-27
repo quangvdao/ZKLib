@@ -149,9 +149,12 @@ instance instSampleableChallengePSpec : Sampleable ((pSpec R deg).Challenge defa
   simp only [pSpec, default, getDir_apply, getType_apply, Matrix.cons_val_one, Matrix.head_cons]
   infer_instance
 
+@[reducible]
+def proverState (i : Fin n) : ProverState 2 := ⟨fun _ => Statement R n deg i (by omega)⟩
+
 /-- Prover input for the `i`-th round of the sum-check protocol, where `i < n` -/
 def proverIn (i : Fin n) : ProverIn (pSpec R deg) (Statement R n deg i (by omega)) Unit
-    (Statement R n deg i (by omega)) where
+    ((proverState R n deg i).PrvState 0) where
   load := fun stmt _ => stmt
 
 variable {ι : Type} (oSpec : OracleSpec ι)
@@ -159,12 +162,13 @@ variable {ι : Type} (oSpec : OracleSpec ι)
 /-- Prover interaction for the `i`-th round of the sum-check protocol, where `i < n`. This is only
   well-defined for `n > 0` -/
 def proverRound (i : Fin n) (hn : n > 0) :
-    ProverRound (pSpec R deg) oSpec (Statement R n deg i (by omega)) where
+    ProverRound (pSpec R deg) oSpec where
+  PrvState := (proverState R n deg i).PrvState
   sendMessage := fun idx state => by
     have ⟨⟨poly, hp⟩, target, challenges, earlyReject⟩ := state
     haveI : idx = default := Unique.uniq _ idx
     simp [pSpec, Message, getType, this, default]
-    let n' := n - 1
+    generalize hn : n - 1 = n'
     haveI : n = n' + 1 := by omega
     simp_rw [this] at hp poly
     exact pure ⟨ ⟨∑ x ∈ (univ.map D) ^ᶠ (n' - i), poly ⸨X ⦃i⦄, challenges, x⸩, by
@@ -182,13 +186,16 @@ def proverRound (i : Fin n) (hn : n > 0) :
 def proverOut (i : Fin n) : ProverOut Unit (Statement R n deg i (by omega)) where
   output := fun _ => ()
 
+#check Prover.mk
+
 /-- The overall prover for the `i`-th round of the sum-check protocol, where `i < n`. This is only
   well-defined for `n > 0`, since when `n = 0` there is no protocol. -/
 def prover (i : Fin n) (hn : n > 0) : Prover (pSpec R deg) oSpec
-    (Statement R n deg i (by omega)) Unit (Statement R n deg (i + 1) (by omega)) Unit
-    (Statement R n deg i (by omega)) where
+    (Statement R n deg i (by omega)) Unit (Statement R n deg (i + 1) (by omega)) Unit where
+  toProverState := proverState R n deg i
   toProverIn := proverIn R n deg i
-  toProverRound := proverRound R n deg D oSpec i hn
+  sendMessage := (proverRound R n deg D oSpec i hn).sendMessage
+  receiveChallenge := (proverRound R n deg D oSpec i hn).receiveChallenge
   toProverOut := proverOut R n deg i
 
 /-- The default value for the tuple (message index, query, response) -/
@@ -232,14 +239,12 @@ def oracleVerifier (i : Fin n) : OracleVerifier (pSpec R deg) oSpec
 
 /-- The sum-check reduction for the `i`-th round, where `i < n` and `n > 0` -/
 def reduction (hn : n > 0) (i : Fin n) : Reduction (pSpec R deg) oSpec
-    (Statement R n deg i (by omega)) Unit (Statement R n deg (i + 1) (by omega)) Unit
-    (Statement R n deg i (by omega)) :=
+    (Statement R n deg i (by omega)) Unit (Statement R n deg (i + 1) (by omega)) Unit :=
   .mk (prover R n deg D oSpec i hn) (verifier R n deg D oSpec i)
 
 /-- The sum-check oracle reduction for the `i`-th round, where `i < n` and `n > 0` -/
 def oracleReduction (hn : n > 0) (i : Fin n) : OracleReduction (pSpec R deg) oSpec
-    (Statement R n deg i (by omega)) Unit (Statement R n deg (i + 1) (by omega)) Unit
-    (Statement R n deg i (by omega)) :=
+    (Statement R n deg i (by omega)) Unit (Statement R n deg (i + 1) (by omega)) Unit :=
   .mk (prover R n deg D oSpec i hn) (oracleVerifier R n deg D oSpec i)
 
 section Security
@@ -343,12 +348,12 @@ def stateFunction (i : Fin n) : StateFunction (pSpec R deg) oSpec
   fn_next := sorry
   fn_full := sorry
 
--- /-- Round-by-round soundness theorem for sumcheck -/
-theorem rbr_soundness : Reduction.rbrSoundness (pSpec R deg) oSpec
-    (verifier R n deg D oSpec i) (relation R n deg D i (by omega))
-      (relation R n deg D (i + 1) (by omega)) (stateFunction i)
-        (fun _ => ⟨(deg : ℝ) / Fintype.card R, by
-          refine div_nonneg ?_ ?_ <;> simp only [Nat.cast_nonneg]⟩) := sorry
+-- -- /-- Round-by-round soundness theorem for sumcheck -/
+-- theorem rbr_soundness : Reduction.rbrSoundness (pSpec R deg) oSpec
+--     (verifier R n deg D oSpec i) (relation R n deg D i (by omega))
+--       (relation R n deg D (i + 1) (by omega)) (stateFunction i)
+--         (fun _ => ⟨(deg : ℝ) / Fintype.card R, by
+--           refine div_nonneg ?_ ?_ <;> simp only [Nat.cast_nonneg]⟩) := sorry
 
 end Security
 

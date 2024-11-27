@@ -47,8 +47,6 @@ variable {n : ℕ} {ι : Type} [DecidableEq ι] (pSpec : ProtocolSpec n) (oSpec 
 
 section Completeness
 
-variable {PrvState : Type}
-
 /--
   A reduction satisfies **completeness** with error `completenessError ≥ 0` and with respect to
   input relation `relIn` and output relation `relOut`, if for all valid statement-witness pair
@@ -56,7 +54,7 @@ variable {PrvState : Type}
   will result in a valid pair `(stmtOut, witOut)` for `relOut`, except with probability
   `completenessError`.
 -/
-def completeness (reduction : Reduction pSpec oSpec StmtIn WitIn StmtOut WitOut PrvState)
+def completeness (reduction : Reduction pSpec oSpec StmtIn WitIn StmtOut WitOut)
     (relIn : StmtIn → WitIn → Prop)
     (relOut : StmtOut → WitOut → Prop)
     (completenessError : ℝ≥0) : Prop :=
@@ -67,7 +65,7 @@ def completeness (reduction : Reduction pSpec oSpec StmtIn WitIn StmtOut WitOut 
       (relOut.uncurry <$> newPair) True ≥ 1 - completenessError
 
 /-- A reduction satisfies **perfect completeness** if it satisfies completeness with error `0`. -/
-def perfectCompleteness (reduction : Reduction pSpec oSpec StmtIn WitIn StmtOut WitOut PrvState)
+def perfectCompleteness (reduction : Reduction pSpec oSpec StmtIn WitIn StmtOut WitOut)
     (relIn : StmtIn → WitIn → Prop) (relOut : StmtOut → WitOut → Prop) : Prop :=
   completeness pSpec oSpec reduction relIn relOut 0
 
@@ -87,9 +85,10 @@ section Soundness
   6. Round-by-round knowledge soundness
 -/
 
-
-structure AdaptiveProver {PrvState : Type} extends
-    Prover pSpec oSpec PrvState StmtIn WitIn StmtOut WitOut where
+/-- It's not clear whether we need the stronger `AdaptiveProver` type, since the soundness notions
+  are stated with regards to an arbitrary statement anyway (for plain soundness, the statement is
+  arbitrary among the ones that are not in the language). -/
+structure AdaptiveProver extends Prover pSpec oSpec StmtIn WitIn StmtOut WitOut where
   chooseStmtIn : OracleComp oSpec StmtIn
 
 /--
@@ -103,9 +102,9 @@ structure AdaptiveProver {PrvState : Type} extends
 def soundness (verifier : Verifier pSpec oSpec StmtIn StmtOut) (langIn : Set StmtIn)
     (langOut : Set StmtOut) (soundnessError : ℝ≥0) : Prop :=
   ∀ stmtIn ∉ langIn,
-  ∀ WitIn WitOut PrvState : Type,
+  ∀ WitIn WitOut : Type,
   ∀ witIn : WitIn,
-  ∀ prover : Prover pSpec oSpec StmtIn WitIn StmtOut WitOut PrvState,
+  ∀ prover : Prover pSpec oSpec StmtIn WitIn StmtOut WitOut,
     let reduction := Reduction.mk prover verifier
     let stmtOut := Prod.fst <$> Prod.snd <$> Prod.snd <$> evalDist (reduction.run stmtIn witIn)
     ((· ∉ langOut) <$> stmtOut) True ≤ soundnessError
@@ -137,8 +136,7 @@ def knowledgeSoundness (verifier : Verifier pSpec oSpec StmtIn StmtOut)
   ∃ extractor : StraightlineExtractor pSpec oSpec,
   ∀ stmtIn : StmtIn,
   ∀ witIn : WitIn,
-  ∀ PrvState : Type,
-  ∀ prover : Prover pSpec oSpec StmtIn WitIn StmtOut WitOut PrvState,
+  ∀ prover : Prover pSpec oSpec StmtIn WitIn StmtOut WitOut,
     let reduction := Reduction.mk prover verifier
     let result := evalDist (reduction.run stmtIn witIn)
     let transcript := Prod.fst <$> result
@@ -166,13 +164,13 @@ variable [DecidableEq StmtIn] [∀ i, DecidableEq (pSpec.Message i)]
 --   range_inhabited' := fun _ => Sampleable.toInhabited
 --   range_fintype' := fun _ => Sampleable.toFintype
 
--- class StateRestorationProver extends Prover pSpec oSpec StmtIn WitIn StmtOut WitOut PrvState
+-- class StateRestorationProver extends Prover pSpec oSpec StmtIn WitIn StmtOut WitOut
 -- where
 --   stateRestorationQuery : OracleComp (oSpec ++ₒ challengeOracle' pSpec (Statement := Statement))
---     (PrvState × Statement × Transcript pSpec)
+--     (prover.PrvState 0 × Statement × Transcript pSpec)
 
 -- def runStateRestorationProver
---     (prover : StateRestorationProver pSpec oSpec StmtIn WitIn StmtOut WitOut PrvState)
+--     (prover : StateRestorationProver pSpec oSpec StmtIn WitIn StmtOut WitOut)
 --     (stmtIn : StmtIn) (witIn : WitIn) :
 --     OracleComp (oSpec ++ₒ challengeOracle' pSpec (Statement := Statement))
 --     (Transcript pSpec × QueryLog (oSpec ++ₒ challengeOracle' pSpec (Statement := Statement)))
@@ -180,13 +178,12 @@ variable [DecidableEq StmtIn] [∀ i, DecidableEq (pSpec.Message i)]
 --   let ⟨state, stmt, transcript⟩ ← prover.stateRestorationQuery stmtIn
 --   return ⟨transcript, state⟩
 
-
 -- def stateRestorationSoundness (verifier : Verifier pSpec oSpec StmtIn StmtOut)
 --     [RelIn : Relation Statement Witness] (SRSoundnessBound : ENNReal) : Prop :=
 --   ∀ stmtIn ∉ RelIn.language,
 --   ∀ witIn : Witness,
 --   ∀ SRProver : StateRestorationProver pSpec oSpec,
---     let protocol := Reduction.mk (PrvState := PrvState) (Witness := Witness)
+--     let protocol := Reduction.mk (Witness := Witness)
 --       SRProver.toProver verifier
 --     sorry
 
@@ -225,9 +222,9 @@ def rbrSoundness (verifier : Verifier pSpec oSpec StmtIn StmtOut)
     (stateFunction : StateFunction pSpec oSpec verifier langOut)
     (rbrSoundnessBound : pSpec.ChallengeIndex → ℝ≥0) : Prop :=
   ∀ stmtIn ∉ langIn,
-  ∀ WitIn WitOut PrvState : Type,
+  ∀ WitIn WitOut : Type,
   ∀ witIn : WitIn,
-  ∀ prover : Prover pSpec oSpec StmtIn WitIn StmtOut WitOut PrvState,
+  ∀ prover : Prover pSpec oSpec StmtIn WitIn StmtOut WitOut,
   ∀ i : pSpec.ChallengeIndex,
     let partialTranscript := Prod.fst <$> evalDist (prover.runAux stmtIn witIn i.1.castSucc)
     let challenge := PMF.uniformOfFintype (pSpec.Challenge i)
@@ -258,8 +255,7 @@ def rbrKnowledgeSoundness (verifier : Verifier pSpec oSpec StmtIn StmtOut)
   ∃ extractor : (m : ℕ) → @RBRExtractor _ _ pSpec oSpec StmtIn WitIn m,
   ∀ stmtIn : StmtIn,
   ∀ witIn : WitIn,
-  ∀ PrvState : Type,
-  ∀ prover : Prover pSpec oSpec StmtIn WitIn StmtOut WitOut PrvState,
+  ∀ prover : Prover pSpec oSpec StmtIn WitIn StmtOut WitOut,
   ∀ i : pSpec.ChallengeIndex,
     let result := evalDist (prover.runAux stmtIn witIn i.1.castSucc)
     let partialTranscript := Prod.fst <$> result
@@ -384,16 +380,16 @@ open scoped NNReal
 
 variable {n : ℕ} {ι : Type} [DecidableEq ι] (pSpec : ProtocolSpec n) (oSpec : OracleSpec ι)
     [∀ i, ToOracle (pSpec.Message i)] [∀ i, Sampleable (pSpec.Challenge i)]
-    {StmtIn WitIn StmtOut WitOut PrvState : Type}
+    {StmtIn WitIn StmtOut WitOut : Type}
 
 def completeness
-    (oracleReduction : OracleReduction pSpec oSpec StmtIn WitIn StmtOut WitOut PrvState)
+    (oracleReduction : OracleReduction pSpec oSpec StmtIn WitIn StmtOut WitOut)
     (relIn : StmtIn → WitIn → Prop) (relOut : StmtOut → WitOut → Prop)
     (completenessError : ℝ≥0) : Prop :=
   Reduction.completeness pSpec oSpec oracleReduction.toReduction relIn relOut completenessError
 
 def perfectCompleteness
-    (oracleReduction : OracleReduction pSpec oSpec StmtIn WitIn StmtOut WitOut PrvState)
+    (oracleReduction : OracleReduction pSpec oSpec StmtIn WitIn StmtOut WitOut)
     (relIn : StmtIn → WitIn → Prop) (relOut : StmtOut → WitOut → Prop) : Prop :=
   Reduction.perfectCompleteness pSpec oSpec oracleReduction.toReduction relIn relOut
 

@@ -133,12 +133,14 @@ theorem Transcript.take_append_left (T : Transcript pSpec₁) (T' : Transcript p
   --   · exact P.sendMessage j c
   --   · exact P'.sendMessage j c
 
-def Prover.append (P : Prover pSpec₁ oSpec Stmt₁ Wit₁ Stmt₂ Wit₂ PrvState)
-    (P' : Prover pSpec₂ oSpec Stmt₂ Wit₂ Stmt₃ Wit₃ PrvState) :
-        Prover (pSpec₁ ++ₚ pSpec₂) oSpec Stmt₁ Wit₁ Stmt₃ Wit₃ PrvState where
-  load := P.load
-  toProverRound := sorry
-  output := P'.output
+def Prover.append (P : Prover pSpec₁ oSpec Stmt₁ Wit₁ Stmt₂ Wit₂)
+    (P' : Prover pSpec₂ oSpec Stmt₂ Wit₂ Stmt₃ Wit₃) :
+        Prover (pSpec₁ ++ₚ pSpec₂) oSpec Stmt₁ Wit₁ Stmt₃ Wit₃ where
+  PrvState := Fin.append (m := n) (Fin.init P.PrvState) P'.PrvState
+  load := sorry
+  sendMessage := sorry
+  receiveChallenge := sorry
+  output := sorry
 
 /-- Composition of verifiers. Return the conjunction of the decisions of the two verifiers. -/
 def Verifier.append (V : Verifier pSpec₁ oSpec Stmt₁ Stmt₂)
@@ -155,9 +157,9 @@ def Verifier.append (V : Verifier pSpec₁ oSpec Stmt₁ Stmt₂)
     -- let decision' ← V'.verify stmt secondTranscript
     -- return decision ∧ decision'
 
-def Reduction.append (P : Reduction pSpec₁ oSpec PrvState Stmt₁ Wit₁ Stmt₂ Wit₂)
-    (P' : Reduction pSpec₂ oSpec PrvState Stmt₂ Wit₂ Stmt₃ Wit₃) :
-    Reduction (pSpec₁ ++ₚ pSpec₂) oSpec PrvState Stmt₁ Wit₁ Stmt₃ Wit₃ := sorry
+def Reduction.append (P : Reduction pSpec₁ oSpec Stmt₁ Wit₁ Stmt₂ Wit₂)
+    (P' : Reduction pSpec₂ oSpec Stmt₂ Wit₂ Stmt₃ Wit₃) :
+    Reduction (pSpec₁ ++ₚ pSpec₂) oSpec Stmt₁ Wit₁ Stmt₃ Wit₃ := sorry
   -- prover := Prover.append P.prover P'.prover
   -- verifier := Verifier.append P.verifier P'.verifier
 
@@ -182,7 +184,7 @@ def OracleVerifier.append [O : ∀ i, ToOracle (pSpec₁.Message i)]
 
 -- Define composition of multiple protocols via recursion
 
-def ProtocolSpec.appendList (rounds : List ℕ)
+def ProtocolSpec.join (rounds : List ℕ)
     (pSpecs : ∀ i : Fin rounds.length, ProtocolSpec (rounds.get i)) :
     ProtocolSpec rounds.sum := sorry
 

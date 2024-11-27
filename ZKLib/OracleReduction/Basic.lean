@@ -60,7 +60,7 @@ deriving DecidableEq, Inhabited, Repr
 
 /-- Equivalence between `Direction` and `Fin 2`, sending `V_to_P` to `0` and `P_to_V` to `1`
 (the choice is essentially arbitrary). -/
-def DirectionEquivFin2 : Direction ≃ Fin 2 where
+def directionEquivFin2 : Direction ≃ Fin 2 where
   toFun := fun dir => match dir with
     | .V_to_P => ⟨0, by decide⟩
     | .P_to_V => ⟨1, by decide⟩
@@ -75,7 +75,7 @@ def DirectionEquivFin2 : Direction ≃ Fin 2 where
     | ⟨1, _⟩ => rfl
 
 /-- This allows us to write `0` for `.V_to_P` and `1` for `.P_to_V`. -/
-instance : Coe (Fin 2) Direction := ⟨DirectionEquivFin2.invFun⟩
+instance : Coe (Fin 2) Direction := ⟨directionEquivFin2.invFun⟩
 
 end Prelude
 
@@ -213,31 +213,42 @@ structure Indexer (pSpec : ProtocolSpec n) (oSpec : OracleSpec ι) (Index : Type
   encode : Index → OracleComp oSpec Encoding
   [toOracle : ToOracle Encoding]
 
+/-- The type signature for the prover's state at each round. For a protocol with `n` messages
+  exchanged, there will be `(n + 1)` prover states, with the first state before the first message
+  and the last state after the last message. -/
+structure ProverState (n : ℕ) where
+  PrvState : Fin (n + 1) → Type
+
 /-- Initialization of prover's state via loading the statement and witness -/
 structure ProverIn (pSpec : ProtocolSpec n) (StmtIn WitIn PrvState : Type) where
   load : StmtIn → WitIn → PrvState
 
 /-- Represents the interaction of a prover for a given protocol specification -/
-structure ProverRound (pSpec : ProtocolSpec n) (oSpec : OracleSpec ι) (PrvState : Type) where
+structure ProverRound (pSpec : ProtocolSpec n) (oSpec : OracleSpec ι) extends ProverState n where
   /-- Send a message and update the prover's state -/
-  sendMessage (i : MessageIndex pSpec) : PrvState → OracleComp oSpec (pSpec.Message i × PrvState)
+  sendMessage (i : MessageIndex pSpec) :
+    PrvState i.1.castSucc → OracleComp oSpec (pSpec.Message i × PrvState i.1.succ)
   /-- Receive a challenge and update the prover's state -/
-  receiveChallenge (i : ChallengeIndex pSpec) : PrvState → (pSpec.Challenge i) → PrvState
+  receiveChallenge (i : ChallengeIndex pSpec) :
+    PrvState i.1.castSucc → (pSpec.Challenge i) → PrvState i.1.succ
 
 /-- The output of the prover, which is a function from the prover's state to the output witness -/
 structure ProverOut (WitOut PrvState : Type) where
   output : PrvState → WitOut
 
-/-- A prover for an interactive protocol consists of four functions:
+/-- A prover for an interactive protocol with `n` messages consists of a sequence of internal states
+    and a tuple of four functions:
+  - `PrvState 0`, ..., `PrvState n` are the types for the prover's state at each round
   - `load` initializes the prover's state by taking in the input statement and witness
   - `receiveChallenge` updates the prover's state given a challenge
   - `sendMessage` sends a message and updates the prover's state
   - `output` returns the output witness from the prover's state -/
 structure Prover (pSpec : ProtocolSpec n) (oSpec : OracleSpec ι)
-    (StmtIn WitIn StmtOut WitOut PrvState : Type) extends
-      ProverIn pSpec StmtIn WitIn PrvState,
-      ProverRound pSpec oSpec PrvState,
-      ProverOut WitOut PrvState
+    (StmtIn WitIn StmtOut WitOut : Type) extends
+      ProverState n,
+      ProverIn pSpec StmtIn WitIn (PrvState 0),
+      ProverRound pSpec oSpec,
+      ProverOut WitOut (PrvState (Fin.last n))
 
 /-- A verifier of an interactive protocol is a function that takes in the input statement and the
   transcript, and performs an oracle computation that outputs a new statement -/
@@ -289,49 +300,50 @@ instance {pSpec : ProtocolSpec n} {oSpec : OracleSpec ι} {StmtIn StmtOut : Type
 /-- An (interactive) reduction for a given protocol specification `pSpec`, and relative to oracles
   defined by `oSpec`, consists of a prover and a verifier. -/
 structure Reduction (pSpec : ProtocolSpec n) (oSpec : OracleSpec ι)
-    (StmtIn WitIn StmtOut WitOut PrvState : Type) where
-  prover : Prover pSpec oSpec StmtIn WitIn StmtOut WitOut PrvState
+    (StmtIn WitIn StmtOut WitOut : Type) where
+  prover : Prover pSpec oSpec StmtIn WitIn StmtOut WitOut
   verifier : Verifier pSpec oSpec StmtIn StmtOut
 
 /-- An (interactive) oracle reduction for a given protocol specification `pSpec`, and relative to
   oracles defined by `oSpec`, consists of a prover and an **oracle** verifier. -/
 structure OracleReduction (pSpec : ProtocolSpec n) [∀ i, ToOracle (pSpec.Message i)]
-    (oSpec : OracleSpec ι) (StmtIn WitIn StmtOut WitOut PrvState : Type) where
-  prover : Prover pSpec oSpec StmtIn WitIn StmtOut WitOut PrvState
+    (oSpec : OracleSpec ι) (StmtIn WitIn StmtOut WitOut : Type) where
+  prover : Prover pSpec oSpec StmtIn WitIn StmtOut WitOut
   verifier : OracleVerifier pSpec oSpec StmtIn StmtOut
 
 /-- An interactive oracle reduction can be seen as an interactive reduction, via coercing the oracle
   verifier to a (normal) verifier -/
 def OracleReduction.toReduction {pSpec : ProtocolSpec n} {oSpec : OracleSpec ι}
-    {StmtIn WitIn StmtOut WitOut PrvState : Type} [∀ i, ToOracle (pSpec.Message i)]
-    (oracleReduction : OracleReduction pSpec oSpec StmtIn WitIn StmtOut WitOut PrvState) :
-      Reduction pSpec oSpec StmtIn WitIn StmtOut WitOut PrvState :=
+    {StmtIn WitIn StmtOut WitOut : Type} [∀ i, ToOracle (pSpec.Message i)]
+    (oracleReduction : OracleReduction pSpec oSpec StmtIn WitIn StmtOut WitOut) :
+      Reduction pSpec oSpec StmtIn WitIn StmtOut WitOut :=
   ⟨oracleReduction.prover, oracleReduction.verifier⟩
 
 /-- Make `OracleReduction.toReduction` a coercion -/
-instance {pSpec : ProtocolSpec n} [∀ i, ToOracle (pSpec.Message i)] {oSpec : OracleSpec ι}
-    {StmtIn WitIn StmtOut WitOut PrvState : Type} :
-    Coe (OracleReduction pSpec oSpec StmtIn WitIn StmtOut WitOut PrvState)
-    (Reduction pSpec oSpec StmtIn WitIn StmtOut WitOut PrvState) :=
+instance {pSpec : ProtocolSpec n} {oSpec : OracleSpec ι} [∀ i, ToOracle (pSpec.Message i)]
+    {StmtIn WitIn StmtOut WitOut : Type} :
+    Coe (OracleReduction pSpec oSpec StmtIn WitIn StmtOut WitOut)
+    (Reduction pSpec oSpec StmtIn WitIn StmtOut WitOut) :=
   ⟨OracleReduction.toReduction⟩
 
-/-- An interactive proof is an interactive reduction where the output statement is a boolean and the
-  witness is unit (and the output relation is the trivial one). -/
-abbrev Proof (pSpec : ProtocolSpec n) (oSpec : OracleSpec ι) (Statement Witness PrvState : Type) :=
-  Reduction pSpec oSpec Statement Witness Bool Unit PrvState
+/-- An interactive proof is an interactive reduction where the output statement is a boolean, the
+  output witness can be arbitrary, and the relation checks whether the output statement is true. -/
+abbrev Proof (pSpec : ProtocolSpec n) (oSpec : OracleSpec ι) (Statement Witness : Type) :=
+  Reduction pSpec oSpec Statement Witness Bool Unit
 
 /-- An interactive oracle proof is an interactive oracle reduction where the output statement is a
-  boolean and the witness is unit (and the output relation is the trivial one). -/
-abbrev OracleProof (pSpec : ProtocolSpec n) [∀ i, ToOracle (pSpec.Message i)] (oSpec : OracleSpec ι)
-    (Statement Witness PrvState : Type) :=
-  OracleReduction pSpec oSpec Statement Witness Bool Unit PrvState
+  boolean, the output witness can be arbitrary, and the relation checks whether the output statement
+  is true. -/
+abbrev OracleProof (pSpec : ProtocolSpec n) (oSpec : OracleSpec ι) [∀ i, ToOracle (pSpec.Message i)]
+    (Statement Witness : Type) :=
+  OracleReduction pSpec oSpec Statement Witness Bool Unit
 
 end Format
 
 section Execution
 
 variable {n : ℕ} {ι : Type} [DecidableEq ι] {pSpec : ProtocolSpec n} {oSpec : OracleSpec ι}
-  {StmtIn WitIn StmtOut WitOut PrvState : Type}
+  {StmtIn WitIn StmtOut WitOut : Type}
 
 /--
   Auxiliary function for running the prover in an interactive protocol. Given round index `i`,
@@ -339,9 +351,9 @@ variable {n : ℕ} {ι : Type} [DecidableEq ι] {pSpec : ProtocolSpec n} {oSpec 
   up to that round, and the prover's state after that round.
 -/
 def Prover.runAux [∀ i, Sampleable (pSpec.Challenge i)] (stmt : StmtIn) (wit : WitIn)
-    (i : Fin (n + 1)) (prover : Prover pSpec oSpec StmtIn WitIn StmtOut WitOut PrvState) :
+    (i : Fin (n + 1)) (prover : Prover pSpec oSpec StmtIn WitIn StmtOut WitOut) :
       OracleComp (oSpec ++ₒ challengeOracle pSpec)
-        (PartialTranscript pSpec i × QueryLog oSpec × PrvState) :=
+        (PartialTranscript pSpec i × QueryLog oSpec × prover.PrvState i) :=
   Fin.induction
     (pure ⟨emptyPartialTranscript, ∅, prover.load stmt wit⟩)
     (fun j ih => do
@@ -365,7 +377,7 @@ def Prover.runAux [∀ i, Sampleable (pSpec.Challenge i)] (stmt : StmtIn) (wit :
   state
 -/
 def Prover.run [∀ i, Sampleable (pSpec.Challenge i)] (stmt : StmtIn) (wit : WitIn)
-    (prover : Prover pSpec oSpec StmtIn WitIn StmtOut WitOut PrvState) :
+    (prover : Prover pSpec oSpec StmtIn WitIn StmtOut WitOut) :
       OracleComp (oSpec ++ₒ challengeOracle pSpec)
         (Transcript pSpec × QueryLog oSpec × WitOut) := do
   let ⟨transcript, queryLog, state⟩ ← prover.runAux stmt wit ⟨n, n.lt_add_one⟩
@@ -407,7 +419,7 @@ theorem OracleVerifier.run_eq_run_verifier [∀ i, ToOracle (pSpec.Message i)] {
   and the prover's final state
 -/
 def Reduction.run [∀ i, Sampleable (pSpec.Challenge i)] (stmt : StmtIn) (wit : WitIn)
-    (reduction : Reduction pSpec oSpec StmtIn WitIn StmtOut WitOut PrvState) :
+    (reduction : Reduction pSpec oSpec StmtIn WitIn StmtOut WitOut) :
       OracleComp (oSpec ++ₒ challengeOracle pSpec)
         (Transcript pSpec × QueryLog oSpec × StmtOut × WitOut) := do
   let (transcript, queryLog, witOut) ← reduction.prover.run stmt wit
@@ -424,7 +436,7 @@ we will show is the same result as doing `Protocol.run`.
 -/
 def OracleReduction.run [∀ i, Sampleable (pSpec.Challenge i)] [∀ i, ToOracle (pSpec.Message i)]
     (stmt : StmtIn) (wit : WitIn)
-    (reduction : OracleReduction pSpec oSpec StmtIn WitIn StmtOut WitOut PrvState) :
+    (reduction : OracleReduction pSpec oSpec StmtIn WitIn StmtOut WitOut) :
       OracleComp (oSpec ++ₒ challengeOracle pSpec)
         (ResponseList pSpec × Transcript pSpec × QueryLog oSpec × StmtOut × WitOut) := do
   let ⟨transcript, queryLog, witOut⟩ ← reduction.prover.run stmt wit
@@ -437,7 +449,7 @@ running a non-oracle verifier -/
 @[simp]
 theorem OracleReduction.run_eq_run_reduction [DecidableEq ι] [∀ i, Sampleable (pSpec.Challenge i)]
     [∀ i, ToOracle (pSpec.Message i)] {stmt : StmtIn} {wit : WitIn}
-    {oracleReduction : OracleReduction pSpec oSpec StmtIn WitIn StmtOut WitOut PrvState} :
+    {oracleReduction : OracleReduction pSpec oSpec StmtIn WitIn StmtOut WitOut} :
       Prod.snd <$> oracleReduction.run stmt wit = oracleReduction.toReduction.run stmt wit := by
   simp [OracleReduction.run, Reduction.run, OracleReduction.toReduction, OracleVerifier.run,
     Verifier.run, OracleVerifier.toVerifier, liftComp]
@@ -518,7 +530,7 @@ variable [∀ i, Sampleable (pSpec.Challenge i)] {ι : Type} [DecidableEq ι] {o
 /-- Simplification of the prover's execution in a single-round, two-message protocol where the
   prover speaks first -/
 theorem Prover.run_of_isSingleRound [IsSingleRound pSpec] (stmt : StmtIn) (wit : WitIn)
-    (prover : Prover pSpec oSpec StmtIn WitIn StmtOut WitOut PrvState) :
+    (prover : Prover pSpec oSpec StmtIn WitIn StmtOut WitOut) :
       prover.run stmt wit = (do
         let state := prover.load stmt wit
         let ⟨⟨msg, state⟩, queryLog⟩ ← liftComp
