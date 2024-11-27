@@ -35,8 +35,8 @@ structure Commit (oSpec : OracleSpec ι) (Data Randomness Commitment : Type) whe
   commit : Data → Randomness → OracleComp oSpec Commitment
 
 structure Opening (pSpec : ProtocolSpec n) (oSpec : OracleSpec ι) (Data : Type)
-    [O : ToOracle Data] (Randomness Commitment PrvState : Type) where
-  opening : Proof pSpec oSpec (Commitment × O.Query × O.Response) (Data × Randomness) PrvState
+    [O : ToOracle Data] (Randomness Commitment : Type) where
+  opening : Proof pSpec oSpec (Commitment × O.Query × O.Response) (Data × Randomness)
 
 -- abbrev Statement (Data Commitment : Type) [O : ToOracle Data] :=
 --  Commitment × O.Query × O.Response
@@ -44,9 +44,9 @@ structure Opening (pSpec : ProtocolSpec n) (oSpec : OracleSpec ι) (Data : Type)
 -- abbrev Witness (Data Randomness : Type) := Data × Randomness
 
 structure Scheme (pSpec : ProtocolSpec n) (oSpec : OracleSpec ι) (Data : Type) [O : ToOracle Data]
-    (Randomness Commitment PrvState : Type) extends
+    (Randomness Commitment : Type) extends
     Commit oSpec Data Randomness Commitment,
-    Opening pSpec oSpec Data Randomness Commitment PrvState
+    Opening pSpec oSpec Data Randomness Commitment
 
 section Security
 
@@ -56,12 +56,12 @@ open scoped NNReal
 
 variable [DecidableEq ι] {pSpec : ProtocolSpec n} [∀ i, Sampleable (pSpec.Challenge i)]
   {oSpec : OracleSpec ι} {Data : Type} [O : ToOracle Data] {Randomness : Type} [Fintype Randomness]
-  {Commitment : Type} {PrvState : Type}
+  {Commitment : Type}
 
 /-- A commitment scheme satisfies **correctness** with error `correctnessError` if for all
   `data : Data`, `randomness : Randomness`, and `query : O.Query`, the probability of accepting
   upon executing commitment and opening procedures honestly is at least `1 - correctnessError`. -/
-def correctness (scheme : Scheme pSpec oSpec Data Randomness Commitment PrvState)
+def correctness (scheme : Scheme pSpec oSpec Data Randomness Commitment)
     (correctnessError : ℝ≥0) : Prop :=
   ∀ data : Data,
   ∀ randomness : Randomness,
@@ -74,7 +74,7 @@ def correctness (scheme : Scheme pSpec oSpec Data Randomness Commitment PrvState
 
 /-- A commitment scheme satisfies **perfect correctness** if it satisfies correctness with no error.
   -/
-def perfectCorrectness (scheme : Scheme pSpec oSpec Data Randomness Commitment PrvState) : Prop :=
+def perfectCorrectness (scheme : Scheme pSpec oSpec Data Randomness Commitment) : Prop :=
   correctness scheme 0
 
 /-- An adversary in the binding game returns a commitment `cm` and two purported openings `(d₁,r₁)`,
@@ -82,18 +82,16 @@ def perfectCorrectness (scheme : Scheme pSpec oSpec Data Randomness Commitment P
 def BindingAdversary := OracleComp oSpec (Commitment × (Data × Randomness) × (Data × Randomness))
 
 /-- A commitment scheme satisfies **binding** with error `bindingError` if for all -/
-def binding (scheme : Scheme pSpec oSpec Data Randomness Commitment PrvState)
+def binding (scheme : Scheme pSpec oSpec Data Randomness Commitment)
     (bindingError : ℝ≥0): Prop :=
   ∀ adversary : OracleComp oSpec (Commitment × (Data × Randomness) × (Data × Randomness)),
-  ∀ PrvState : Type,
-  ∀ prover : Prover pSpec oSpec (Commitment × O.Query × O.Response) (Data × Randomness) Bool Unit
-      PrvState,
+  ∀ prover : Prover pSpec oSpec (Commitment × O.Query × O.Response) (Data × Randomness) Bool Unit,
     False
 
-def extractability (scheme : Scheme pSpec oSpec Data Randomness Commitment PrvState) : Prop := sorry
+def extractability (scheme : Scheme pSpec oSpec Data Randomness Commitment) : Prop := sorry
 
 /-- Have to put it as `hiding'` because `hiding` is already used somewhere else. -/
-def hiding' (scheme : Scheme pSpec oSpec Data Randomness Commitment PrvState) : Prop := sorry
+def hiding' (scheme : Scheme pSpec oSpec Data Randomness Commitment) : Prop := sorry
 
 end
 

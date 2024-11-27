@@ -39,7 +39,7 @@ lemma schwartz_zippel_of_fintype {p : MvPolynomial σ R} (hp : p ≠ 0) (S : σ 
     #{x ∈ S ^^ σ | eval x p = 0} / ∏ i, (#(S i) : ℚ≥0) ≤ ∑ i, (p.degreeOf i / #(S i) : ℚ≥0) := by
   let equiv : σ ≃ Fin (Fintype.card σ) := Fintype.equivFin σ
   have lem_of_equiv := by
-    refine schwartz_zippel (p := renameEquiv R equiv p) ?_ (S ∘ equiv.symm)
+    refine schwartz_zippel_sum_degreeOf (p := renameEquiv R equiv p) ?_ (S ∘ equiv.symm)
     exact rename_ne_zero_of_injective equiv.injective hp
   convert lem_of_equiv
   · refine Finset.card_bijective (fun f => f ∘ equiv.symm) ?_ ?_
@@ -139,8 +139,7 @@ theorem eq_zero_of_degreeOf_lt_card_of_eval_eq_zero_of_fin {n : ℕ} {p : R[X Fi
       subst hEq
       exact hEvalQ y hy
     have hZero : q = 0 := eq_zero_of_natDegree_lt_card_of_eval_eq_zero' q S' hEvalQ' hDegreeQ
-    exact (AddEquivClass.map_eq_zero_iff _).mp hZero
-
+    exact EmbeddingLike.map_eq_zero_iff.mp hZero
 
 theorem eq_zero_of_degreeOf_lt_card_of_eval_eq_zero {p : R[X σ]} (S : σ → Finset R)
     (hDegree : ∀ i, p.degreeOf i < #(S i))
