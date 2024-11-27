@@ -50,10 +50,11 @@ section Completeness
 variable {PrvState : Type}
 
 /--
-  For all valid statement-witness pair for the input relation `relIn`,
-  the execution between the honest prover and the honest verifier will result in a valid pair for
-  the output relation `relOut`,
-  except with probability `completenessError`
+  A reduction satisfies **completeness** with error `completenessError ≥ 0` and with respect to
+  input relation `relIn` and output relation `relOut`, if for all valid statement-witness pair
+  `(stmtIn, witIn)` for `relIn`, the execution between the honest prover and the honest verifier
+  will result in a valid pair `(stmtOut, witOut)` for `relOut`, except with probability
+  `completenessError`.
 -/
 def completeness (reduction : Reduction pSpec oSpec StmtIn WitIn StmtOut WitOut PrvState)
     (relIn : StmtIn → WitIn → Prop)
@@ -62,10 +63,10 @@ def completeness (reduction : Reduction pSpec oSpec StmtIn WitIn StmtOut WitOut 
   ∀ stmtIn : StmtIn,
   ∀ witIn : WitIn,
     relIn stmtIn witIn = True →
-      let newPair := evalDist (Prod.snd <$> Prod.snd <$> reduction.run stmtIn witIn)
+      let newPair := Prod.snd <$> Prod.snd <$> evalDist (reduction.run stmtIn witIn)
       (relOut.uncurry <$> newPair) True ≥ 1 - completenessError
 
-/-- Perfect completeness when there is no completeness error -/
+/-- A reduction satisfies **perfect completeness** if it satisfies completeness with error `0`. -/
 def perfectCompleteness (reduction : Reduction pSpec oSpec StmtIn WitIn StmtOut WitOut PrvState)
     (relIn : StmtIn → WitIn → Prop) (relOut : StmtOut → WitOut → Prop) : Prop :=
   completeness pSpec oSpec reduction relIn relOut 0
@@ -89,22 +90,25 @@ section Soundness
 
 structure AdaptiveProver {PrvState : Type} extends
     Prover pSpec oSpec PrvState StmtIn WitIn StmtOut WitOut where
-  chooseStatement : OracleComp oSpec StmtIn
+  chooseStmtIn : OracleComp oSpec StmtIn
 
 /--
-  For all initial statement `stmtIn` not in the language, all (malicious) provers with initial
-  witness `witIn`, the execution will result in an invalid statement-witness pair for `relOut`
-  except with probability `soundnessBound`.
+  A reduction satisfies **soundness** with error `soundnessError ≥ 0` and with respect to input
+  language `langIn : Set StmtIn` and output language `langOut : Set StmtOut`, if for all input
+  statment `stmtIn ∉ langIn`, all (malicious) provers with arbitrary types for `WitIn`, `WitOut`,
+  and `PrvState`, and all arbitrary `witIn`, the execution between the prover and the honest
+  verifier will result in an output statement `stmtOut` that is not in `langOut`, except with
+  probability `soundnessError`.
 -/
-def soundness (verifier : Verifier pSpec oSpec StmtIn StmtOut) (relIn : StmtIn → WitIn → Prop)
-    (relOut : StmtOut → WitOut → Prop) (soundnessBound : ℝ≥0) : Prop :=
-  ∀ stmtIn ∉ relIn.language,
+def soundness (verifier : Verifier pSpec oSpec StmtIn StmtOut) (langIn : Set StmtIn)
+    (langOut : Set StmtOut) (soundnessError : ℝ≥0) : Prop :=
+  ∀ stmtIn ∉ langIn,
+  ∀ WitIn WitOut PrvState : Type,
   ∀ witIn : WitIn,
-  ∀ PrvState : Type,
   ∀ prover : Prover pSpec oSpec StmtIn WitIn StmtOut WitOut PrvState,
     let reduction := Reduction.mk prover verifier
-    let newPair := evalDist (Prod.snd <$> Prod.snd <$> reduction.run stmtIn witIn)
-    (relOut.uncurry <$> newPair) True ≤ soundnessBound
+    let stmtOut := Prod.fst <$> Prod.snd <$> Prod.snd <$> evalDist (reduction.run stmtIn witIn)
+    ((· ∉ langOut) <$> stmtOut) True ≤ soundnessError
 
 /--
   A straightline, deterministic, non-oracle-querying extractor takes in the initial statement, the
@@ -120,13 +124,16 @@ def StraightlineExtractor := StmtIn → StmtOut → WitOut → Transcript pSpec 
 -- oracle queries
 
 /--
-  There exists an extractor such that for all
-
-  This is the black-box, deterministic, straightline version of knowledge soundness.
+  A reduction satisfies **(straightline) knowledge soundness** with error `knowledgeError ≥ 0` and
+  with respect to input relation `relIn` and output relation `relOut`, if there exists a
+  straightline extractor such that for all input statement `stmtIn`, witness `witIn`, and
+  (malicious) prover `prover`, if the execution with the honest verifier results in a pair
+  `(stmtOut, witOut)`, and the extractor produces some `witIn'`, then the probability that
+  `(stmtIn, witIn')` is valid and yet `(stmtOut, witOut)` is not valid is at most `knowledgeError`.
 -/
 def knowledgeSoundness (verifier : Verifier pSpec oSpec StmtIn StmtOut)
     (relIn : StmtIn → WitIn → Prop) (relOut : StmtOut → WitOut → Prop)
-    (knowledgeBound : ℝ≥0) : Prop :=
+    (knowledgeError : ℝ≥0) : Prop :=
   ∃ extractor : StraightlineExtractor pSpec oSpec,
   ∀ stmtIn : StmtIn,
   ∀ witIn : WitIn,
@@ -136,15 +143,12 @@ def knowledgeSoundness (verifier : Verifier pSpec oSpec StmtIn StmtOut)
     let result := evalDist (reduction.run stmtIn witIn)
     let transcript := Prod.fst <$> result
     let queryLog := Prod.fst <$> Prod.snd <$> result
-    let newPair := Prod.snd <$> Prod.snd <$> result
-    let stmtOut := Prod.fst <$> newPair
-    let witOut := Prod.snd <$> newPair
-    if (relOut.uncurry <$> newPair) True > knowledgeBound then
-      let extractedWitIn := extractor stmtIn <$> stmtOut <*> witOut <*> transcript <*> queryLog
-      let validWit := relIn stmtIn <$> extractedWitIn
-      validWit True ≥ 1 - knowledgeBound
-    else
-      True
+    let stmtOut := Prod.fst <$> Prod.snd <$> Prod.snd <$> result
+    let witOut := Prod.snd <$> Prod.snd <$> Prod.snd <$> result
+    let validPairOut := (relOut <$> stmtOut <*> witOut)
+    let extractedWitIn := extractor stmtIn <$> stmtOut <*> witOut <*> transcript <*> queryLog
+    let validPairIn := relIn stmtIn <$> extractedWitIn
+    ((· = True ∧ · = False) <$> validPairIn <*> validPairOut) True ≤ knowledgeError
 
 section StateRestoration
 
@@ -217,12 +221,12 @@ structure StateFunction (verifier : Verifier pSpec oSpec StmtIn StmtOut) (langua
   appended by next challenge (chosen randomly) is at most `rbrSoundnessBound i`.
 -/
 def rbrSoundness (verifier : Verifier pSpec oSpec StmtIn StmtOut)
-    (relIn : StmtIn → WitIn → Prop) (relOut : StmtOut → WitOut → Prop)
-    (stateFunction : StateFunction pSpec oSpec verifier relOut.language)
+    (langIn : Set StmtIn) (langOut : Set StmtOut)
+    (stateFunction : StateFunction pSpec oSpec verifier langOut)
     (rbrSoundnessBound : pSpec.ChallengeIndex → ℝ≥0) : Prop :=
-  ∀ stmtIn ∉ relIn.language,
+  ∀ stmtIn ∉ langIn,
+  ∀ WitIn WitOut PrvState : Type,
   ∀ witIn : WitIn,
-  ∀ PrvState : Type,
   ∀ prover : Prover pSpec oSpec StmtIn WitIn StmtOut WitOut PrvState,
   ∀ i : pSpec.ChallengeIndex,
     let partialTranscript := Prod.fst <$> evalDist (prover.runAux stmtIn witIn i.1.castSucc)
@@ -283,37 +287,38 @@ In other words, we have a lattice of security notions, with `knowledge` and `rou
 two strengthenings of soundness.
 -/
 
-/-- Knowledge soundness with knowledge error `knowledgeBound < 1` implies soundness with the same
-soundness error `knowledgeBound`. -/
+/-- Knowledge soundness with knowledge error `knowledgeError < 1` implies soundness with the same
+soundness error `knowledgeError`, and for the corresponding input and output languages. -/
 theorem knowledgeSoundness_implies_soundness (verifier : Verifier pSpec oSpec StmtIn StmtOut)
     (relIn : StmtIn → WitIn → Prop) (relOut : StmtOut → WitOut → Prop)
-    (knowledgeBound : ℝ≥0) (hLt : knowledgeBound < 1) :
-      knowledgeSoundness pSpec oSpec verifier relIn relOut knowledgeBound →
-        soundness pSpec oSpec verifier relIn relOut knowledgeBound := by
-  simp only [knowledgeSoundness, soundness, Functor.map_map, gt_iff_lt, ge_iff_le,
-    tsub_le_iff_right, if_true_right, evalDist_map, forall_exists_index]
-  intro extractor hKS stmtIn hStmtIn witIn PrvState prover
-  have hKS' := hKS stmtIn witIn PrvState prover
-  clear hKS
-  contrapose! hKS'
-  constructor
-  · convert hKS'
-    simp only [Seq.seq, Functor.map, PMF.bind_bind, Function.comp_apply, PMF.pure_bind,
-      PMF.bind_map]
-    congr
-  · simp only [Function.language, Set.mem_setOf_eq, not_exists] at hStmtIn
-    simp only [Functor.map, Seq.seq, PMF.bind_bind, Function.comp_apply, PMF.pure_bind, hStmtIn,
-      PMF.bind_const, PMF.pure_apply, eq_iff_iff, iff_false, not_true_eq_false, ↓reduceIte,
-      zero_add, ENNReal.coe_lt_one_iff, hLt]
+    (knowledgeError : ℝ≥0) (hLt : knowledgeError < 1) :
+      knowledgeSoundness pSpec oSpec verifier relIn relOut knowledgeError →
+        soundness pSpec oSpec verifier relIn.language relOut.language knowledgeError := by sorry
+  -- simp only [knowledgeSoundness, soundness, Functor.map_map, gt_iff_lt, ge_iff_le,
+  --   tsub_le_iff_right, if_true_right, evalDist_map, forall_exists_index, Function.language,
+  --   Function.uncurry]
+  -- intro extractor hKS stmtIn hStmtIn witIn PrvState prover
+  -- have hKS' := hKS stmtIn witIn PrvState prover
+  -- clear hKS
+  -- contrapose! hKS'
+  -- constructor
+  -- · convert hKS'; rename_i result
+  --   obtain ⟨transcript, queryLog, stmtOut, witOut⟩ := result
+  --   simp
+  --   sorry
+  -- · simp only [Function.language, Set.mem_setOf_eq, not_exists] at hStmtIn
+  --   simp only [Functor.map, Seq.seq, PMF.bind_bind, Function.comp_apply, PMF.pure_bind, hStmtIn,
+  --     PMF.bind_const, PMF.pure_apply, eq_iff_iff, iff_false, not_true_eq_false, ↓reduceIte,
+  --     zero_add, ENNReal.coe_lt_one_iff, hLt]
 
 /-- Round-by-round soundness with error `rbrSoundnessBound` implies soundness with error
 `∑ i, rbrSoundnessBound i`, where the sum is over all rounds `i`. -/
 theorem rbrSoundness_implies_soundness (verifier : Verifier pSpec oSpec StmtIn StmtOut)
-    (relIn : StmtIn → WitIn → Prop) (relOut : StmtOut → WitOut → Prop)
-    (stateFunction : StateFunction pSpec oSpec verifier relOut.language)
+    (langIn : Set StmtIn) (langOut : Set StmtOut)
+    (stateFunction : StateFunction pSpec oSpec verifier langOut)
     (rbrSoundnessBound : pSpec.ChallengeIndex → ℝ≥0) :
-      rbrSoundness pSpec oSpec verifier relIn relOut stateFunction rbrSoundnessBound →
-        soundness pSpec oSpec verifier relIn relOut (∑ i, rbrSoundnessBound i) := by sorry
+      rbrSoundness pSpec oSpec verifier langIn langOut stateFunction rbrSoundnessBound →
+        soundness pSpec oSpec verifier langIn langOut (∑ i, rbrSoundnessBound i) := by sorry
 
 /-- Round-by-round knowledge soundness with error `rbrKnowledgeBound` implies round-by-round
 soundness with the same error `rbrKnowledgeBound`. -/
@@ -322,7 +327,8 @@ theorem rbrKnowledgeSoundness_implies_rbrSoundness (verifier : Verifier pSpec oS
     (stateFunction : StateFunction pSpec oSpec verifier relOut.language)
     (rbrKnowledgeBound : pSpec.ChallengeIndex → ℝ≥0) :
       rbrKnowledgeSoundness pSpec oSpec verifier relIn relOut stateFunction rbrKnowledgeBound →
-        rbrSoundness pSpec oSpec verifier relIn relOut stateFunction rbrKnowledgeBound := by sorry
+        rbrSoundness pSpec oSpec verifier relIn.language relOut.language
+          stateFunction rbrKnowledgeBound := by sorry
 
 /-- Round-by-round knowledge soundness with error `rbrKnowledgeBound` implies knowledge soundness
 with error `∑ i, rbrKnowledgeBound i`, where the sum is over all rounds `i`. -/
@@ -392,20 +398,20 @@ def perfectCompleteness
   Reduction.perfectCompleteness pSpec oSpec oracleReduction.toReduction relIn relOut
 
 def soundness (verifier : OracleVerifier pSpec oSpec StmtIn StmtOut)
-    (relIn : StmtIn → WitIn → Prop) (relOut : StmtOut → WitOut → Prop)
-    (soundnessBound : ℝ≥0) : Prop :=
-  Reduction.soundness pSpec oSpec verifier.toVerifier relIn relOut soundnessBound
+    (langIn : Set StmtIn) (langOut : Set StmtOut)
+    (soundnessError : ℝ≥0) : Prop :=
+  Reduction.soundness pSpec oSpec verifier.toVerifier langIn langOut soundnessError
 
 def knowledgeSoundness (verifier : OracleVerifier pSpec oSpec StmtIn StmtOut)
     (relIn : StmtIn → WitIn → Prop) (relOut : StmtOut → WitOut → Prop)
-    (knowledgeBound : ℝ≥0) : Prop :=
-  Reduction.knowledgeSoundness pSpec oSpec verifier.toVerifier relIn relOut knowledgeBound
+    (knowledgeError : ℝ≥0) : Prop :=
+  Reduction.knowledgeSoundness pSpec oSpec verifier.toVerifier relIn relOut knowledgeError
 
 def rbrSoundness (verifier : OracleVerifier pSpec oSpec StmtIn StmtOut)
-    (relIn : StmtIn → WitIn → Prop) (relOut : StmtOut → WitOut → Prop)
-    (stateFunction : StateFunction pSpec oSpec verifier.toVerifier relOut.language)
+    (langIn : Set StmtIn) (langOut : Set StmtOut)
+    (stateFunction : StateFunction pSpec oSpec verifier.toVerifier langOut)
     (rbrSoundnessBound : pSpec.ChallengeIndex → ℝ≥0) : Prop :=
-  Reduction.rbrSoundness pSpec oSpec verifier.toVerifier relIn relOut stateFunction
+  Reduction.rbrSoundness pSpec oSpec verifier.toVerifier langIn langOut stateFunction
     rbrSoundnessBound
 
 def rbrKnowledgeSoundness (verifier : OracleVerifier pSpec oSpec StmtIn StmtOut)
