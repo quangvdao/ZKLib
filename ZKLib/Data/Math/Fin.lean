@@ -119,10 +119,39 @@ theorem partialProd_eq_partialProd_list {α : Type*} {n : ℕ} [Monoid α] (a : 
   -- | nil => simp [List.partialProd, List.ofFn]
   -- | cons a l' ih => simp [List.partialProd, List.ofFn, ih]
 
-theorem append_comp {n m : ℕ} {α : Sort*} {β : Sort*} {a : Fin n → α} {b : Fin m → α} (f : α → β)
-    (i : Fin (n + m)) : append (f ∘ a) (f ∘ b) i = f (append a b i) := by
-  dsimp [append, addCases]
-  by_cases h : i < n <;> simp [h]
+theorem append_comp {m n : ℕ} {α β : Sort*} {a : Fin m → α} {b : Fin n → α} (f : α → β) :
+    append (f ∘ a) (f ∘ b) = f ∘ append a b := by
+  funext i
+  simp only [append, addCases, comp_apply, eq_rec_constant]
+  by_cases h : i < m <;> simp only [h, ↓reduceDIte]
+
+theorem append_comp' {m n : ℕ} {α β : Sort*} {a : Fin m → α} {b : Fin n → α} (f : α → β)
+    (i : Fin (m + n)) : append (f ∘ a) (f ∘ b) i = f (append a b i) := by
+  simp only [append_comp, comp_apply]
+
+theorem addCases_left' {m n : ℕ} {motive : Fin (m + n) → Sort*}
+    {left : (i : Fin m) → motive (castAdd n i)} {right : (j : Fin n) → motive (natAdd m j)}
+    {i : Fin m} (j : Fin (m + n)) (h : j = castAdd n i) :
+      addCases (motive := motive) left right j = h ▸ (left i) := by
+  subst h
+  simp only [addCases_left]
+
+theorem addCases_right' {m n : ℕ} {motive : Fin (m + n) → Sort*}
+    {left : (i : Fin m) → motive (castAdd n i)} {right : (j : Fin n) → motive (natAdd m j)}
+    {i : Fin n} (j : Fin (m + n)) (h : j = natAdd m i) :
+      addCases (motive := motive) left right j = h ▸ (right i) := by
+  subst h
+  simp only [addCases_right]
+
+theorem append_left' {m n : ℕ} {α : Sort*} {u : Fin m → α} {v : Fin n → α} {i : Fin m}
+    (j : Fin (m + n)) (h : j = castAdd n i) : append u v j = u i := by
+  subst h
+  simp only [append_left]
+
+theorem append_right' {m n : ℕ} {α : Sort*} {u : Fin m → α} {v : Fin n → α} {i : Fin n}
+    (j : Fin (m + n)) (h : j = natAdd m i) : append u v j = v i := by
+  subst h
+  simp only [append_right]
 
 /-- Version of `Fin.heq_fun_iff` for dependent functions `f : (i : Fin k) → α i`. -/
 protected theorem heq_fun_iff' {k l : ℕ} {α : Fin k → Sort u} {β : Fin l → Sort u} (h : k = l)

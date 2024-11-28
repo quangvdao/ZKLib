@@ -116,7 +116,8 @@ def soundness (verifier : Verifier pSpec oSpec StmtIn StmtOut) (langIn : Set Stm
 
   This form of extractor suffices for proving knowledge soundness of most hash-based IOPs.
 -/
-def StraightlineExtractor := StmtIn → StmtOut → WitOut → Transcript pSpec → QueryLog oSpec → WitIn
+def StraightlineExtractor := StmtIn → StmtOut → WitOut →
+    FullTranscript pSpec → QueryLog oSpec → WitIn
 
 -- How would one define a rewinding extractor? It should have oracle access to the prover's
 -- functions (receive challenges and send messages), and be able to observe & simulate the prover's
@@ -167,13 +168,13 @@ variable [DecidableEq StmtIn] [∀ i, DecidableEq (pSpec.Message i)]
 -- class StateRestorationProver extends Prover pSpec oSpec StmtIn WitIn StmtOut WitOut
 -- where
 --   stateRestorationQuery : OracleComp (oSpec ++ₒ challengeOracle' pSpec (Statement := Statement))
---     (prover.PrvState 0 × Statement × Transcript pSpec)
+--     (prover.PrvState 0 × Statement × pSpec.FullTranscript)
 
 -- def runStateRestorationProver
 --     (prover : StateRestorationProver pSpec oSpec StmtIn WitIn StmtOut WitOut)
 --     (stmtIn : StmtIn) (witIn : WitIn) :
 --     OracleComp (oSpec ++ₒ challengeOracle' pSpec (Statement := Statement))
---     (Transcript pSpec × QueryLog (oSpec ++ₒ challengeOracle' pSpec (Statement := Statement)))
+--     (pSpec.FullTranscript × QueryLog (oSpec ++ₒ challengeOracle' pSpec (Statement := Statement)))
 -- := do
 --   let ⟨state, stmt, transcript⟩ ← prover.stateRestorationQuery stmtIn
 --   return ⟨transcript, state⟩
@@ -195,19 +196,19 @@ instance : Fintype (pSpec.ChallengeIndex) := Subtype.fintype (fun i => pSpec.get
 
 structure StateFunction (verifier : Verifier pSpec oSpec StmtIn StmtOut) (language : Set StmtOut)
     where
-  fn : (m : ℕ) → StmtIn → PartialTranscript pSpec m → Prop
+  fn : (m : Fin (n + 1)) → StmtIn → Transcript m pSpec → Prop
   -- Just for `stmt` not in language?
-  fn_empty : ∀ stmt, fn 0 stmt emptyPartialTranscript = False
+  fn_empty : ∀ stmt, fn 0 stmt default = False
   /-- If the state function is false for a partial transcript, and the next message is from the
     prover to the verifier, then the state function is also false for the new partial transcript
     regardless of the message -/
-  fn_next : ∀ m stmt tr, (h : m < n) →
-      fn m stmt tr = False ∧ pSpec.getDir ⟨m, h⟩ = .P_to_V →
-        ∀ msg, fn (m + 1) stmt (tr.snoc h msg) = False
+  fn_next : ∀ m stmt tr,
+      fn m.castSucc stmt tr = False ∧ pSpec.getDir m = .P_to_V →
+        ∀ msg, fn m.succ stmt (tr.snoc msg) = False
   /-- If the state function is false for a full transcript, the verifier will output false / a new
     statement not in the language (for all choice of randomness) -/
-  fn_full : ∀ stmt tr, fn n stmt tr = False →
-      ((· ∈ language) <$> evalDist (verifier.run stmt (tr.toFull (by simp)))) False = 1
+  fn_full : ∀ stmt tr, fn (Fin.last n) stmt tr = False →
+      ((· ∈ language) <$> evalDist (verifier.run stmt tr)) False = 1
 
 /--
   A protocol with `verifier` satisfies round-by-round soundness with error `rbrSoundnessBound` and
@@ -228,16 +229,17 @@ def rbrSoundness (verifier : Verifier pSpec oSpec StmtIn StmtOut)
   ∀ i : pSpec.ChallengeIndex,
     let partialTranscript := Prod.fst <$> evalDist (prover.runAux stmtIn witIn i.1.castSucc)
     let challenge := PMF.uniformOfFintype (pSpec.Challenge i)
-    let nextTranscript := PartialTranscript.snoc i.1.isLt <$> challenge <*> partialTranscript
-    let stateIdx := stateFunction.fn i.1 stmtIn <$> partialTranscript
-    let stateIdxSucc := stateFunction.fn (i.1 + 1) stmtIn <$> nextTranscript
+    let nextTranscript := Transcript.snoc <$> challenge <*> partialTranscript
+    let stateIdx := stateFunction.fn i.1.castSucc stmtIn <$> partialTranscript
+    let stateIdxSucc := stateFunction.fn i.1.succ stmtIn <$> nextTranscript
     ((· = False ∧ · = True) <$> stateIdx <*> stateIdxSucc) True ≤ rbrSoundnessBound i
 
 /-- A round-by-round extractor with index `m` is given the input statement, a partial transcript
   of length `m`, the query log, and returns a witness to the statement.
 
   Note that the RBR extractor does not need to take in the output statement or witness. -/
-def RBRExtractor (m : ℕ) := StmtIn → PartialTranscript pSpec m → QueryLog oSpec → WitIn
+def RBRExtractor (StmtIn WitIn : Type) (m : Fin (n + 1)) :=
+  StmtIn → Transcript m pSpec → QueryLog oSpec → WitIn
 
 /--
   A protocol with `verifier` satisfies round-by-round knowledge soundness with error
@@ -252,7 +254,7 @@ def rbrKnowledgeSoundness (verifier : Verifier pSpec oSpec StmtIn StmtOut)
     (relIn : StmtIn → WitIn → Prop) (relOut : StmtOut → WitOut → Prop)
     (stateFunction : StateFunction pSpec oSpec verifier relOut.language)
     (rbrKnowledgeBound : pSpec.ChallengeIndex → ℝ≥0) : Prop :=
-  ∃ extractor : (m : ℕ) → @RBRExtractor _ _ pSpec oSpec StmtIn WitIn m,
+  ∃ extractor : (m : Fin (n + 1)) → RBRExtractor pSpec oSpec StmtIn WitIn m,
   ∀ stmtIn : StmtIn,
   ∀ witIn : WitIn,
   ∀ prover : Prover pSpec oSpec StmtIn WitIn StmtOut WitOut,
@@ -260,11 +262,11 @@ def rbrKnowledgeSoundness (verifier : Verifier pSpec oSpec StmtIn StmtOut)
     let result := evalDist (prover.runAux stmtIn witIn i.1.castSucc)
     let partialTranscript := Prod.fst <$> result
     let queryLog := Prod.fst <$> Prod.snd <$> result
-    let extractedWitIn := extractor i.1 stmtIn <$> partialTranscript <*> queryLog
+    let extractedWitIn := extractor i.1.castSucc stmtIn <$> partialTranscript <*> queryLog
     let challenge := PMF.uniformOfFintype (pSpec.Challenge i)
-    let nextTranscript := PartialTranscript.snoc i.1.isLt <$> challenge <*> partialTranscript
-    let stateIdx := stateFunction.fn i.1 stmtIn <$> partialTranscript
-    let stateIdxSucc := stateFunction.fn (i.1 + 1) stmtIn <$> nextTranscript
+    let nextTranscript := Transcript.snoc <$> challenge <*> partialTranscript
+    let stateIdx := stateFunction.fn i.1.castSucc stmtIn <$> partialTranscript
+    let stateIdxSucc := stateFunction.fn i.1.succ stmtIn <$> nextTranscript
     let validWit := relIn stmtIn <$> extractedWitIn
     ((· = False ∧ · = True ∧ · = False) <$> stateIdx <*> stateIdxSucc <*> validWit) True ≤
       rbrKnowledgeBound i
@@ -346,7 +348,7 @@ section ZeroKnowledge
 -- The simulator should have programming access to the shared oracles `oSpec`
 structure Simulator (SimState : Type) where
   oracleSim : SimOracle oSpec oSpec SimState
-  proverSim : StmtIn → SimState → PMF (Transcript pSpec × SimState)
+  proverSim : StmtIn → SimState → PMF (pSpec.FullTranscript × SimState)
 
 /-
   We define honest-verifier zero-knowledge as follows:
