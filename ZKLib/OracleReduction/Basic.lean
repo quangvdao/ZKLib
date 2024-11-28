@@ -75,6 +75,15 @@ def directionEquivFin2 : Direction ≃ Fin 2 where
 /-- This allows us to write `0` for `.V_to_P` and `1` for `.P_to_V`. -/
 instance : Coe (Fin 2) Direction := ⟨directionEquivFin2.invFun⟩
 
+/-- `ToOracle` is a type class that provides an oracle interface for a type `Message`. It consists
+  of a query type `Query`, a response type `Response`, and a function `oracle` that transforms
+  a message `m : Message` into a function `Query → Response`. -/
+@[ext]
+class ToOracle (Message : Type) where
+  Query : Type
+  Response : Type
+  oracle : Message → Query → Response
+
 end Prelude
 
 section Format
@@ -159,18 +168,20 @@ def FullTranscript.messages (transcript : FullTranscript pSpec) (i : MessageInde
 def FullTranscript.challenges (transcript : FullTranscript pSpec) (i : ChallengeIndex pSpec) :=
   transcript i.val
 
+/-- Spec for the verifier's challenges, invoked in the process of running the protocol -/
+@[simps]
+def challengeOracle (pSpec : ProtocolSpec n) [S : ∀ i, Sampleable (pSpec.Challenge i)] :
+    OracleSpec (ChallengeIndex pSpec) where
+  domain := fun _ => Unit
+  range := fun i => pSpec.Challenge i
+  domain_decidableEq' := fun _ => decEq
+  range_decidableEq' := fun i => @Sampleable.toDecidableEq _ (S i)
+  range_inhabited' := fun i => @Sampleable.toInhabited _ (S i)
+  range_fintype' := fun i => @Sampleable.toFintype _ (S i)
+
 end ProtocolSpec
 
 open ProtocolSpec
-
-/-- `ToOracle` is a type class that provides an oracle interface for a type `Message`. It consists
-  of a query type `Query`, a response type `Response`, and a function `oracle` that transforms
-  a message `m : Message` into a function `Query → Response`. -/
-@[ext]
-class ToOracle (Message : Type) where
-  Query : Type
-  Response : Type
-  oracle : Message → Query → Response
 
 -- TODO: Notation for the type signature of an interactive protocol?
 
@@ -183,17 +194,6 @@ class ToOracle (Message : Type) where
 #eval "𝒫  ——[ ∑ x ∈ D ^ᶠ (n - i), p ⸨X⦃i⦄, r, x⸩ ]⟶  𝒱"
 
 #eval "𝒫  ⟵[ rᵢ ←$ 𝔽 ]—— 𝒱"
-
-/-- Spec for the verifier's challenges, invoked in the process of running the protocol -/
-@[simps]
-def challengeOracle (pSpec : ProtocolSpec n) [S : ∀ i, Sampleable (pSpec.Challenge i)] :
-    OracleSpec (ChallengeIndex pSpec) where
-  domain := fun _ => Unit
-  range := fun i => pSpec.Challenge i
-  domain_decidableEq' := fun _ => decEq
-  range_decidableEq' := fun i => @Sampleable.toDecidableEq _ (S i)
-  range_inhabited' := fun i => @Sampleable.toInhabited _ (S i)
-  range_fintype' := fun i => @Sampleable.toFintype _ (S i)
 
 variable {ι : Type}
 
