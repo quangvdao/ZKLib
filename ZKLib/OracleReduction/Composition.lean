@@ -4,15 +4,49 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Quang Dao
 -/
 
-import ZKLib.OracleReduction.Basic
+import ZKLib.OracleReduction.Security
 
 /-!
-  # Composition of Interactive (Oracle) Protocols with Compatible Relations
+  # Composition of Interactive (Oracle) Reductions with Compatible Relations
 
-  We compose an interactive (oracle) protocol for reducing relations R1 => R2 with
-  another interactive (oracle) protocol for reducing relations R2 =>
-  R3. This gives us an interactive (oracle) protocol for reducing relations R1 => R3.
+  We compose an interactive (oracle) reduction for reducing relations R1 => R2 with
+  another interactive (oracle) reduction for reducing relations R2 => R3. This gives us an
+  interactive (oracle) reduction for reducing relations R1 => R3.
 -/
+
+namespace Fin
+
+#check Fin.hIterate
+
+#check Fin.succ_castPred_eq_add_one
+
+def foldCasesFrom {n} (α : Fin (n + 1) → Sort*) (f : ∀ (i : Fin n), α i.castSucc → α i.succ)
+      (i : Fin (n + 1)) (a : α i) : α (last n) :=
+  if h : i ≠ last n then
+    haveI this : α (i + 1) := by simpa [succ_castPred_eq_add_one] using (f (i.castPred h) a)
+    foldCasesFrom α f (i+1) this
+  else
+    _root_.cast (congrArg α (not_not.mp h)) a
+  termination_by n - i
+  decreasing_by
+    have h0 : i < last n := lt_last_iff_ne_last.mpr h
+    have h1 : i.val < n := by omega
+    have h2 : (i + 1).val = i.val + 1 := by simp [val_add, h1]
+    rw [h2]
+    exact Nat.sub_add_lt_sub h1 (by omega)
+
+def foldCases {n} (α : Fin (n + 1) → Sort*) (f : ∀(i : Fin n), α i.castSucc → α i.succ)
+    (init : α 0) : α (last n) := foldCasesFrom α f 0 init
+
+-- def foldlCases' (f : ∀ i, α i.castSucc → β i → α i.succ) (init : α 0) (v : (i : Fin n) → β i) :
+--     α (Fin.last n) := by
+--   induction n with
+--   | zero => exact init
+--   | succ n ih =>
+--     exact @ih (α ∘ Fin.succ) (β ∘ Fin.succ) (fun i a => f i.succ a)
+--       (f 0 init (v ⟨0, by omega⟩)) (fun i => v i.succ)
+
+end Fin
 
 namespace ProtocolSpec
 
@@ -52,6 +86,11 @@ abbrev append (pSpec : ProtocolSpec m) (pSpec' : ProtocolSpec n) : ProtocolSpec 
 def mkSingle (dir : Direction) (Message : Type) : ProtocolSpec 1 := fun _ => ⟨dir, Message⟩
 
 infixl : 65 " ++ₚ " => ProtocolSpec.append
+
+def ProtocolSpec.join {n : Fin (m + 1) → ℕ} (pSpec : ∀ i, ProtocolSpec (n i)) :=
+  Fin.foldCases (α := fun i => ProtocolSpec (∑ j ≤ i, n j))
+    (fun i acc => by stop exact acc ++ₚ pSpec i.succ)
+    (by stop exact pSpec 0)
 
 @[simp]
 theorem snoc_take {pSpec : ProtocolSpec n} (k : ℕ) (h : k < n) :
@@ -110,13 +149,7 @@ theorem Transcript.take_append_left (T : FullTranscript pSpec₁) (T' : FullTran
   simp [Fin.castLE, Fin.addCases', Fin.addCases, eqRec_eq_cast, cast_eq_iff_heq]
   refine heq_of_eq_cast ?_ ?_
   simp [Fin.append, Fin.addCases]
-  simp [cast]
   sorry
-
-theorem Transcript.eq_left_of_append (k : Fin (m + 1))
-    (T : Transcript ⟨k, by omega⟩ (pSpec₁ ++ₚ pSpec₂)) : True := sorry
-  --   (T.take m (by omega)).cast (by simp) = T.cast (by simp) := by
-  -- sorry
 
 def FullTranscript.fst (T : FullTranscript (pSpec₁ ++ₚ pSpec₂)) : FullTranscript pSpec₁ :=
   fun i => by
@@ -126,6 +159,48 @@ def FullTranscript.snd (T : FullTranscript (pSpec₁ ++ₚ pSpec₂)) : FullTran
   fun i => by
     simpa only [getType_apply, ProtocolSpec.append, Fin.append_right] using T (Fin.natAdd m i)
 
+@[simp]
+theorem FullTranscript.append_fst (T₁ : FullTranscript pSpec₁) (T₂ : FullTranscript pSpec₂) :
+    (T₁ ++ₜ T₂).fst = T₁ := by
+  funext i
+  simp [FullTranscript.fst, FullTranscript.append, eqRec_eq_cast]
+
+@[simp]
+theorem FullTranscript.append_snd (T₁ : FullTranscript pSpec₁) (T₂ : FullTranscript pSpec₂) :
+    (T₁ ++ₜ T₂).snd = T₂ := by
+  funext i
+  simp [FullTranscript.snd, FullTranscript.append, eqRec_eq_cast]
+
+def MessageIndex.inl (i : MessageIndex pSpec₁) : MessageIndex (pSpec₁ ++ₚ pSpec₂) :=
+  ⟨Fin.castAdd n i.1, by simpa only [getDir_apply, Fin.append_left] using i.2⟩
+
+def MessageIndex.inr (i : MessageIndex pSpec₂) : MessageIndex (pSpec₁ ++ₚ pSpec₂) :=
+  ⟨Fin.natAdd m i.1, by simpa only [getDir_apply, Fin.append_right] using i.2⟩
+
+def ChallengeIndex.inl (i : ChallengeIndex pSpec₁) : ChallengeIndex (pSpec₁ ++ₚ pSpec₂) :=
+  ⟨Fin.castAdd n i.1, by simpa only [getDir_apply, Fin.append_left] using i.2⟩
+
+def ChallengeIndex.inr (i : ChallengeIndex pSpec₂) : ChallengeIndex (pSpec₁ ++ₚ pSpec₂) :=
+  ⟨Fin.natAdd m i.1, by simpa only [getDir_apply, Fin.append_right] using i.2⟩
+
+@[simps!]
+def ChallengeIndex.sumEquiv :
+    ChallengeIndex pSpec₁ ⊕ ChallengeIndex pSpec₂ ≃ ChallengeIndex (pSpec₁ ++ₚ pSpec₂) where
+  toFun := Sum.elim (ChallengeIndex.inl) (ChallengeIndex.inr)
+  invFun := fun ⟨i, h⟩ => by
+    by_cases hi : i < m
+    · simp [ProtocolSpec.append, Fin.append, Fin.addCases, hi] at h
+      exact Sum.inl ⟨⟨i, hi⟩, h⟩
+    · simp [ProtocolSpec.append, Fin.append, Fin.addCases, hi] at h
+      exact Sum.inr ⟨⟨i - m, by omega⟩, h⟩
+  left_inv := fun i => by
+    rcases i with ⟨⟨i, isLt⟩, h⟩ | ⟨⟨i, isLt⟩, h⟩ <;>
+    simp [ChallengeIndex.inl, ChallengeIndex.inr, h, isLt]
+  right_inv := fun ⟨i, h⟩ => by
+    by_cases hi : i < m <;>
+    simp [ChallengeIndex.inl, ChallengeIndex.inr, hi]
+    congr; omega
+
 end ProtocolSpec
 
 open ProtocolSpec
@@ -133,21 +208,59 @@ open ProtocolSpec
 variable {m n : ℕ} {pSpec₁ : ProtocolSpec m} {pSpec₂ : ProtocolSpec n} {ι : Type} [DecidableEq ι]
     {oSpec : OracleSpec ι} {Stmt₁ Wit₁ Stmt₂ Wit₂ Stmt₃ Wit₃ : Type}
 
-/-- Appending two `ToOracle`s for two `ProtocolSpec`s -/
-def ToOracle.append [O₁ : ∀ i, ToOracle (pSpec₁.Message i)]
-    [O₂ : ∀ i, ToOracle (pSpec₂.Message i)] :
-      ∀ i, ToOracle ((pSpec₁ ++ₚ pSpec₂).Message i) := fun ⟨i, h⟩ => by
-  dsimp [ProtocolSpec.append, ProtocolSpec.getDir] at h ⊢
-  by_cases h' : i < m
-  · rw [← Fin.castAdd_castLT n i h', Fin.append_left] at h ⊢
-    exact O₁ ⟨i.castLT h', h⟩
-  · rw [← @Fin.natAdd_subNat_cast m n i (not_lt.mp h'), Fin.append_right] at h ⊢
-    exact O₂ ⟨Fin.subNat m (Fin.cast (add_comm m n) i) (not_lt.mp h'), h⟩
+section Instances
 
-instance [∀ i, ToOracle (pSpec₁.Message i)] [∀ i, ToOracle (pSpec₂.Message i)] :
-    ∀ i, ToOracle ((pSpec₁ ++ₚ pSpec₂).Message i) := ToOracle.append
+/-- If two protocols have sampleable challenges, then their concatenation also has sampleable
+  challenges. -/
+instance [h₁ : ∀ i, Sampleable (pSpec₁.Challenge i)] [h₂ : ∀ i, Sampleable (pSpec₂.Challenge i)] :
+    ∀ i, Sampleable ((pSpec₁ ++ₚ pSpec₂).Challenge i) := fun ⟨⟨i, isLt⟩, h⟩ => by
+  dsimp [ProtocolSpec.append, Fin.append, Fin.addCases, Fin.castLT, Fin.subNat, Fin.cast] at h ⊢
+  by_cases h' : i < m <;> simp [h'] at h ⊢
+  · exact h₁ ⟨⟨i, by omega⟩, h⟩
+  · exact h₂ ⟨⟨i - m, by omega⟩, h⟩
 
-#print ToOracle.append
+/-- If two protocols' messages have oracle representations, then their concatenation's messages also
+    have oracle representations. -/
+instance [O₁ : ∀ i, ToOracle (pSpec₁.Message i)] [O₂ : ∀ i, ToOracle (pSpec₂.Message i)] :
+    ∀ i, ToOracle ((pSpec₁ ++ₚ pSpec₂).Message i) := fun ⟨⟨i, isLt⟩, h⟩ => by
+  dsimp [ProtocolSpec.append, ProtocolSpec.getDir, Fin.append, Fin.addCases,
+    Fin.castLT, Fin.subNat, Fin.cast] at h ⊢
+  by_cases h' : i < m <;> simp [h'] at h ⊢
+  · exact O₁ ⟨⟨i, by omega⟩, h⟩
+  · exact O₂ ⟨⟨i - m, by omega⟩, h⟩
+
+open OracleComp OracleSpec SubSpec
+
+variable [∀ i, Sampleable (pSpec₁.Challenge i)] [∀ i, Sampleable (pSpec₂.Challenge i)]
+
+variable {ι' : Type} {spec : OracleSpec ι} {spec' : OracleSpec ι'} {α β : Type}
+    (oa : OracleComp spec α)
+
+-- lemma evalDist_eq (h : OracleComp spec α = OracleComp spec' β) :
+--     evalDist (h.mp oa) = h.mpr ▸ evalDist oa := by
+--   induction h; rfl
+
+instance : SubSpec (challengeOracle pSpec₁ ++ₒ challengeOracle pSpec₂)
+    (challengeOracle (pSpec₁ ++ₚ pSpec₂)) where
+  toFun := fun i _ => by
+    cases i with
+    | inl j =>
+      convert query (spec := challengeOracle (pSpec₁ ++ₚ pSpec₂)) j.inl ()
+      simp [OracleSpec.append, ChallengeIndex.inl, ProtocolSpec.append]
+    | inr j =>
+      convert query (spec := challengeOracle (pSpec₁ ++ₚ pSpec₂)) j.inr ()
+      simp [OracleSpec.append, ChallengeIndex.inr, ProtocolSpec.append]
+  evalDist_toFun' := fun i q => by
+    cases i with
+    | inl j =>
+      simp [Eq.mpr]
+      -- rw [evalDist_eqRec (spec := challengeOracle (pSpec₁ ++ₚ pSpec₂)) (β := sorry) (query j.inl ()) _]
+      sorry
+    | inr j =>
+      simp [OracleSpec.append, ChallengeIndex.inr, ProtocolSpec.append]
+      sorry
+
+end Instances
 
 /--
 Appending two provers corresponding to two reductions, where the output statement & witness type for
@@ -174,11 +287,11 @@ def Prover.append (P₁ : Prover pSpec₁ oSpec Stmt₁ Wit₁ Stmt₂ Wit₂)
     · simp [Fin.append, Fin.addCases, Fin.init, Fin.castLT, h]
       exact P₁.input stmt wit
     · simp [Fin.append, Fin.addCases, h, Fin.subNat]
-      exact (do
-        let state ← P₁.input stmt wit
+      exact (
+        letI state := P₁.input stmt wit
         haveI : 0 = Fin.last m := by aesop
         haveI state : P₁.PrvState (Fin.last m) := by simpa [this] using state
-        return ← P₂.input.uncurry (P₁.output state))
+        P₂.input.uncurry (P₁.output state))
 
   /- The combined prover sends messages according to the round index `i` as follows:
   - if `i < m - 1`, then it sends the message & updates the state as the first prover
@@ -189,18 +302,18 @@ def Prover.append (P₁ : Prover pSpec₁ oSpec Stmt₁ Wit₁ Stmt₂ Wit₂)
     transcript. -/
   sendMessage := fun ⟨⟨i, hLt⟩, h⟩ state => by
     by_cases hi : i < m
-    · simp [ProtocolSpec.append, Fin.append, Fin.addCases, Fin.init, hi,
+    · dsimp [ProtocolSpec.append, Fin.append, Fin.addCases, Fin.init,
         Fin.cast, Fin.castLT, Fin.succ, Fin.castSucc] at h state ⊢
       by_cases hi' : i + 1 < m
-      · simp [hi']
+      · simp [hi, hi'] at h state ⊢
         exact P₁.sendMessage ⟨⟨i, hi⟩, h⟩ state
       · haveI : i + 1 = m := by omega
-        simp [this]
+        simp [hi, this] at h state ⊢
         exact (do
           let ⟨msg, state⟩ ← P₁.sendMessage ⟨⟨i, hi⟩, h⟩ state
           haveI state : P₁.PrvState (Fin.last m) := by
-            simpa [Fin.last, this] using state
-          return ⟨msg, ← P₂.input.uncurry (P₁.output state)⟩)
+            simpa only [Fin.last, Fin.succ_mk, this] using state
+          return ⟨msg, P₂.input.uncurry (P₁.output state)⟩)
     · haveI : ¬ i + 1 < m := by omega
       simp [ProtocolSpec.append, Fin.append, Fin.addCases, Fin.init, hi, this,
         Fin.cast, Fin.castLT, Fin.succ, Fin.castSucc] at h state ⊢
@@ -208,7 +321,7 @@ def Prover.append (P₁ : Prover pSpec₁ oSpec Stmt₁ Wit₁ Stmt₂ Wit₂)
         let ⟨msg, newState⟩ ← P₂.sendMessage ⟨⟨i - m, by omega⟩, h⟩ state
         haveI newState : P₂.PrvState ⟨i + 1 - m, by omega⟩ := by
           haveI : i + 1 - m = i - m + 1 := by omega
-          simpa [Fin.succ, this] using newState
+          simpa only [this, Fin.succ] using newState
         return ⟨msg, newState⟩)
 
   /- Receiving challenges is implemented essentially the same as sending messages, modulo the
@@ -222,20 +335,20 @@ def Prover.append (P₁ : Prover pSpec₁ oSpec Stmt₁ Wit₁ Stmt₂ Wit₂)
         exact P₁.receiveChallenge ⟨⟨i, hi⟩, h⟩ state chal
       · haveI : i + 1 = m := by omega
         simp [this]
-        exact (do
-          let newState ← P₁.receiveChallenge ⟨⟨i, hi⟩, h⟩ state chal
+        exact (
+          letI newState := P₁.receiveChallenge ⟨⟨i, hi⟩, h⟩ state chal
           haveI newState : P₁.PrvState (Fin.last m) := by
             simpa [Fin.last, this] using newState
-          return ← P₂.input.uncurry (P₁.output newState))
+          P₂.input.uncurry (P₁.output newState))
     · haveI : ¬ i + 1 < m := by omega
       simp [ProtocolSpec.append, Fin.append, Fin.addCases, Fin.init, hi, this,
         Fin.cast, Fin.castLT, Fin.succ, Fin.castSucc] at h state chal ⊢
-      exact (do
-        let newState ← P₂.receiveChallenge ⟨⟨i - m, by omega⟩, h⟩ state chal
+      exact (
+        letI newState := P₂.receiveChallenge ⟨⟨i - m, by omega⟩, h⟩ state chal
         haveI newState : P₂.PrvState ⟨i + 1 - m, by omega⟩ := by
           haveI : i + 1 - m = i - m + 1 := by omega
           simpa [Fin.succ, this] using newState
-        return newState)
+        newState)
 
   /- The combined prover's output function is simply the second prover's output function. -/
   output := fun state => by
@@ -255,6 +368,17 @@ def Reduction.append (R₁ : Reduction pSpec₁ oSpec Stmt₁ Wit₁ Stmt₂ Wit
       Reduction (pSpec₁ ++ₚ pSpec₂) oSpec Stmt₁ Wit₁ Stmt₃ Wit₃ where
   prover := Prover.append R₁.prover R₂.prover
   verifier := Verifier.append R₁.verifier R₂.verifier
+
+def Reduction.join {m : ℕ} {n : Fin (m + 1) → ℕ} {pSpec : ∀ i, ProtocolSpec (n i)}
+    {Stmt : Fin (m + 2) → Type} {Wit : Fin (m + 2) → Type}
+    (R : ∀ i, Reduction (pSpec i) oSpec (Stmt i.castSucc) (Wit i.castSucc) (Stmt i.succ)
+      (Wit i.succ)) :
+      Reduction (ProtocolSpec.join pSpec) oSpec (Stmt 0) (Wit 0) (Stmt (Fin.last (m + 1)))
+      (Wit (Fin.last (m + 1))) := sorry
+  -- Fin.foldCases (α := fun i => Reduction (ProtocolSpec.join (pSpec ∘ Fin.take i (by omega))) oSpec (Stmt i.castSucc) (Wit i.castSucc)
+  --   (Stmt i.succ) (Wit i.succ))
+  --   (fun i acc => Reduction.append acc (R i))
+  --   (R 0)
 
 variable [O₁ : ∀ i, ToOracle (pSpec₁.Message i)] [O₂ : ∀ i, ToOracle (pSpec₂.Message i)]
 
@@ -281,8 +405,51 @@ def OracleReduction.append (R₁ : OracleReduction pSpec₁ oSpec Stmt₁ Wit₁
   prover := Prover.append R₁.prover R₂.prover
   verifier := OracleVerifier.append R₁.verifier R₂.verifier
 
--- Define composition of multiple protocols via recursion
+-- Define composition of multiple reductions via recursion with `Fin.fold`
 
-def ProtocolSpec.join (rounds : List ℕ)
-    (pSpecs : ∀ i : Fin rounds.length, ProtocolSpec (rounds.get i)) :
-    ProtocolSpec rounds.sum := sorry
+section Execution
+
+variable [∀ i, Sampleable (pSpec₁.Challenge i)] [∀ i, Sampleable (pSpec₂.Challenge i)]
+
+-- theorem Prover.append_run (P₁ : Prover pSpec₁ oSpec Stmt₁ Wit₁ Stmt₂ Wit₂)
+--     (P₂ : Prover pSpec₂ oSpec Stmt₂ Wit₂ Stmt₃ Wit₃) (stmt : Stmt₁) (wit : Wit₁) :
+--       (P₁.append P₂).run stmt wit = (do
+--         let result ← P₁.run stmt wit
+--         return ← P₂.output state) := sorry
+
+-- TODO: Need to define a function that "extracts" the second prover from the combined prover
+
+end Execution
+
+section Security
+
+open scoped NNReal
+
+variable {pSpec₁ : ProtocolSpec m} {pSpec₂ : ProtocolSpec n} [∀ i, Sampleable (pSpec₁.Challenge i)]
+    [∀ i, Sampleable (pSpec₂.Challenge i)] {Stmt₁ Wit₁ Stmt₂ Wit₂ Stmt₃ Wit₃ : Type}
+    {rel₁ : Stmt₁ → Wit₁ → Prop} {rel₂ : Stmt₂ → Wit₂ → Prop} {rel₃ : Stmt₃ → Wit₃ → Prop}
+
+namespace Reduction
+
+/-- If two reductions satisfy completeness with compatible relations, then their concatenation also
+  satisfies completeness with the sum of the completeness errors. -/
+theorem completeness_append (R₁ : Reduction pSpec₁ oSpec Stmt₁ Wit₁ Stmt₂ Wit₂)
+    (R₂ : Reduction pSpec₂ oSpec Stmt₂ Wit₂ Stmt₃ Wit₃)
+    {completenessError₁ completenessError₂ : ℝ≥0}
+    (h₁ : R₁.completeness rel₁ rel₂ completenessError₁)
+    (h₂ : R₂.completeness rel₂ rel₃ completenessError₂) :
+      (R₁.append R₂).completeness rel₁ rel₃ (completenessError₁ + completenessError₂) := sorry
+
+/-- If two reductions satisfy perfect completeness with compatible relations, then their
+  concatenation also satisfies perfect completeness. -/
+theorem perfectCompleteness_append (R₁ : Reduction pSpec₁ oSpec Stmt₁ Wit₁ Stmt₂ Wit₂)
+    (R₂ : Reduction pSpec₂ oSpec Stmt₂ Wit₂ Stmt₃ Wit₃)
+    (h₁ : R₁.perfectCompleteness rel₁ rel₂) (h₂ : R₂.perfectCompleteness rel₂ rel₃) :
+      (R₁.append R₂).perfectCompleteness rel₁ rel₃ := by
+  dsimp [perfectCompleteness] at h₁ h₂ ⊢
+  convert Reduction.completeness_append R₁ R₂ h₁ h₂
+  simp only [add_zero]
+
+end Reduction
+
+end Security

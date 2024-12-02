@@ -115,6 +115,12 @@ def MessageIndex (pSpec : ProtocolSpec n) :=
 def ChallengeIndex (pSpec : ProtocolSpec n) :=
   {i : Fin n // pSpec.getDir i = Direction.V_to_P}
 
+instance {pSpec : ProtocolSpec n} : CoeHead (MessageIndex pSpec) (Fin n) where
+  coe := fun i => i.1
+
+instance {pSpec : ProtocolSpec n} : CoeHead (ChallengeIndex pSpec) (Fin n) where
+  coe := fun i => i.1
+
 /-- The type of the `i`-th message in a protocol specification -/
 @[inline, reducible]
 def Message (pSpec : ProtocolSpec n) (i : MessageIndex pSpec) :=
@@ -210,13 +216,16 @@ structure ProverState (n : ℕ) where
   PrvState : Fin (n + 1) → Type
 
 /-- Initialization of prover's state via inputting the statement and witness -/
-structure ProverIn (oSpec : OracleSpec ι) (StmtIn WitIn PrvState : Type) where
-  input : StmtIn → WitIn → OracleComp oSpec PrvState
+structure ProverIn (StmtIn WitIn PrvState : Type) where
+  input : StmtIn → WitIn → PrvState
 
 /-- Represents the interaction of a prover for a given protocol specification.
 
 In each step, the prover gets access to the current state, then depending on the direction of the
 step, the prover either sends a message or receives a challenge, and updates its state accordingly.
+
+For maximum simplicity, we only define the `sendMessage` function as an oracle computation. All
+other functions are pure. We may revisit this decision in the future.
 -/
 structure ProverRound (pSpec : ProtocolSpec n) (oSpec : OracleSpec ι) (Statement : Type)
     extends ProverState n where
@@ -225,7 +234,7 @@ structure ProverRound (pSpec : ProtocolSpec n) (oSpec : OracleSpec ι) (Statemen
     PrvState i.1.castSucc → OracleComp oSpec (pSpec.Message i × PrvState i.1.succ)
   /-- Receive a challenge and update the prover's state -/
   receiveChallenge (i : ChallengeIndex pSpec) :
-    PrvState i.1.castSucc → (pSpec.Challenge i) → OracleComp oSpec (PrvState i.1.succ)
+    PrvState i.1.castSucc → (pSpec.Challenge i) → PrvState i.1.succ
 
 /-- The output of the prover, which is a function from the prover's state to the output witness -/
 structure ProverOut (StmtOut WitOut PrvState : Type) where
@@ -244,7 +253,7 @@ together. For security purposes, we will only use the output statement generated
 structure Prover (pSpec : ProtocolSpec n) (oSpec : OracleSpec ι)
     (StmtIn WitIn StmtOut WitOut : Type) extends
       ProverState n,
-      ProverIn oSpec StmtIn WitIn (PrvState 0),
+      ProverIn StmtIn WitIn (PrvState 0),
       ProverRound pSpec oSpec StmtIn,
       ProverOut StmtOut WitOut (PrvState (Fin.last n))
 
@@ -356,14 +365,14 @@ def Prover.runAux [∀ i, Sampleable (pSpec.Challenge i)] (stmt : StmtIn) (wit :
       OracleComp (oSpec ++ₒ challengeOracle pSpec)
         (pSpec.Transcript i × QueryLog oSpec × prover.PrvState i) :=
   Fin.induction
-    (do return ⟨default, ∅, ← prover.input stmt wit⟩)
+    (pure ⟨default, ∅, prover.input stmt wit⟩)
     (fun j ih => do
       let ⟨transcript, queryLog, state⟩ ← ih
       match hDir : pSpec.getDir j with
       | .V_to_P => do
         let challenge ← query (Sum.inr ⟨j, hDir⟩) ()
         have challenge : pSpec.Challenge ⟨j, hDir⟩ := by simpa only
-        let newState ← prover.receiveChallenge ⟨j, hDir⟩ state challenge
+        let newState := prover.receiveChallenge ⟨j, hDir⟩ state challenge
         return ⟨transcript.snoc challenge, queryLog, newState⟩
       | .P_to_V => do
         let ⟨⟨msg, newState⟩, newQueryLog⟩ ← liftComp
@@ -379,7 +388,7 @@ def Prover.run [∀ i, Sampleable (pSpec.Challenge i)] (stmt : StmtIn) (wit : Wi
     (prover : Prover pSpec oSpec StmtIn WitIn StmtOut WitOut) :
       OracleComp (oSpec ++ₒ challengeOracle pSpec)
         (FullTranscript pSpec × QueryLog oSpec × WitOut) := do
-  let ⟨transcript, queryLog, state⟩ ← prover.runAux stmt wit ⟨n, n.lt_add_one⟩
+  let ⟨transcript, queryLog, state⟩ ← prover.runAux stmt wit (Fin.last n)
   let ⟨_, witOut⟩ := prover.output state
   return ⟨transcript, queryLog, witOut⟩
 

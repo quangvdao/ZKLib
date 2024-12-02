@@ -153,16 +153,16 @@ instance instSampleableChallengePSpec : Sampleable ((pSpec R deg).Challenge defa
 def proverState (i : Fin n) : ProverState 2 := ⟨fun _ => Statement R n deg i (by omega)⟩
 
 /-- Prover input for the `i`-th round of the sum-check protocol, where `i < n` -/
-def proverIn (i : Fin n) : ProverIn (pSpec R deg) (Statement R n deg i (by omega)) Unit
+def proverIn (i : Fin n) : ProverIn (Statement R n deg i (by omega)) Unit
     ((proverState R n deg i).PrvState 0) where
-  load := fun stmt _ => stmt
+  input := fun stmt _ => stmt
 
 variable {ι : Type} (oSpec : OracleSpec ι)
 
 /-- Prover interaction for the `i`-th round of the sum-check protocol, where `i < n`. This is only
   well-defined for `n > 0` -/
 def proverRound (i : Fin n) (hn : n > 0) :
-    ProverRound (pSpec R deg) oSpec where
+    ProverRound (pSpec R deg) oSpec (Statement R n deg i (by omega)) where
   PrvState := (proverState R n deg i).PrvState
   sendMessage := fun idx state => by
     have ⟨⟨poly, hp⟩, target, challenges, earlyReject⟩ := state
@@ -183,8 +183,9 @@ def proverRound (i : Fin n) (hn : n > 0) :
 
 /-- Since there is no witness, the prover's output for each round `i < n` of the sum-check protocol
   is trivial -/
-def proverOut (i : Fin n) : ProverOut Unit (Statement R n deg i (by omega)) where
-  output := fun _ => ()
+def proverOut (i : Fin n) : ProverOut (Statement R n deg (i + 1) (by omega)) Unit
+    ((proverState R n deg i).PrvState (Fin.last 2)) where
+  output := fun state => ⟨sorry, ()⟩
 
 #check Prover.mk
 
@@ -276,6 +277,7 @@ theorem oracleVerifier_eq_verifier :
   split; next x p_i hp_i hEq =>
   have : p_i = (transcript 0).1 := by simp only [hEq]
   subst this
+  stop
   simp [default, Transcript.messages, Transcript.challenges, instToOraclePolynomialDegreeLE]
   constructor
   · rw [cast_eq_iff_heq, List.map_append _ _ _]
@@ -294,45 +296,44 @@ set_option trace.profiler true
 
 /-- Completeness theorem for sumcheck-/
 theorem perfect_completeness : (reduction R n deg D oSpec hn i).perfectCompleteness
-    (pSpec R deg) oSpec (relation R n deg D i (by omega))
-      (relation R n deg D (i + 1) (by omega)) := by
-  unfold perfectCompleteness completeness run
-  simp_rw [Prover.run_of_isSingleRound]
+    (relation R n deg D i (by omega)) (relation R n deg D (i + 1) (by omega)) := by
+  simp only [perfectCompleteness_eq, eq_iff_iff, iff_true, probEvent_eq_one_iff, Prod.forall]
+  unfold relation reduction prover verifier Reduction.run
   intro ⟨⟨poly, hPoly⟩, target, challenges, earlyReject⟩ _ hValid
   simp only [eq_iff_iff, iff_true] at hValid
   obtain ⟨hReject, hSum⟩ := hValid
-  -- have : (1 : ENNReal) - ((0 : NNReal) : ENNReal) = 1 := by norm_num
-  -- rw [this]
-  norm_num
-  refine PMF.eq_pure_iff_ge_one.mp ?_
-  ext p
-  simp only [pSpec, getType_apply, getDir_apply, evalDist, eq_mp_eq_cast, reduction, prover,
-    proverIn, proverRound, eq_mpr_eq_cast, proverOut, verifier, Matrix.cons_val_zero,
-    sum_map, decide_eq_true_eq, Bool.decide_or, Bool.decide_eq_true, decide_not, challengeOracle,
-    append, SubSpec.liftComp, simulate', simulate, Transcript.mk2, map_pure, bind_pure_comp,
-    PMF.pure_bind, Function.comp_apply]
-  simp only [map_eq_bind_pure_comp, bind, pure, PMF.bind_bind, PMF.pure_bind, Function.comp_apply,
-    Function.uncurry_apply_pair, PMF.bind_apply, PMF.uniformOfFintype_apply, PMF.pure_apply,
-    eq_iff_iff, eq_mp_eq_cast, mul_ite, mul_one, mul_zero, iff_true]
-  by_cases hp : p = True
-  · simp [hp, hReject]
-    sorry
-  · simp at hp
-    simp [hp, hReject]
-    intro r
-    constructor
-    · simp_rw [Polynomial.eval_finset_sum _ _ _, ← hSum]
-      simp only [Bool.not_eq_eq_eq_not, Bool.not_false, decide_eq_true_eq]
-      sorry
-    · simp_rw [Polynomial.eval_finset_sum _ _ _]
-      sorry
-    -- at this point we have reduced to a purely polynomial problem
+  intro transcript _ stmt _ hRun
+  simp [Reduction.run, Prover.run] at hRun ⊢
+  save
+  sorry
+  -- simp [Reduction.run]
+  -- simp only [pSpec, getType_apply, getDir_apply, evalDist, eq_mp_eq_cast, reduction, prover,
+  --   proverIn, proverRound, eq_mpr_eq_cast, proverOut, verifier, Matrix.cons_val_zero,
+  --   sum_map, decide_eq_true_eq, Bool.decide_or, Bool.decide_eq_true, decide_not, challengeOracle,
+  --   append, SubSpec.liftComp, simulate', simulate, Transcript.mk2, map_pure, bind_pure_comp,
+  --   PMF.pure_bind, Function.comp_apply]
+  -- simp only [map_eq_bind_pure_comp, bind, pure, PMF.bind_bind, PMF.pure_bind, Function.comp_apply,
+  --   Function.uncurry_apply_pair, PMF.bind_apply, PMF.uniformOfFintype_apply, PMF.pure_apply,
+  --   eq_iff_iff, eq_mp_eq_cast, mul_ite, mul_one, mul_zero, iff_true]
+  -- by_cases hp : p = True
+  -- · simp [hp, hReject]
+  --   sorry
+  -- · simp at hp
+  --   simp [hp, hReject]
+  --   intro r
+  --   constructor
+  --   · simp_rw [Polynomial.eval_finset_sum _ _ _, ← hSum]
+  --     simp only [Bool.not_eq_eq_eq_not, Bool.not_false, decide_eq_true_eq]
+  --     sorry
+  --   · simp_rw [Polynomial.eval_finset_sum _ _ _]
+  --     sorry
+  --   -- at this point we have reduced to a purely polynomial problem
 
 #check evalDist_bind_eq_bind
 
 /-- State function for round-by-round soundness -/
-def stateFunction (i : Fin n) : StateFunction (pSpec R deg) oSpec
-    (verifier R n deg D oSpec i) (relation R n deg D (i + 1) (by omega)).language where
+def stateFunction (i : Fin n) : StateFunction
+    (relation R n deg D (i + 1) (by omega)).language (verifier R n deg D oSpec i) where
   fn := fun m stmt partialTranscript => match m with
     -- If `m = 0`, so the transcript is empty, returns whether the statement satisfies the relation
     | 0 => relation R n deg D i (by omega) stmt () = true
@@ -343,7 +344,7 @@ def stateFunction (i : Fin n) : StateFunction (pSpec R deg) oSpec
     -- updated statement satisfies the new relation
     | 2 => sorry
     -- If `m = 3`, which is unconstrained, returns `False`
-    | n + 3 => False
+    | _ => sorry
   fn_empty := sorry
   fn_next := sorry
   fn_full := sorry

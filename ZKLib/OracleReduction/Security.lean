@@ -68,6 +68,22 @@ def perfectCompleteness (relIn : StmtIn → WitIn → Prop) (relOut : StmtOut �
     (reduction : Reduction pSpec oSpec StmtIn WitIn StmtOut WitOut) : Prop :=
   completeness relIn relOut reduction 0
 
+/-- Perfect completeness means that the probability of the reduction outputting a valid
+  statement-witness pair is _exactly_ 1 (instead of at least `1 - 0`). -/
+@[simp]
+theorem perfectCompleteness_eq {relIn : StmtIn → WitIn → Prop} {relOut : StmtOut → WitOut → Prop}
+    {reduction : Reduction pSpec oSpec StmtIn WitIn StmtOut WitOut} :
+      reduction.perfectCompleteness relIn relOut ↔ ∀ stmtIn, ∀ witIn, relIn stmtIn witIn = True →
+        [fun ⟨_, _, stmtOut, witOut⟩ => relOut stmtOut witOut
+        | reduction.run stmtIn witIn] = 1 := by
+  dsimp [perfectCompleteness, completeness]
+  constructor <;>
+  intro h stmtIn witIn hRel <;>
+  have := h stmtIn witIn hRel
+  · norm_num at this
+    exact le_antisymm probEvent_le_one this
+  · simp only [this, tsub_zero, ge_iff_le, le_refl]
+
 end Completeness
 
 section Soundness
