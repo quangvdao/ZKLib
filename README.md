@@ -16,6 +16,6 @@ In future stages, we plan to extend the set of proof systems formalized using ou
 
 ## Roadmap
 
-See [here](./ROADMAP.md). We plan for the first stage to be completed some time in Q1 of 2025.
+See [ROADMAP (somewhat outdated)](./ROADMAP.md), and the list of issues.
 
-We welcome outside contributions to the library! If you're interested in working on any of the items in the [roadmap](./ROADMAP.md), please contact [the authors](mailto:qvd@andrew.cmu.edu) or open an issue.
+We welcome outside contributions to the library! If you're interested in working on any of the items mentioned in the list of issues or the roadmap, please contact [the authors](mailto:qvd@andrew.cmu.edu) or open a new issue.
