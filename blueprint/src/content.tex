@@ -24,6 +24,10 @@ The goal of this project is to formalize Succinct Non-Interactive Arguments of K
 
 In the interactive protocols we consider, both parties $P$ and $V$ may have access to a shared oracle $O$. An interactive protocol becomes an \emph{interactive (oracle) reduction} if its execution reduces an input relation $R_{\mathsf{in}}$ to an output relation $R_{\mathsf{out}}$. Here a relation is just a function $\mathsf{IsValid}: \mathsf{Statement} \times \mathsf{Witness} \to \mathsf{Bool}$, for some types \verb|Statement| and \verb|Witness|. We do not concern ourselves with the running time of $\mathsf{IsValid}$ in this project (though future extensions may prove that relations can be decided in polynomial time, for a suitable model of computation).
 
+\begin{remark}[Design Decision]
+    We do not enforce a particular interaction flow in the definition of an interactive (oracle) reduction. This is done so that we can capture all protocols in the most generality. Also, we want to allow the prover to send multiple messages in a row, since each message may have a different oracle representation (for instance, in the Plonk protocol, the prover's first message is a 3-tuple of polynomial commitments.)
+\end{remark}
+
 \begin{definition}[Type Signature of a Prover]
     \label{def:prover_type_signature}
     A prover $P$ in an interactive protocol, with access to a shared oracle $O$ with the verifier, is a stateful oracle computation that at each step of the protocol, either takes in a new message from the verifier, or sends a new message to the verifier.
