@@ -161,17 +161,21 @@ variable {ι : Type} (oSpec : OracleSpec ι)
 
 /-- Prover interaction for the `i`-th round of the sum-check protocol, where `i < n`. This is only
   well-defined for `n > 0` -/
-def proverRound (i : Fin n) (hn : n > 0) :
+def proverRound (i : Fin n) :
     ProverRound (pSpec R deg) oSpec (Statement R n deg i (by omega)) where
   PrvState := (proverState R n deg i).PrvState
   sendMessage := fun idx state => by
     have ⟨⟨poly, hp⟩, target, challenges, earlyReject⟩ := state
     haveI : idx = default := Unique.uniq _ idx
     simp [pSpec, Message, getType, this, default]
+    haveI : n ≠ 0 := fun h => by subst h; exact Fin.elim0 i
     generalize hn' : n - 1 = n'
-    haveI : n = n' + 1 := by omega
-    simp_rw [this] at hp poly
-    exact pure ⟨ ⟨∑ x ∈ (univ.map D) ^ᶠ (n' - i), poly ⸨X ⦃i⦄, challenges, x⸩, by
+    haveI hn : n = n' + 1 := by omega
+    have : Fin n = Fin (n' + 1) := congrArg Fin hn
+    let newPoly : R[X Fin (n' + 1)] := MvPolynomial.rename (fun i => by simpa [hn] using i) poly
+    have hNewPoly : newPoly ∈ R⦃≤ deg⦄[X Fin (n' + 1)] := by
+      simp [newPoly]; sorry
+    exact pure ⟨ ⟨∑ x ∈ (univ.map D) ^ᶠ (n' - i), newPoly ⸨X ⦃i⦄, challenges, x⸩, by
       refine Polynomial.mem_degreeLE.mpr ?_
       refine le_trans (Polynomial.degree_sum_le ((univ.map D) ^ᶠ (n' - i)) _) ?_
       simp only [Finset.sup_le_iff, Fintype.mem_piFinset, mem_map, mem_univ, true_and]
@@ -179,7 +183,7 @@ def proverRound (i : Fin n) (hn : n > 0) :
       refine le_trans (Polynomial.degree_map_le) ?_
       refine Polynomial.natDegree_le_iff_degree_le.mp ?_
       simp [MvPolynomial.natDegree_finSuccEquivNth]
-      sorry
+      exact degreeOf_le_iff.mpr fun m a ↦ hNewPoly a ↑↑i
       ⟩, state ⟩
   receiveChallenge := fun _ state _ => state
 
@@ -191,12 +195,12 @@ def proverOut (i : Fin n) : ProverOut (Statement R n deg (i + 1) (by omega)) Uni
 
 /-- The overall prover for the `i`-th round of the sum-check protocol, where `i < n`. This is only
   well-defined for `n > 0`, since when `n = 0` there is no protocol. -/
-def prover (i : Fin n) (hn : n > 0) : Prover (pSpec R deg) oSpec
+def prover (i : Fin n) : Prover (pSpec R deg) oSpec
     (Statement R n deg i (by omega)) Unit (Statement R n deg (i + 1) (by omega)) Unit where
   toProverState := proverState R n deg i
   toProverIn := proverIn R n deg i
-  sendMessage := (proverRound R n deg D oSpec i hn).sendMessage
-  receiveChallenge := (proverRound R n deg D oSpec i hn).receiveChallenge
+  sendMessage := (proverRound R n deg D oSpec i).sendMessage
+  receiveChallenge := (proverRound R n deg D oSpec i).receiveChallenge
   toProverOut := proverOut R n deg i
 
 /-- The default value for the tuple (message index, query, response) -/
@@ -238,21 +242,21 @@ def oracleVerifier (i : Fin n) : OracleVerifier (pSpec R deg) oSpec
     exact pure ⟨poly, newTarget, Fin.snoc challenges (chal default), earlyReject ∨ ¬ accept⟩
 
 /-- The sum-check reduction for the `i`-th round, where `i < n` and `n > 0` -/
-def reduction (hn : n > 0) (i : Fin n) : Reduction (pSpec R deg) oSpec
+def reduction (i : Fin n) : Reduction (pSpec R deg) oSpec
     (Statement R n deg i (by omega)) Unit (Statement R n deg (i + 1) (by omega)) Unit :=
-  .mk (prover R n deg D oSpec i hn) (verifier R n deg D oSpec i)
+  .mk (prover R n deg D oSpec i) (verifier R n deg D oSpec i)
 
 /-- The sum-check oracle reduction for the `i`-th round, where `i < n` and `n > 0` -/
-def oracleReduction (hn : n > 0) (i : Fin n) : OracleReduction (pSpec R deg) oSpec
+def oracleReduction (i : Fin n) : OracleReduction (pSpec R deg) oSpec
     (Statement R n deg i (by omega)) Unit (Statement R n deg (i + 1) (by omega)) Unit :=
-  .mk (prover R n deg D oSpec i hn) (oracleVerifier R n deg D oSpec i)
+  .mk (prover R n deg D oSpec i) (oracleVerifier R n deg D oSpec i)
 
 section Security
 
 open Reduction
 
 variable {R : Type} [CommSemiring R] [Sampleable R] {n : ℕ} {deg : ℕ} {m : ℕ} {D : Fin m ↪ R}
-  {ι : Type} [DecidableEq ι] {oSpec : OracleSpec ι} {hn : n > 0} {i : Fin n}
+  {ι : Type} [DecidableEq ι] {oSpec : OracleSpec ι} {i : Fin n}
 
 omit [DecidableEq ι] in
 /-- The oracle verifier does the same thing as the non-oracle verifier -/
@@ -284,7 +288,7 @@ theorem oracleVerifier_eq_verifier :
 set_option trace.profiler true
 
 /-- Completeness theorem for sumcheck-/
-theorem perfect_completeness : (reduction R n deg D oSpec hn i).perfectCompleteness
+theorem perfect_completeness : (reduction R n deg D oSpec i).perfectCompleteness
     (relation R n deg D i (by omega)) (relation R n deg D (i + 1) (by omega)) := by
   simp only [perfectCompleteness_eq, eq_iff_iff, iff_true, probEvent_eq_one_iff, Prod.forall]
   unfold relation reduction prover verifier Reduction.run
