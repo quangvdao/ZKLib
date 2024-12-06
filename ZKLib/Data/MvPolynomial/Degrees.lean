@@ -48,7 +48,7 @@ theorem support_C_subset {r : R} : (@C R σ _ r).support ⊆ { 0 } := by
 
 theorem support_C_mul_le (p : MvPolynomial σ R) (r : R) : (C r * p).support ⊆ p.support := by
   classical
-  refine le_trans (support_mul _ _) ?_
+  refine subset_trans (support_mul _ _) ?_
   rw [support_C]
   by_cases h : r = 0
   · simp [h]
@@ -62,7 +62,7 @@ theorem support_eval [DecidableEq σ] {τ : Type*} {f : τ → R} {p : R[X σ][X
     (eval (C ∘ f) p).support ⊆ p.support.biUnion (fun c => (coeff c p).support) := by
   classical
   rw [eval_eq]
-  refine le_trans support_sum (Finset.biUnion_mono (fun c _ => ?_))
+  refine subset_trans support_sum (Finset.biUnion_mono (fun c _ => ?_))
   conv =>
     enter [1, 1, 2, 2]
     intro x

@@ -216,7 +216,7 @@ variable {α : Type*} {unit : α}
 /-- Checks if an array of elements from a type `R` is a boolean array, i.e., if every element is
   either `0` or `1`. -/
 def isBoolean {R : Type _} [Zero R] [One R] (a : Array R) : Prop :=
-    ∀ i : Fin a.size, a.get i = 0 ∨ a.get i = 1
+    ∀ i : Fin a.size, (a[i] = 0) ∨ (a[i] = 1)
 
 /-- Interpret an array as the binary representation of a number, sending `0` to `0` and `≠ 0` to
   `1`. -/
@@ -259,34 +259,15 @@ def rightpadPowerOfTwo (unit : α) (a : Array α) : Array α :=
   simp [rightpadPowerOfTwo, Nat.le_pow_iff_clog_le]
 
 /-- Get the last element of an array, assuming the array is non-empty. -/
-def getLast (a : Array α) (h : a.size > 0) : α :=
-  a.get ⟨a.size - 1, Nat.sub_lt_self (by decide) (gt_iff_lt.mpr h)⟩
+def getLast (a : Array α) (h : a.size > 0) : α := a[a.size - 1]
 
 /-- Get the last element of an array, or `v₀` if the array is empty. -/
 def getLastD (a : Array α) (v₀ : α) : α := a.getD (a.size - 1) v₀
 
-
 @[simp] theorem popWhile_nil_or_last_false (p : α → Bool) (as : Array α)
     (h : (as.popWhile p).size > 0) : ¬ (p <| (as.popWhile p).getLast h) := sorry
 
-
-theorem range_succ (n : Nat) : range (n + 1) = (range n).push n := by
-  simp [range, Nat.fold, flip]
-
-@[simp]
-theorem range_toList (n : Nat) : (Array.range n).toList = List.range n := by
-  induction n with
-  | zero => simp only [Array.range]; rfl
-  | succ n ih => simp [range_succ, List.range_succ, ih]
-
-@[simp]
-theorem mem_range {m n : Nat} : m ∈ range n ↔ m < n := by
-  exact (Array.mem_toList).symm.trans (by simp)
-
-/-- `Array` version of `List.finRange`. -/
-def finRange (n : Nat) : Array (Fin n) := Array.ofFn (fun i => i)
-
-@[simp] theorem finRange_toList (n : Nat) : (finRange n).toList = List.finRange n := by sorry
+@[simp] theorem finRange_toList (n : Nat) : (Array.finRange n).toList = List.finRange n := by sorry
 
 end Array
 

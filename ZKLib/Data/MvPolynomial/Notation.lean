@@ -25,10 +25,6 @@ section Equiv
 
 variable (R : Type*) [CommSemiring R] {n : ℕ}
 
--- def finSuccEquiv' (i : Fin (n + 1)) :
---     MvPolynomial (Fin (n + 1)) R ≃ₐ[R] Polynomial (MvPolynomial (Fin n) R) :=
---   (renameEquiv R (_root_.finSuccEquiv' i)).trans (optionEquivLeft R (Fin n))
-
 /-- Equivalence between `MvPolynomial (Fin 1) R` and `Polynomial R` -/
 def finOneEquiv : MvPolynomial (Fin 1) R ≃ₐ[R] Polynomial R :=
   (finSuccEquiv R 0).trans (Polynomial.mapAlgEquiv (isEmptyAlgEquiv R (Fin 0)))
@@ -78,18 +74,18 @@ example : (X 0 + X 1 * X 2 : ℕ[X Fin 3]) ⸨![1, 2], ![8], ![]⸩ = 17 := by s
 
   For example, `p ⸨X ⦃i⦄, x, y⸩` is expanded to
     `Polynomial.map (MvPolynomial.eval (Fin.append x y ∘ Fin.cast (by omega)))`
-    `(MvPolynomial.finSuccEquiv' i p)`.
+    `(MvPolynomial.finSuccEquivNth i p)`.
 -/
 syntax (name := mvEvalToPolynomial) term "⸨X " "⦃" term "⦄" "," term,* "⸩" : term
 macro_rules (kind := mvEvalToPolynomial)
   | `($p⸨X ⦃$i⦄, $x⸩) =>
-      `(Polynomial.map (MvPolynomial.eval $x) (MvPolynomial.finSuccEquiv' _ $i $p))
+      `(Polynomial.map (MvPolynomial.eval $x) (MvPolynomial.finSuccEquivNth _ $i $p))
   | `($p⸨X ⦃$i⦄, $x, $y⸩) =>
       `(Polynomial.map (MvPolynomial.eval (Fin.append $x $y ∘ Fin.cast (by omega)))
-        (MvPolynomial.finSuccEquiv' _ $i $p))
+        (MvPolynomial.finSuccEquivNth _ $i $p))
   | `($p⸨X ⦃$i⦄, $x, $y, $z⸩) =>
       `(Polynomial.map (MvPolynomial.eval (Fin.append (Fin.append $x $y) $z ∘ Fin.cast (by omega)))
-        (MvPolynomial.finSuccEquiv' _ $i $p))
+        (MvPolynomial.finSuccEquivNth _ $i $p))
 
 -- Examples showing that the notation is correct
 
@@ -98,4 +94,4 @@ example {a b n : ℕ} (x : Fin a → ℕ) (y : Fin b → ℕ) (p : ℕ[X Fin n])
     MvPolynomial.eval (Fin.append (Fin.append x ![n]) y ∘ Fin.cast (by omega)) p := rfl
 
 example {n : ℕ} (p : ℕ[X Fin (n + 1)]) (a : Fin n → ℕ) :
-  p ⸨X ⦃0⦄, a⸩ = Polynomial.map (MvPolynomial.eval a) (MvPolynomial.finSuccEquiv' _ 0 p) := rfl
+  p ⸨X ⦃0⦄, a⸩ = Polynomial.map (MvPolynomial.eval a) (MvPolynomial.finSuccEquivNth _ 0 p) := rfl

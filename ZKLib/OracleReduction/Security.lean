@@ -54,14 +54,19 @@ section Completeness
   will result in a valid pair `(stmtOut, witOut)` for `relOut`, except with probability
   `completenessError`.
 -/
-def completeness (relIn : StmtIn → WitIn → Prop) (relOut : StmtOut → WitOut → Prop)
+
+def completeness (relIn : StmtIn → WitIn → Prop)
+    (relOut : StmtOut → WitOut → Prop)
     (reduction : Reduction pSpec oSpec StmtIn WitIn StmtOut WitOut)
     (completenessError : ℝ≥0) : Prop :=
   ∀ stmtIn : StmtIn,
   ∀ witIn : WitIn,
     relIn stmtIn witIn = True →
-      [fun ⟨_, _, stmtOut, witOut⟩ => relOut stmtOut witOut | reduction.run stmtIn witIn] ≥
-        1 - completenessError
+    haveI p : FullTranscript pSpec × QueryLog oSpec × StmtOut × WitOut → Prop :=
+      fun ⟨_, _, stmtOut, _⟩ => stmtOut ∈ relOut.language
+    haveI : DecidablePred p := Classical.decPred _
+    [p
+    | reduction.run stmtIn witIn] ≥ 1 - completenessError
 
 /-- A reduction satisfies **perfect completeness** if it satisfies completeness with error `0`. -/
 def perfectCompleteness (relIn : StmtIn → WitIn → Prop) (relOut : StmtOut → WitOut → Prop)
@@ -74,15 +79,17 @@ def perfectCompleteness (relIn : StmtIn → WitIn → Prop) (relOut : StmtOut �
 theorem perfectCompleteness_eq {relIn : StmtIn → WitIn → Prop} {relOut : StmtOut → WitOut → Prop}
     {reduction : Reduction pSpec oSpec StmtIn WitIn StmtOut WitOut} :
       reduction.perfectCompleteness relIn relOut ↔ ∀ stmtIn, ∀ witIn, relIn stmtIn witIn = True →
-        [fun ⟨_, _, stmtOut, witOut⟩ => relOut stmtOut witOut
-        | reduction.run stmtIn witIn] = 1 := by
+        haveI p : FullTranscript pSpec × QueryLog oSpec × StmtOut × WitOut → Prop :=
+          fun ⟨_, _, stmtOut, _⟩ => stmtOut ∈ relOut.language
+        haveI : DecidablePred p := Classical.decPred _
+        [p | reduction.run stmtIn witIn] = 1 := by
   dsimp [perfectCompleteness, completeness]
   constructor <;>
   intro h stmtIn witIn hRel <;>
-  have := h stmtIn witIn hRel
-  · norm_num at this
-    exact le_antisymm probEvent_le_one this
-  · simp only [this, tsub_zero, ge_iff_le, le_refl]
+  specialize h stmtIn witIn hRel
+  · norm_num at h
+    exact le_antisymm (@probEvent_le_one _ _ _ _ _ (Classical.decPred _)) h
+  · simp only [h, tsub_zero, ge_iff_le, le_refl]
 
 end Completeness
 
@@ -115,13 +122,17 @@ structure AdaptiveProver extends Prover pSpec oSpec StmtIn WitIn StmtOut WitOut 
   probability `soundnessError`.
 -/
 def soundness (langIn : Set StmtIn) (langOut : Set StmtOut)
-    (verifier : Verifier pSpec oSpec StmtIn StmtOut) (soundnessError : ℝ≥0) : Prop :=
+    (verifier : Verifier pSpec oSpec StmtIn StmtOut)
+    (soundnessError : ℝ≥0) : Prop :=
   ∀ stmtIn ∉ langIn,
-  ∀ WitIn WitOut : Type,
-  ∀ witIn : WitIn,
+  ∀ WitIn WitOut : Type, ∀ witIn : WitIn,
   ∀ prover : Prover pSpec oSpec StmtIn WitIn StmtOut WitOut,
     letI reduction := Reduction.mk prover verifier
-    [fun ⟨_, _, stmtOut, _⟩ => stmtOut ∉ langOut | reduction.run stmtIn witIn] ≤ soundnessError
+    haveI p : FullTranscript pSpec × QueryLog oSpec × StmtOut × WitOut → Prop :=
+      fun ⟨_, _, stmtOut, _⟩ => stmtOut ∉ langOut
+    haveI : DecidablePred p := Classical.decPred _
+    [p
+    | reduction.run stmtIn witIn] ≤ soundnessError
 
 /--
   A straightline, deterministic, non-oracle-querying extractor takes in the initial statement, the
@@ -216,7 +227,7 @@ structure StateFunction (language : Set StmtOut) (verifier : Verifier pSpec oSpe
   /-- If the state function is false for a full transcript, the verifier will output false / a new
     statement not in the language (for all choice of randomness) -/
   fn_full : ∀ stmt tr, fn (Fin.last n) stmt tr = False →
-      ((· ∈ language) <$> evalDist (verifier.run stmt tr)) False = 1
+      ((∃ x, · = some x ∧ x ∈ language) <$> evalDist (verifier.run stmt tr)) False = 1
 
 /--
   A protocol with `verifier` satisfies round-by-round soundness with error `rbrSoundnessError` and

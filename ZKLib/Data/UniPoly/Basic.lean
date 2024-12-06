@@ -26,6 +26,7 @@ the same polynomial via zero-padding, for example `#[1,2,3] = #[1,2,3,0,0,0,...]
 structure UniPoly (R : Type _) [Semiring R] where
   mk::
   coeffs : Array R
+  -- h : coeffs last is non zero
 deriving Inhabited, DecidableEq, Repr
 
 namespace UniPoly
@@ -50,6 +51,10 @@ def X : UniPoly R := ⟨#[0, 1]⟩
 section Operations
 
 variable {S : Type*}
+
+-- p(x) = a_0 + a_1 x + a_2 x^2 + ... + a_n x^n
+
+-- eval₂ f x p = f(a_0) + f(a_1) x + f(a_2) x^2 + ... + f(a_n) x^n
 
 /-- Evaluates a `UniPoly` at a given value, using a ring homomorphism `f: R →+* S`. -/
 def eval₂ [Semiring S] (f : R →+* S) (x : S) (p : UniPoly R) : S :=

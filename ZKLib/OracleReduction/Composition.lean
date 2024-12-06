@@ -9,46 +9,106 @@ import ZKLib.OracleReduction.Security
 /-!
   # Composition of Interactive (Oracle) Reductions with Compatible Relations
 
-  We compose an interactive (oracle) reduction for reducing relations R1 => R2 with
-  another interactive (oracle) reduction for reducing relations R2 => R3. This gives us an
-  interactive (oracle) reduction for reducing relations R1 => R3.
+  We define the composition of two or more interactive (oracle) reductions, where the output
+  statement & witness types for one reduction is the same as the input statement & witness types for
+  the next.
+
+  This is defined in two steps:
+  1. First, we define the concatenation of two reductions, one from R1 => R2 and the other from R2
+     => R3.
+  2. Then, we define the general composition of `m + 1` reductions, indexed by `i : Fin (m + 1)`, by
+     iterating the concatenation of two reductions.
+
+  We also prove that the composition of reductions preserve all completeness & soundness properties
+  of the reductions being composed.
 -/
+
+section find_home
+
+@[simp]
+theorem Finset.Iic_top {m : ℕ} : Finset.Iic (Fin.last m) = Finset.univ := by
+  have h0 : Fin.last m = ⊤ := rfl
+  have h1 : Finset.Iic (α := Fin (m + 1)) ⊤ = Finset.Icc ⊥ ⊤ := by ext; simp
+  simp [h0, h1]
+
+theorem cast_eq_cast_iff {α β γ : Sort _} {h : α = γ} {h' : β = γ} {a : α} {b : β} :
+    cast h a = cast h' b ↔ a = cast (h'.trans h.symm) b := by subst h'; subst h; simp
+
+theorem cast_symm {α β : Sort _} {h : α = β} {a : α} {b : β} :
+    cast h a = b ↔ a = cast h.symm b := by
+  subst h; simp
+
+theorem congrArg₃ {α β γ δ : Sort*} {f : α → β → γ → δ} {a a' : α} {b b' : β} {c c' : γ}
+    (h : a = a') (h' : b = b') (h'' : c = c') : f a b c = f a' b' c' := by
+  subst h; subst h'; subst h''; rfl
+
+theorem congrArg₄ {α β γ δ ε : Sort*} {f : α → β → γ → δ → ε} {a a' : α} {b b' : β} {c c' : γ}
+    {d d' : δ} (h : a = a') (h' : b = b') (h'' : c = c') (h''' : d = d') :
+      f a b c d = f a' b' c' d' := by
+  subst h; subst h'; subst h''; subst h'''; rfl
 
 namespace Fin
 
-#check Fin.hIterate
+variable {m n : ℕ} {α : Sort*}
 
-#check Fin.succ_castPred_eq_add_one
+theorem append_left_injective (b : Fin n → α) : Function.Injective (@Fin.append m n α · b) := by
+  intro a a' h
+  simp only at h
+  ext i
+  have : append a b (castAdd n i) = append a' b (castAdd n i) := by rw [h]
+  simp only [append_left] at this
+  exact this
 
-def foldCasesFrom {n} (α : Fin (n + 1) → Sort*) (f : ∀ (i : Fin n), α i.castSucc → α i.succ)
-      (i : Fin (n + 1)) (a : α i) : α (last n) :=
-  if h : i ≠ last n then
-    haveI this : α (i + 1) := by simpa [succ_castPred_eq_add_one] using (f (i.castPred h) a)
-    foldCasesFrom α f (i+1) this
-  else
-    _root_.cast (congrArg α (not_not.mp h)) a
-  termination_by n - i
-  decreasing_by
-    have h0 : i < last n := lt_last_iff_ne_last.mpr h
-    have h1 : i.val < n := by omega
-    have h2 : (i + 1).val = i.val + 1 := by simp [val_add, h1]
-    rw [h2]
-    exact Nat.sub_add_lt_sub h1 (by omega)
-
-def foldCases {n} (α : Fin (n + 1) → Sort*) (f : ∀(i : Fin n), α i.castSucc → α i.succ)
-    (init : α 0) : α (last n) := foldCasesFrom α f 0 init
-
--- def foldlCases' (f : ∀ i, α i.castSucc → β i → α i.succ) (init : α 0) (v : (i : Fin n) → β i) :
---     α (Fin.last n) := by
---   induction n with
---   | zero => exact init
---   | succ n ih =>
---     exact @ih (α ∘ Fin.succ) (β ∘ Fin.succ) (fun i a => f i.succ a)
---       (f 0 init (v ⟨0, by omega⟩)) (fun i => v i.succ)
+theorem append_right_injective (a : Fin m → α) : Function.Injective (@Fin.append m n α a) := by
+  intro b b' h
+  ext i
+  have : append a b (natAdd m i) = append a b' (natAdd m i) := by rw [h]
+  simp only [append_right] at this
+  exact this
 
 end Fin
 
+variable {ι ι' : Type} {spec : OracleSpec ι} {spec' : OracleSpec ι'} {α β : Type}
+    (oa : OracleComp spec α)
+
+open OracleComp
+
+@[simp]
+lemma evalDist_cast (h : α = β) :
+    evalDist (cast (congrArg (OracleComp spec) h) oa) =
+      cast (congrArg (PMF ∘ Option) h) (evalDist oa) := by
+  induction h; rfl
+
+universe u v
+
+theorem PMF.heq_iff {α β : Type u} {pa : PMF α} {pb : PMF β} (h : α = β) :
+    HEq pa pb ↔ ∀ x, pa x = pb (cast h x) := by
+  subst h; simp; constructor <;> intro h'
+  · intro x; rw [h']
+  · ext x; rw [h' x]
+
+theorem Option.cast_eq_some_iff {α β : Type u} {x : Option α} {b : β} (h : α = β) :
+    cast (congrArg Option h) x = some b ↔ x = some (cast h.symm b) := by
+  subst h; simp only [cast_eq]
+
+theorem PMF.uniformOfFintype_cast (α β : Type _) [ha : Fintype α] [Nonempty α]
+    [hb : Fintype β] [Nonempty β] (h : α = β) :
+      cast (congrArg PMF h) (PMF.uniformOfFintype α) = @PMF.uniformOfFintype β _ _ := by
+  subst h
+  ext x
+  simp only [cast_eq, uniformOfFintype_apply, inv_inj, Nat.cast_inj]
+  exact @Fintype.card_congr α α ha hb (Equiv.refl α)
+
+theorem tsum_cast {α β : Type u} {f : α → ENNReal} {g : β → ENNReal}
+    (h : α = β) (h' : ∀ a, f a = g (cast h a)) :
+      (∑' (a : α), f a) = (∑' (b : β), g b) := by
+  subst h; simp [h']
+
+end find_home
+
 namespace ProtocolSpec
+
+/-! ### Restriction of Protocol Specifications & Transcripts -/
 
 section Restrict
 
@@ -67,6 +127,35 @@ abbrev FullTranscript.rtake {pSpec : ProtocolSpec n} (m : ℕ) (h : m ≤ n)
   Fin.rtake m h transcript
 
 end Restrict
+
+section Cast
+
+def cast {n n' : ℕ} (h : n = n') (pSpec : ProtocolSpec n) : ProtocolSpec n' :=
+  pSpec ∘ (Fin.cast h.symm)
+
+@[simp]
+theorem cast_refl {n : ℕ} {h : n = n} : cast h = id := rfl
+
+@[simp]
+theorem cast_eq_self {n : ℕ} {pSpec : ProtocolSpec n} : cast (refl n) pSpec = pSpec := by
+  simp only [cast, Fin.cast_refl, CompTriple.comp_eq]
+
+@[simp]
+theorem cast_trans {n n' n'' : ℕ} {pSpec : ProtocolSpec n} (h : n = n') (h' : n' = n'') :
+    cast h' (cast h pSpec) = cast (h.trans h') pSpec := by
+  subst h; subst h'; simp only [cast, Fin.cast_refl, CompTriple.comp_eq]
+
+theorem cast_eq_cast_iff {n m k : ℕ} {pSpec : ProtocolSpec n} {pSpec' : ProtocolSpec m}
+    (h : n = k) (h' : m = k) :
+      cast h pSpec = cast h' pSpec' ↔ pSpec = cast (h'.trans h.symm) pSpec' := by
+  subst h; subst h'; simp only [cast, Fin.cast_refl, CompTriple.comp_eq]
+
+theorem cast_eq_root_cast {n m : ℕ} {pSpec : ProtocolSpec n} (h : n = m) :
+    cast h pSpec = _root_.cast (by simp [h]) pSpec := by subst h; simp only [cast_eq_self, cast_eq]
+
+end Cast
+
+/-! ### Composition of Two Protocol Specifications -/
 
 variable {m n : ℕ}
 
@@ -87,47 +176,51 @@ def mkSingle (dir : Direction) (Message : Type) : ProtocolSpec 1 := fun _ => ⟨
 
 infixl : 65 " ++ₚ " => ProtocolSpec.append
 
-def ProtocolSpec.join {n : Fin (m + 1) → ℕ} (pSpec : ∀ i, ProtocolSpec (n i)) :=
-  Fin.foldCases (α := fun i => ProtocolSpec (∑ j ≤ i, n j))
-    (fun i acc => by stop exact acc ++ₚ pSpec i.succ)
-    (by stop exact pSpec 0)
+@[simp]
+theorem append_cast_left {n m : ℕ} {pSpec : ProtocolSpec n} {pSpec' : ProtocolSpec m} (n' : ℕ)
+    (h : n = n') : (pSpec.cast h) ++ₚ pSpec' = (pSpec ++ₚ pSpec').cast (by omega) := by
+  simp only [append, cast, Fin.append_cast_left]
+
+/-- Reverse of non-prime version, to facilitate rewrite from the other side -/
+theorem append_cast_left' {n m : ℕ} {pSpec : ProtocolSpec n} {pSpec' : ProtocolSpec m} (n' : ℕ)
+    (h : n + m = n' + m) :
+      (pSpec ++ₚ pSpec').cast h = (pSpec.cast (Nat.add_right_cancel h)) ++ₚ pSpec' := by
+  simp only [append, cast, Fin.append_cast_left]
+
+@[simp]
+theorem append_cast_right {n m : ℕ} (pSpec : ProtocolSpec n) (pSpec' : ProtocolSpec m) (m' : ℕ)
+    (h : m = m') : pSpec ++ₚ (pSpec'.cast h) = (pSpec ++ₚ pSpec').cast (by omega) := by
+  simp only [append, cast, Fin.append_cast_right]
+
+/-- Reverse of non-prime version, to facilitate rewrite from the other side -/
+theorem append_cast_right' {n m : ℕ} (pSpec : ProtocolSpec n) (pSpec' : ProtocolSpec m) (m' : ℕ)
+    (h : n + m = n + m') :
+      (pSpec ++ₚ pSpec').cast h = pSpec ++ₚ (pSpec'.cast (Nat.add_left_cancel h)) := by
+  simp only [append, cast, Fin.append_cast_right]
+
+theorem append_left_injective {pSpec : ProtocolSpec n} :
+    Function.Injective (@ProtocolSpec.append m n · pSpec) :=
+  Fin.append_left_injective pSpec
+
+theorem append_right_injective {pSpec : ProtocolSpec m} :
+    Function.Injective (@ProtocolSpec.append m n pSpec) :=
+  Fin.append_right_injective pSpec
+
+@[simp]
+theorem append_left_cancel_iff {pSpec : ProtocolSpec n} {p1 p2 : ProtocolSpec m} :
+    p1 ++ₚ pSpec = p2 ++ₚ pSpec ↔ p1 = p2 :=
+  ⟨fun h => append_left_injective h, fun h => by rw [h]⟩
+
+@[simp]
+theorem append_right_cancel_iff {pSpec : ProtocolSpec m} {p1 p2 : ProtocolSpec n} :
+    pSpec ++ₚ p1 = pSpec ++ₚ p2 ↔ p1 = p2 :=
+  ⟨fun h => append_right_injective h, fun h => by rw [h]⟩
 
 @[simp]
 theorem snoc_take {pSpec : ProtocolSpec n} (k : ℕ) (h : k < n) :
     (pSpec.take k (by omega) ++ₚ (fun (_ : Fin 1) => pSpec ⟨k, h⟩))
       = pSpec.take (k + 1) (by omega) := by
   simp only [append, take, Fin.append_right_eq_snoc, Fin.take_succ_eq_snoc]
-
-/-- Appending two transcripts for two `ProtocolSpec`s -/
-def FullTranscript.append {pSpec₁ : ProtocolSpec m} {pSpec₂ : ProtocolSpec n}
-    (T₁ : FullTranscript pSpec₁) (T₂ : FullTranscript pSpec₂) :
-        FullTranscript (pSpec₁ ++ₚ pSpec₂) := by
-  dsimp only [ProtocolSpec.append, ProtocolSpec.getDir, FullTranscript, ProtocolSpec.getType]
-    at T₁ T₂ ⊢
-  exact fun i => (Fin.append_comp' Prod.snd i) ▸ (Fin.addCases' T₁ T₂ i)
-
-infixl : 65 " ++ₜ " => FullTranscript.append
-
-/-- Adding a message with a given direction and type to the end of a `Transcript` -/
-def FullTranscript.snoc {pSpec : ProtocolSpec n} {NextMessage : Type}
-    (T : FullTranscript pSpec) (dir : Direction) (msg : NextMessage) :
-        FullTranscript (pSpec ++ₚ .mkSingle dir NextMessage) :=
-  FullTranscript.append T fun _ => msg
-
-section Test
-
-def pSpecTest : ProtocolSpec 2 := ![⟨.P_to_V, Nat⟩, ⟨.V_to_P, Rat⟩]
-
-def pSpecCombined : ProtocolSpec 4 := pSpecTest ++ₚ pSpecTest
-
-theorem pSpecCombined_eq :
-    pSpecCombined = ![⟨.P_to_V, Nat⟩, ⟨.V_to_P, Rat⟩, ⟨.P_to_V, Nat⟩, ⟨.V_to_P, Rat⟩] := by
-  funext i
-  dsimp only [pSpecCombined, pSpecTest, ProtocolSpec.append, Fin.append, Fin.addCases, Fin.castLT,
-    Fin.subNat, Fin.cast]
-  fin_cases i <;> simp
-
-end Test
 
 variable {pSpec₁ : ProtocolSpec m} {pSpec₂ : ProtocolSpec n}
 
@@ -140,36 +233,51 @@ theorem take_append_left :
   ext i <;>
   simp only [Fin.take_apply, this, Fin.append_left]
 
-@[simp]
-theorem Transcript.take_append_left (T : FullTranscript pSpec₁) (T' : FullTranscript pSpec₂) :
+namespace FullTranscript
+
+/-- Appending two transcripts for two `ProtocolSpec`s -/
+def append (T₁ : FullTranscript pSpec₁) (T₂ : FullTranscript pSpec₂) :
+    FullTranscript (pSpec₁ ++ₚ pSpec₂) :=
+  fun i => (Fin.append_comp' Prod.snd i).mp (Fin.addCases' T₁ T₂ i)
+
+infixl : 65 " ++ₜ " => append
+
+/-- Adding a message with a given direction and type to the end of a `Transcript` -/
+def snoc {pSpec : ProtocolSpec n} {NextMessage : Type}
+    (T : FullTranscript pSpec) (dir : Direction) (msg : NextMessage) :
+        FullTranscript (pSpec ++ₚ .mkSingle dir NextMessage) :=
+  append T fun _ => msg
+
+theorem take_append_left (T : FullTranscript pSpec₁) (T' : FullTranscript pSpec₂) :
     ((T ++ₜ T').take m (Nat.le_add_right m n)) =
       (@take_append_left _ _ pSpec₁ pSpec₂).symm ▸ T := by
-  simp [FullTranscript.append, FullTranscript.take, ProtocolSpec.append]
   ext i
-  simp [Fin.castLE, Fin.addCases', Fin.addCases, eqRec_eq_cast, cast_eq_iff_heq]
-  refine heq_of_eq_cast ?_ ?_
-  simp [Fin.append, Fin.addCases]
+  simp [take, append, ProtocolSpec.append]
+  simp [Fin.castLE, Fin.addCases', Fin.addCases]
+  -- refine heq_of_eq_cast ?_ ?_
   sorry
 
-def FullTranscript.fst (T : FullTranscript (pSpec₁ ++ₚ pSpec₂)) : FullTranscript pSpec₁ :=
+def fst (T : FullTranscript (pSpec₁ ++ₚ pSpec₂)) : FullTranscript pSpec₁ :=
   fun i => by
     simpa only [getType_apply, ProtocolSpec.append, Fin.append_left] using T (Fin.castAdd n i)
 
-def FullTranscript.snd (T : FullTranscript (pSpec₁ ++ₚ pSpec₂)) : FullTranscript pSpec₂ :=
+def snd (T : FullTranscript (pSpec₁ ++ₚ pSpec₂)) : FullTranscript pSpec₂ :=
   fun i => by
     simpa only [getType_apply, ProtocolSpec.append, Fin.append_right] using T (Fin.natAdd m i)
 
 @[simp]
-theorem FullTranscript.append_fst (T₁ : FullTranscript pSpec₁) (T₂ : FullTranscript pSpec₂) :
+theorem append_fst (T₁ : FullTranscript pSpec₁) (T₂ : FullTranscript pSpec₂) :
     (T₁ ++ₜ T₂).fst = T₁ := by
   funext i
-  simp [FullTranscript.fst, FullTranscript.append, eqRec_eq_cast]
+  simp [fst, append, eqRec_eq_cast]
 
 @[simp]
-theorem FullTranscript.append_snd (T₁ : FullTranscript pSpec₁) (T₂ : FullTranscript pSpec₂) :
+theorem append_snd (T₁ : FullTranscript pSpec₁) (T₂ : FullTranscript pSpec₂) :
     (T₁ ++ₜ T₂).snd = T₂ := by
   funext i
-  simp [FullTranscript.snd, FullTranscript.append, eqRec_eq_cast]
+  simp [snd, append, eqRec_eq_cast]
+
+end FullTranscript
 
 def MessageIndex.inl (i : MessageIndex pSpec₁) : MessageIndex (pSpec₁ ++ₚ pSpec₂) :=
   ⟨Fin.castAdd n i.1, by simpa only [getDir_apply, Fin.append_left] using i.2⟩
@@ -233,32 +341,51 @@ open OracleComp OracleSpec SubSpec
 
 variable [∀ i, Sampleable (pSpec₁.Challenge i)] [∀ i, Sampleable (pSpec₂.Challenge i)]
 
-variable {ι' : Type} {spec : OracleSpec ι} {spec' : OracleSpec ι'} {α β : Type}
-    (oa : OracleComp spec α)
-
--- lemma evalDist_eq (h : OracleComp spec α = OracleComp spec' β) :
---     evalDist (h.mp oa) = h.mpr ▸ evalDist oa := by
---   induction h; rfl
-
 instance : SubSpec (challengeOracle pSpec₁ ++ₒ challengeOracle pSpec₂)
     (challengeOracle (pSpec₁ ++ₚ pSpec₂)) where
   toFun := fun i _ => by
     cases i with
     | inl j =>
-      convert query (spec := challengeOracle (pSpec₁ ++ₚ pSpec₂)) j.inl ()
-      simp [OracleSpec.append, ChallengeIndex.inl, ProtocolSpec.append]
+      simpa [OracleSpec.append, ChallengeIndex.inl, ProtocolSpec.append] using
+        query (spec := challengeOracle (pSpec₁ ++ₚ pSpec₂)) j.inl ()
     | inr j =>
-      convert query (spec := challengeOracle (pSpec₁ ++ₚ pSpec₂)) j.inr ()
-      simp [OracleSpec.append, ChallengeIndex.inr, ProtocolSpec.append]
+      simpa [OracleSpec.append, ChallengeIndex.inr, ProtocolSpec.append] using
+        query (spec := challengeOracle (pSpec₁ ++ₚ pSpec₂)) j.inr ()
   evalDist_toFun' := fun i q => by
     cases i with
     | inl j =>
-      simp [Eq.mpr]
-      -- rw [evalDist_eqRec (spec := challengeOracle (pSpec₁ ++ₚ pSpec₂)) (β := sorry) (query j.inl ()) _]
-      sorry
+      simp only [eq_mp_eq_cast, id_eq]
+      have : (pSpec₁ ++ₚ pSpec₂).challengeOracle.range j.inl =
+        (pSpec₁.challengeOracle ++ₒ pSpec₂.challengeOracle).range (Sum.inl j) := by
+        simp [OracleSpec.append, ProtocolSpec.append, ChallengeIndex.inl]
+      rw [evalDist_cast _ this, evalDist_query, evalDist_query]
+      simp [OracleSpec.append, ProtocolSpec.append, ChallengeIndex.inl]
+      refine cast_eq_iff_heq.mpr ((PMF.heq_iff (by simp [this])).mpr ?_)
+      intro x
+      simp only [PMF.map_apply, PMF.uniformOfFintype_apply, Fin.append_left]
+      refine tsum_cast (by simp) (fun a => ?_)
+      congr <;> try { simp only [Fin.append_left] } <;> symm <;> simp only [cast_heq]
     | inr j =>
-      simp [OracleSpec.append, ChallengeIndex.inr, ProtocolSpec.append]
-      sorry
+      simp only [eq_mp_eq_cast, id_eq]
+      have : (pSpec₁ ++ₚ pSpec₂).challengeOracle.range j.inr =
+        (pSpec₁.challengeOracle ++ₒ pSpec₂.challengeOracle).range (Sum.inr j) := by
+        simp [OracleSpec.append, ProtocolSpec.append, ChallengeIndex.inr]
+      rw [evalDist_cast _ this, evalDist_query, evalDist_query]
+      simp [OracleSpec.append, ProtocolSpec.append, ChallengeIndex.inr]
+      refine cast_eq_iff_heq.mpr ((PMF.heq_iff (by simp [this])).mpr ?_)
+      intro x
+      simp only [PMF.map_apply, PMF.uniformOfFintype_apply, Fin.append_right]
+      refine tsum_cast (by simp) (fun a => ?_)
+      congr <;> try { simp only [Fin.append_right] } <;> symm <;> simp only [cast_heq]
+
+-- instance {ι₁ ι₂ ι₃ : Type} {spec₁ : OracleSpec ι₁} {spec₂ : OracleSpec ι₂}
+-- {spec₃ : OracleSpec ι₃}
+--     [@SubSpec ι₁ ι₂ spec₁ spec₂] [@SubSpec ι₂ ι₃ spec₂ spec₃] :
+-- @SubSpec ι₁ ι₃ spec₁ spec₃ := sorry
+
+instance : SubSpec (challengeOracle pSpec₁) (challengeOracle (pSpec₁ ++ₚ pSpec₂)) := sorry
+
+instance : SubSpec (challengeOracle pSpec₂) (challengeOracle (pSpec₁ ++ₚ pSpec₂)) := sorry
 
 end Instances
 
@@ -345,7 +472,7 @@ def Prover.append (P₁ : Prover pSpec₁ oSpec Stmt₁ Wit₁ Stmt₂ Wit₂)
         Fin.cast, Fin.castLT, Fin.succ, Fin.castSucc] at h state chal ⊢
       exact (
         letI newState := P₂.receiveChallenge ⟨⟨i - m, by omega⟩, h⟩ state chal
-        haveI newState : P₂.PrvState ⟨i + 1 - m, by omega⟩ := by
+        haveI newState := by
           haveI : i + 1 - m = i - m + 1 := by omega
           simpa [Fin.succ, this] using newState
         newState)
@@ -368,17 +495,6 @@ def Reduction.append (R₁ : Reduction pSpec₁ oSpec Stmt₁ Wit₁ Stmt₂ Wit
       Reduction (pSpec₁ ++ₚ pSpec₂) oSpec Stmt₁ Wit₁ Stmt₃ Wit₃ where
   prover := Prover.append R₁.prover R₂.prover
   verifier := Verifier.append R₁.verifier R₂.verifier
-
-def Reduction.join {m : ℕ} {n : Fin (m + 1) → ℕ} {pSpec : ∀ i, ProtocolSpec (n i)}
-    {Stmt : Fin (m + 2) → Type} {Wit : Fin (m + 2) → Type}
-    (R : ∀ i, Reduction (pSpec i) oSpec (Stmt i.castSucc) (Wit i.castSucc) (Stmt i.succ)
-      (Wit i.succ)) :
-      Reduction (ProtocolSpec.join pSpec) oSpec (Stmt 0) (Wit 0) (Stmt (Fin.last (m + 1)))
-      (Wit (Fin.last (m + 1))) := sorry
-  -- Fin.foldCases (α := fun i => Reduction (ProtocolSpec.join (pSpec ∘ Fin.take i (by omega))) oSpec (Stmt i.castSucc) (Wit i.castSucc)
-  --   (Stmt i.succ) (Wit i.succ))
-  --   (fun i acc => Reduction.append acc (R i))
-  --   (R 0)
 
 variable [O₁ : ∀ i, ToOracle (pSpec₁.Message i)] [O₂ : ∀ i, ToOracle (pSpec₂.Message i)]
 
@@ -407,17 +523,170 @@ def OracleReduction.append (R₁ : OracleReduction pSpec₁ oSpec Stmt₁ Wit₁
 
 -- Define composition of multiple reductions via recursion with `Fin.fold`
 
+
+section GeneralComposition
+
+namespace ProtocolSpec
+
+/-- Composition of a family of `ProtocolSpec`s, indexed by `i : Fin (m + 1)`. -/
+def compose (m : ℕ) (n : Fin (m + 1) → ℕ) (pSpec : ∀ i, ProtocolSpec (n i)) :
+    ProtocolSpec (∑ i, n i) :=
+  cast (by rw [Finset.Iic_top])
+    (Fin.dfoldl m (fun i => ProtocolSpec (∑ j ≤ i, n j))
+      (fun i acc => cast (Fin.sum_Iic_succ i).symm (acc ++ₚ pSpec i.succ))
+        (cast (Fin.sum_Iic_zero).symm (pSpec 0)))
+
+@[simp]
+theorem compose_zero {n : ℕ} {pSpec : ProtocolSpec n} :
+    compose 0 (fun _ => n) (fun _ => pSpec) = pSpec := rfl
+
+set_option maxHeartbeats 1000000
+theorem compose_append {m : ℕ} {n : Fin (m + 1) → ℕ} {pSpec : ∀ i, ProtocolSpec (n i)} (i : Fin m) :
+    compose (i + 1) (Fin.take (i + 2) (by omega) n) (Fin.take (i + 2) (by omega) pSpec) =
+      cast (by simp [Fin.sum_univ_castSucc]; congr)
+        (compose i (Fin.take (i + 1) (by omega) n) (Fin.take (i + 1) (by omega) pSpec)
+          ++ₚ pSpec i.succ) := by
+  simp only [id_eq, Fin.take_apply, compose, cast_eq_self, Fin.dfoldl_succ_last, Fin.succ_last,
+    Nat.succ_eq_add_one, Function.comp_apply, cast_trans, append_cast_left, cast_eq_cast_iff]
+  unfold Function.comp Fin.castSucc Fin.castAdd Fin.castLE Fin.last Fin.succ
+  simp only [Fin.val_zero, Fin.zero_eta]
+  simp only [append_cast_left', append_left_cancel_iff]
+  funext x
+  unfold cast Fin.cast Function.comp ProtocolSpec
+  simp only
+  sorry
+  -- unfold compose
+  -- induction m with
+  -- | zero => exact Fin.elim0 i
+  -- | succ m ih =>
+  --   induction i using Fin.induction with
+  --   | zero => simp only [Fin.val_zero, Fin.dfoldl_zero, cast_eq_self]
+  --   | succ i ih =>
+  --     simp only [Fin.val_succ, Fin.dfoldl_succ_last, Fin.val_last, Function.comp_apply,
+  --       Fin.coe_castSucc, cast_eq_self, cast_trans]
+  --     simp only [Fin.coe_castSucc] at ih
+  --     unfold Function.comp Fin.castSucc Fin.castAdd Fin.castLE Fin.last Fin.succ
+  --     simp only [cast_trans, cast_eq_cast_iff, append_cast_left', append_left_cancel_iff]
+
+/-- Composition of a family of `FullTranscript`s, indexed by `i : Fin (m + 1)`. -/
+def FullTranscript.compose (m : ℕ) (n : Fin (m + 1) → ℕ) (pSpec : ∀ i, ProtocolSpec (n i))
+    (T : ∀ i, FullTranscript (pSpec i)) : FullTranscript (compose m n pSpec) := by
+  simpa using Fin.dfoldl m
+      (fun i => FullTranscript (ProtocolSpec.compose i
+        (Fin.take (i + 1) (by omega) n) (Fin.take (i + 1) (by omega) pSpec)))
+      (fun i acc => by
+        have := acc ++ₜ (T i.succ)
+        unfold FullTranscript at this ⊢
+        simp [Fin.castSucc] at this
+        simp [compose_append]
+        -- refine FullTranscript.cast ?_ this
+        sorry)
+    (by exact T 0)
+
+section Instances
+
+variable {m : ℕ} {n : Fin (m + 1) → ℕ} {pSpec : ∀ i, ProtocolSpec (n i)}
+
+/-- If two protocols have sampleable challenges, then their concatenation also has sampleable
+  challenges. -/
+instance [h : ∀ i, ∀ j, Sampleable ((pSpec i).Challenge j)] :
+    ∀ j, Sampleable ((compose m n pSpec).Challenge j) := fun ⟨⟨i, isLt⟩, h⟩ => by
+  dsimp [ProtocolSpec.compose, Fin.append, Fin.addCases, Fin.castLT, Fin.subNat, Fin.cast] at h ⊢
+  sorry
+  -- by_cases h' : i < m <;> simp [h'] at h ⊢
+  -- · exact h₁ ⟨⟨i, by omega⟩, h⟩
+  -- · exact h₂ ⟨⟨i - m, by omega⟩, h⟩
+
+/-- If two protocols' messages have oracle representations, then their concatenation's messages also
+    have oracle representations. -/
+instance [O : ∀ i, ∀ j, ToOracle ((pSpec i).Message j)] :
+    ∀ i, ToOracle ((compose m n pSpec).Message i) := fun ⟨⟨i, isLt⟩, h⟩ => by
+  dsimp [ProtocolSpec.compose, ProtocolSpec.getDir, Fin.append, Fin.addCases,
+    Fin.castLT, Fin.subNat, Fin.cast] at h ⊢
+  sorry
+  -- by_cases h' : i < m <;> simp [h'] at h ⊢
+  -- · exact O₁ ⟨⟨i, by omega⟩, h⟩
+  -- · exact O₂ ⟨⟨i - m, by omega⟩, h⟩
+
+-- open OracleComp OracleSpec SubSpec
+
+-- variable [∀ i, ∀ j, Sampleable ((pSpec i).Challenge j)]
+
+-- instance : SubSpec (challengeOracle pSpec₁ ++ₒ challengeOracle pSpec₂)
+--     (challengeOracle (compose m n pSpec)) := sorry
+
+end Instances
+
+end ProtocolSpec
+
+def Prover.compose (m : ℕ) (n : Fin (m + 1) → ℕ) (pSpec : ∀ i, ProtocolSpec (n i))
+    (Stmt : Fin (m + 2) → Type) (Wit : Fin (m + 2) → Type)
+    (P : ∀ i, Prover (pSpec i) oSpec (Stmt i.castSucc) (Wit i.castSucc) (Stmt i.succ)
+      (Wit i.succ)) :
+      Prover (ProtocolSpec.compose m n pSpec) oSpec (Stmt 0) (Wit 0) (Stmt (Fin.last (m + 1)))
+        (Wit (Fin.last (m + 1))) :=
+  Fin.dfoldl m
+    (fun i => Prover
+      (ProtocolSpec.compose i (Fin.take (i + 1) (by omega) n) (Fin.take (i + 1) (by omega) pSpec))
+        oSpec (Stmt 0) (Wit 0) (Stmt i.succ) (Wit i.succ))
+    (fun i acc => by
+      convert Prover.append acc (P i.succ)
+      · simp [Fin.sum_univ_castSucc, Fin.last, Fin.succ]
+      · simp [ProtocolSpec.compose_append, ProtocolSpec.cast_eq_root_cast])
+    (by simpa using P 0)
+
+def Verifier.compose (m : ℕ) (n : Fin (m + 1) → ℕ) (pSpec : ∀ i, ProtocolSpec (n i))
+    (Stmt : Fin (m + 2) → Type)
+    (V : ∀ i, Verifier (pSpec i) oSpec (Stmt i.castSucc) (Stmt i.succ)) :
+      Verifier (ProtocolSpec.compose m n pSpec) oSpec (Stmt 0) (Stmt (Fin.last (m + 1))) :=
+  Fin.dfoldl m
+    (fun i => Verifier
+      (ProtocolSpec.compose i (Fin.take (i + 1) (by omega) n) (Fin.take (i + 1) (by omega) pSpec))
+        oSpec (Stmt 0) (Stmt i.succ))
+    (fun i acc => by
+      convert Verifier.append acc (V i.succ)
+      · simp [Fin.sum_univ_castSucc, Fin.last, Fin.succ]
+      · simp [ProtocolSpec.compose_append, ProtocolSpec.cast_eq_root_cast])
+    (by simpa using V 0)
+
+def Reduction.compose (m : ℕ) (n : Fin (m + 1) → ℕ) (pSpec : ∀ i, ProtocolSpec (n i))
+    (Stmt : Fin (m + 2) → Type) (Wit : Fin (m + 2) → Type)
+    (R : ∀ i, Reduction (pSpec i) oSpec (Stmt i.castSucc) (Wit i.castSucc) (Stmt i.succ)
+      (Wit i.succ)) :
+      Reduction (ProtocolSpec.compose m n pSpec) oSpec (Stmt 0) (Wit 0) (Stmt (Fin.last (m + 1)))
+        (Wit (Fin.last (m + 1))) :=
+  Fin.dfoldl m
+    (fun i => Reduction
+      (ProtocolSpec.compose i (Fin.take (i + 1) (by omega) n) (Fin.take (i + 1) (by omega) pSpec))
+        oSpec (Stmt 0) (Wit 0) (Stmt i.succ) (Wit i.succ))
+    (fun i acc => by
+      convert Reduction.append acc (R i.succ)
+      · simp [Fin.sum_univ_castSucc, Fin.last, Fin.succ]
+      · simp [ProtocolSpec.compose_append, ProtocolSpec.cast_eq_root_cast])
+    (by simpa using R 0)
+
+end GeneralComposition
+
 section Execution
+
+open OracleComp OracleSpec SubSpec
+
+/-- Concatenate two query logs, removing duplicates. -/
+def QueryLog.append {ι : Type} {spec : OracleSpec ι} (log₁ log₂ : QueryLog spec) :
+    QueryLog spec := fun i ↦ List.dedup (log₁ i ++ log₂ i)
 
 variable [∀ i, Sampleable (pSpec₁.Challenge i)] [∀ i, Sampleable (pSpec₂.Challenge i)]
 
--- theorem Prover.append_run (P₁ : Prover pSpec₁ oSpec Stmt₁ Wit₁ Stmt₂ Wit₂)
---     (P₂ : Prover pSpec₂ oSpec Stmt₂ Wit₂ Stmt₃ Wit₃) (stmt : Stmt₁) (wit : Wit₁) :
---       (P₁.append P₂).run stmt wit = (do
---         let result ← P₁.run stmt wit
---         return ← P₂.output state) := sorry
+theorem Prover.append_run (P₁ : Prover pSpec₁ oSpec Stmt₁ Wit₁ Stmt₂ Wit₂)
+    (P₂ : Prover pSpec₂ oSpec Stmt₂ Wit₂ Stmt₃ Wit₃) (stmt : Stmt₁) (wit : Wit₁) :
+      (P₁.append P₂).run stmt wit = (do
+        let ⟨transcript₁, queryLog₁, stmt₂, wit₂⟩ ← liftComp (P₁.run stmt wit)
+        let ⟨transcript₂, queryLog₂, stmt₃, wit₃⟩ ← liftComp (P₂.run stmt₂ wit₂)
+        -- TODO: should we refactor the prover to take in a running query log?
+        return ⟨transcript₁ ++ₜ transcript₂, QueryLog.append queryLog₁ queryLog₂,
+          stmt₃, wit₃⟩) := sorry
 
--- TODO: Need to define a function that "extracts" the second prover from the combined prover
+-- TODO: Need to define a function that "extracts" a second prover from the combined prover
 
 end Execution
 
@@ -425,11 +694,13 @@ section Security
 
 open scoped NNReal
 
+namespace Reduction
+
+section Append
+
 variable {pSpec₁ : ProtocolSpec m} {pSpec₂ : ProtocolSpec n} [∀ i, Sampleable (pSpec₁.Challenge i)]
     [∀ i, Sampleable (pSpec₂.Challenge i)] {Stmt₁ Wit₁ Stmt₂ Wit₂ Stmt₃ Wit₃ : Type}
     {rel₁ : Stmt₁ → Wit₁ → Prop} {rel₂ : Stmt₂ → Wit₂ → Prop} {rel₃ : Stmt₃ → Wit₃ → Prop}
-
-namespace Reduction
 
 /-- If two reductions satisfy completeness with compatible relations, then their concatenation also
   satisfies completeness with the sum of the completeness errors. -/
@@ -449,6 +720,25 @@ theorem perfectCompleteness_append (R₁ : Reduction pSpec₁ oSpec Stmt₁ Wit�
   dsimp [perfectCompleteness] at h₁ h₂ ⊢
   convert Reduction.completeness_append R₁ R₂ h₁ h₂
   simp only [add_zero]
+
+end Append
+
+section GeneralComposition
+
+variable {m : ℕ} {n : Fin (m + 1) → ℕ} {pSpec : ∀ i, ProtocolSpec (n i)}
+    [∀ i, ∀ j, Sampleable ((pSpec i).Challenge j)]
+    {Stmt : Fin (m + 2) → Type} {Wit : Fin (m + 2) → Type} {rel : ∀ i, Stmt i → Wit i → Prop}
+
+theorem completeness_compose
+    (R : ∀ i, Reduction (pSpec i) oSpec (Stmt i.castSucc) (Wit i.castSucc)
+      (Stmt i.succ) (Wit i.succ))
+    (completenessError : Fin (m + 1) → ℝ≥0)
+    (h : ∀ i, (R i).completeness (rel i.castSucc) (rel i.succ) (completenessError i)) :
+      (Reduction.compose m n pSpec Stmt Wit R).completeness (rel 0) (rel (Fin.last (m + 1)))
+        (∑ i, completenessError i) := sorry
+
+
+end GeneralComposition
 
 end Reduction
 

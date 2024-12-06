@@ -74,8 +74,8 @@ instance instToOracleMathlibVector : ToOracle (Mathlib.Vector α n) where
   Response := α
   oracle := fun vec i => vec[i]
 
-/-- Vectors of the form `Batteries.Vector α n` can be accessed via queries on their indices. -/
-instance instToOracleBatteriesVector : ToOracle (Batteries.Vector α n) where
+/-- Vectors of the form `Vector α n` can be accessed via queries on their indices. -/
+instance instToOracleBatteriesVector : ToOracle (Vector α n) where
   Query := Fin n
   Response := α
   oracle := fun vec i => vec[i]

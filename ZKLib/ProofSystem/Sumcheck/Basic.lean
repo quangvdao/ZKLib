@@ -168,7 +168,7 @@ def proverRound (i : Fin n) (hn : n > 0) :
     have ⟨⟨poly, hp⟩, target, challenges, earlyReject⟩ := state
     haveI : idx = default := Unique.uniq _ idx
     simp [pSpec, Message, getType, this, default]
-    generalize hn : n - 1 = n'
+    generalize hn' : n - 1 = n'
     haveI : n = n' + 1 := by omega
     simp_rw [this] at hp poly
     exact pure ⟨ ⟨∑ x ∈ (univ.map D) ^ᶠ (n' - i), poly ⸨X ⦃i⦄, challenges, x⸩, by
@@ -176,7 +176,9 @@ def proverRound (i : Fin n) (hn : n > 0) :
       refine le_trans (Polynomial.degree_sum_le ((univ.map D) ^ᶠ (n' - i)) _) ?_
       simp only [Finset.sup_le_iff, Fintype.mem_piFinset, mem_map, mem_univ, true_and]
       intro x hx
-      refine le_trans (Polynomial.degree_map_le _ _) ?_
+      refine le_trans (Polynomial.degree_map_le) ?_
+      refine Polynomial.natDegree_le_iff_degree_le.mp ?_
+      simp [MvPolynomial.natDegree_finSuccEquivNth]
       sorry
       ⟩, state ⟩
   receiveChallenge := fun _ state _ => state
@@ -186,8 +188,6 @@ def proverRound (i : Fin n) (hn : n > 0) :
 def proverOut (i : Fin n) : ProverOut (Statement R n deg (i + 1) (by omega)) Unit
     ((proverState R n deg i).PrvState (Fin.last 2)) where
   output := fun state => ⟨sorry, ()⟩
-
-#check Prover.mk
 
 /-- The overall prover for the `i`-th round of the sum-check protocol, where `i < n`. This is only
   well-defined for `n > 0`, since when `n = 0` there is no protocol. -/
@@ -202,9 +202,8 @@ def prover (i : Fin n) (hn : n > 0) : Prover (pSpec R deg) oSpec
 /-- The default value for the tuple (message index, query, response) -/
 instance : Inhabited ((i : MessageIndex (pSpec R deg)) × ToOracle.Query ((pSpec R deg).Message i)
     × ToOracle.Response ((pSpec R deg).Message i)) where
-  default := ⟨default,
-    by simpa (config := {autoUnfold := true}) [instToOracleMessagePSpec] using 0,
-    by simpa (config := {autoUnfold := true}) [instToOracleMessagePSpec] using 0⟩
+  default := ⟨default, by simpa! [instToOracleMessagePSpec] using 0,
+    by simpa! [instToOracleMessagePSpec] using 0⟩
 
 /-- The (non-oracle) verifier of the sum-check protocol for the `i`-th round, where `i < n` -/
 def verifier (i : Fin n) : Verifier (pSpec R deg) oSpec
@@ -229,13 +228,13 @@ def oracleVerifier (i : Fin n) : OracleVerifier (pSpec R deg) oSpec
         × ToOracle.Response ((pSpec R deg).Message i) → R := fun ⟨i, q, r⟩ => by
       haveI : i = default := Unique.uniq _ i
       subst this
-      simpa (config := {autoUnfold := true}) using r
+      simpa only [getType_apply, getDir_apply] using r
     letI accept := decide ((responses.dropLast.map f).sum = target)
     letI newTarget : R := by
       haveI newTarget := (List.getLastD responses default).2.2
       haveI : (responses.getLastD default).fst = default := Unique.uniq _ _
       rw [this] at newTarget
-      simpa (config := {autoUnfold := true}) using newTarget
+      simpa only using newTarget
     exact pure ⟨poly, newTarget, Fin.snoc challenges (chal default), earlyReject ∨ ¬ accept⟩
 
 /-- The sum-check reduction for the `i`-th round, where `i < n` and `n > 0` -/
@@ -254,16 +253,6 @@ open Reduction
 
 variable {R : Type} [CommSemiring R] [Sampleable R] {n : ℕ} {deg : ℕ} {m : ℕ} {D : Fin m ↪ R}
   {ι : Type} [DecidableEq ι] {oSpec : OracleSpec ι} {hn : n > 0} {i : Fin n}
-
-@[simp]
-theorem PMF.eq_pure_iff_ge_one {α : Type*} {p : PMF α} {a : α} : p = pure a ↔ p a ≥ 1 := by
-  constructor <;> intro h
-  · sorry
-  · ext b
-    simp only [pure, PMF.pure_apply]
-    by_cases hb : b = a
-    · simp [hb]; exact le_antisymm (PMF.coe_le_one p a) h
-    · simp [hb]; sorry
 
 omit [DecidableEq ι] in
 /-- The oracle verifier does the same thing as the non-oracle verifier -/
@@ -302,9 +291,8 @@ theorem perfect_completeness : (reduction R n deg D oSpec hn i).perfectCompleten
   intro ⟨⟨poly, hPoly⟩, target, challenges, earlyReject⟩ _ hValid
   simp only [eq_iff_iff, iff_true] at hValid
   obtain ⟨hReject, hSum⟩ := hValid
-  intro transcript _ stmt _ hRun
-  simp [Reduction.run, Prover.run] at hRun ⊢
-  save
+  -- simp?
+  -- simp [Reduction.run, Prover.run] at hRun ⊢
   sorry
   -- simp [Reduction.run]
   -- simp only [pSpec, getType_apply, getDir_apply, evalDist, eq_mp_eq_cast, reduction, prover,
@@ -329,8 +317,6 @@ theorem perfect_completeness : (reduction R n deg D oSpec hn i).perfectCompleten
   --     sorry
   --   -- at this point we have reduced to a purely polynomial problem
 
-#check evalDist_bind_eq_bind
-
 /-- State function for round-by-round soundness -/
 def stateFunction (i : Fin n) : StateFunction
     (relation R n deg D (i + 1) (by omega)).language (verifier R n deg D oSpec i) where
@@ -343,8 +329,6 @@ def stateFunction (i : Fin n) : StateFunction
     -- If `m = 2`, so we get the full transcript, returns the above checks, and also whether the
     -- updated statement satisfies the new relation
     | 2 => sorry
-    -- If `m = 3`, which is unconstrained, returns `False`
-    | _ => sorry
   fn_empty := sorry
   fn_next := sorry
   fn_full := sorry

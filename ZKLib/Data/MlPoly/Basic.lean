@@ -22,8 +22,6 @@ import Batteries.Data.Vector.Lemmas
   Our operations are designed to be as efficient as possible.
 -/
 
-open Batteries
-
 -- TODO: Make this the definition (and use coefficient basis by default)
 /-- `MlPoly n R` is the type of multilinear polynomials in `n` variables over a ring `R`. It is
   represented by its coefficients as a `Batteries.Vector` of length `2^n`, i.e. an `Array` of size
@@ -58,9 +56,9 @@ def Array.dotProduct' (a b : Array R) (hEq : a.size = b.size) : R := Array.dotPr
 
 
 
-@[simp]
-lemma Array.dotProduct_eq_matrix_dotProduct (a b : Array R) (h : a.size = b.size) :
-    Array.dotProduct a b = Matrix.dotProduct a.get (h ▸ b.get) := sorry
+-- @[simp]
+-- lemma Array.dotProduct_eq_matrix_dotProduct (a b : Array R) (h : a.size = b.size) :
+--     Array.dotProduct a b = Matrix.dotProduct a.get (h ▸ b.get) := sorry
 
 end Math
 
