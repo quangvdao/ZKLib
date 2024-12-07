@@ -169,6 +169,8 @@ def proverRound (i : Fin n) :
     haveI : idx = default := Unique.uniq _ idx
     simp [pSpec, Message, getType, this, default]
     haveI : n ≠ 0 := fun h => by subst h; exact Fin.elim0 i
+    -- have hn : n = (n - 1) + 1 := by omega
+    -- rw [hn] at hp
     generalize hn' : n - 1 = n'
     haveI hn : n = n' + 1 := by omega
     have : Fin n = Fin (n' + 1) := congrArg Fin hn

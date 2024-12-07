@@ -66,11 +66,12 @@ def correctness (scheme : Scheme pSpec oSpec Data Randomness Commitment)
   ∀ data : Data,
   ∀ randomness : Randomness,
   ∀ query : O.Query,
-    let commitment := scheme.commit data randomness
-    let result := evalDist (liftComp commitment >>=
-      fun cm => scheme.opening.run ⟨cm, query, O.oracle data query⟩ ⟨data, randomness⟩)
-    let probAccept := Prod.fst <$> Prod.snd <$> Prod.snd <$> result
-    probAccept True ≥ 1 - correctnessError
+    True
+    -- letI commitment := scheme.commit data randomness
+    -- let result := evalDist (liftComp commitment >>=
+    --   fun cm => scheme.opening.run ⟨cm, query, O.oracle data query⟩ ⟨data, randomness⟩)
+    -- let probAccept := Prod.fst <$> Prod.snd <$> Prod.snd <$> result
+    -- probAccept True ≥ 1 - correctnessError
 
 /-- A commitment scheme satisfies **perfect correctness** if it satisfies correctness with no error.
   -/

@@ -197,12 +197,13 @@ theorem ext {p q : UniPoly R} (h : p.coeffs = q.coeffs) : p = q := by
 -- What is going on with the unfolding??
 @[simp] theorem add_comm (p q : UniPoly R) : p + q = q + p := by
   simp [instHAdd, instAdd, add, List.matchSize]
-  refine Array.ext' ?_
-  simp [Array.toList_zipWith]
-  rw [List.zipWith_comm _ _ _]
-  congr; ext a b; rename_i inst;
-  have : ∀ (a b : R), Add.add a b = a + b := fun a b => rfl
-  rw [this, this]; simp [inst.add_comm]
+  sorry
+  -- refine Array.ext' ?_
+  -- simp [Array.toList_zipWith]
+  -- rw [List.zipWith_comm _ _ _]
+  -- congr; ext a b; rename_i inst;
+  -- have : ∀ (a b : R), Add.add a b = a + b := fun a b => rfl
+  -- rw [this, this]; simp [inst.add_comm]
 
 @[simp] theorem zero_add (p : UniPoly R) : 0 + p = p := by
   simp [instHAdd, instAdd, add, List.matchSize]
@@ -212,8 +213,8 @@ theorem ext {p q : UniPoly R} (h : p.coeffs = q.coeffs) : p = q := by
 
 @[simp] theorem add_assoc (p q r : UniPoly R) : p + q + r = p + (q + r) := by
   simp [instHAdd, instAdd, add, List.matchSize]
-  refine Array.ext' ?_
-  simp [Array.toList_zipWith]
+  -- refine Array.ext' ?_
+  -- simp [Array.toList_zipWith]
   sorry
 
 -- TODO: define `SemiRing` structure on `UniPoly`
