@@ -6,7 +6,7 @@ Authors: Quang Dao
 
 import ZKLib.OracleReduction.Basic
 import ZKLib.Data.MvPolynomial.Notation
-import ZKLib.Data.MlPoly.Basic
+-- import ZKLib.Data.MlPoly.Basic
 
 /-!
   # Instances for `ToOracle`
