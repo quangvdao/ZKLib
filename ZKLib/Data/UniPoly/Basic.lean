@@ -194,16 +194,9 @@ theorem ext {p q : UniPoly R} (h : p.coeffs = q.coeffs) : p = q := by
 
 @[simp] theorem zero_def : (0 : UniPoly R) = ⟨#[]⟩ := rfl
 
--- What is going on with the unfolding??
-@[simp] theorem add_comm (p q : UniPoly R) : p + q = q + p := by
-  simp [instHAdd, instAdd, add, List.matchSize]
-  sorry
-  -- refine Array.ext' ?_
-  -- simp [Array.toList_zipWith]
-  -- rw [List.zipWith_comm _ _ _]
-  -- congr; ext a b; rename_i inst;
-  -- have : ∀ (a b : R), Add.add a b = a + b := fun a b => rfl
-  -- rw [this, this]; simp [inst.add_comm]
+theorem add_comm (p q : UniPoly R) : p + q = q + p := by
+  simp only [instHAdd, Add.add, add, List.zipWith_toArray, mk.injEq, Array.mk.injEq]
+  exact List.zipWith_comm_of_comm _ (fun x y ↦ by change x + y = y + x; rw [_root_.add_comm]) _ _
 
 @[simp] theorem zero_add (p : UniPoly R) : 0 + p = p := by
   simp [instHAdd, instAdd, add, List.matchSize]
