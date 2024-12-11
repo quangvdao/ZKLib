@@ -61,11 +61,8 @@ def completeness (relIn : StmtIn → WitIn → Prop)
     (completenessError : ℝ≥0) : Prop :=
   ∀ stmtIn : StmtIn,
   ∀ witIn : WitIn,
-    relIn stmtIn witIn = True →
-    haveI p : FullTranscript pSpec × QueryLog oSpec × StmtOut × WitOut → Prop :=
-      fun ⟨_, _, stmtOut, _⟩ => stmtOut ∈ relOut.language
-    haveI : DecidablePred p := Classical.decPred _
-    [p
+  relIn stmtIn witIn = True →
+    [fun ⟨_, _, stmtOut, witOut⟩ => relOut stmtOut witOut
     | reduction.run stmtIn witIn] ≥ 1 - completenessError
 
 /-- A reduction satisfies **perfect completeness** if it satisfies completeness with error `0`. -/
@@ -78,17 +75,16 @@ def perfectCompleteness (relIn : StmtIn → WitIn → Prop) (relOut : StmtOut �
 @[simp]
 theorem perfectCompleteness_eq {relIn : StmtIn → WitIn → Prop} {relOut : StmtOut → WitOut → Prop}
     {reduction : Reduction pSpec oSpec StmtIn WitIn StmtOut WitOut} :
-      reduction.perfectCompleteness relIn relOut ↔ ∀ stmtIn, ∀ witIn, relIn stmtIn witIn = True →
-        haveI p : FullTranscript pSpec × QueryLog oSpec × StmtOut × WitOut → Prop :=
-          fun ⟨_, _, stmtOut, _⟩ => stmtOut ∈ relOut.language
-        haveI : DecidablePred p := Classical.decPred _
-        [p | reduction.run stmtIn witIn] = 1 := by
+      reduction.perfectCompleteness relIn relOut ↔
+        ∀ stmtIn witIn, relIn stmtIn witIn = True →
+        [fun ⟨_, _, stmtOut, witOut⟩ => relOut stmtOut witOut
+        | reduction.run stmtIn witIn] = 1 := by
   dsimp [perfectCompleteness, completeness]
   constructor <;>
   intro h stmtIn witIn hRel <;>
   specialize h stmtIn witIn hRel
   · norm_num at h
-    exact le_antisymm (@probEvent_le_one _ _ _ _ _ (Classical.decPred _)) h
+    exact le_antisymm probEvent_le_one h
   · simp only [h, tsub_zero, ge_iff_le, le_refl]
 
 end Completeness
@@ -128,10 +124,7 @@ def soundness (langIn : Set StmtIn) (langOut : Set StmtOut)
   ∀ WitIn WitOut : Type, ∀ witIn : WitIn,
   ∀ prover : Prover pSpec oSpec StmtIn WitIn StmtOut WitOut,
     letI reduction := Reduction.mk prover verifier
-    haveI p : FullTranscript pSpec × QueryLog oSpec × StmtOut × WitOut → Prop :=
-      fun ⟨_, _, stmtOut, _⟩ => stmtOut ∉ langOut
-    haveI : DecidablePred p := Classical.decPred _
-    [p
+    [fun ⟨_, _, stmtOut, _⟩ => stmtOut ∉ langOut
     | reduction.run stmtIn witIn] ≤ soundnessError
 
 /--
