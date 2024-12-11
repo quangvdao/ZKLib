@@ -89,9 +89,15 @@ def binding (scheme : Scheme pSpec oSpec Data Randomness Commitment)
   ∀ prover : Prover pSpec oSpec (Commitment × O.Query × O.Response) (Data × Randomness) Bool Unit,
     False
 
-def extractability (scheme : Scheme pSpec oSpec Data Randomness Commitment) : Prop := sorry
+def StraightlineExtractor := Commitment → QueryLog oSpec → OracleComp oSpec (Data × Randomness)
 
-/-- Have to put it as `hiding'` because `hiding` is already used somewhere else. -/
+/-- A commitment scheme satisfies **extractability** with error `extractabilityError` if .... -/
+def extractability (scheme : Scheme pSpec oSpec Data Randomness Commitment)
+    (extractabilityError : ℝ≥0) : Prop := sorry
+
+/-- A commitment scheme satisfies **hiding** with error `hidingError` if ....
+
+Note: have to put it as `hiding'` because `hiding` is already used somewhere else. -/
 def hiding' (scheme : Scheme pSpec oSpec Data Randomness Commitment) : Prop := sorry
 
 end

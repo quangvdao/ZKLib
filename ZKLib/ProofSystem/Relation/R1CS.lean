@@ -24,11 +24,11 @@ structure Index where
   m : ℕ -- number of columns
   inputSize : ℕ
   witnessSize : ℕ
-  A : Matrix (Fin m) (Fin (1 + inputSize + witnessSize)) R
-  B : Matrix (Fin m) (Fin (1 + inputSize + witnessSize)) R
-  C : Matrix (Fin m) (Fin (1 + inputSize + witnessSize)) R
+  A : Matrix (Fin m) (Fin (inputSize + witnessSize)) R
+  B : Matrix (Fin m) (Fin (inputSize + witnessSize)) R
+  C : Matrix (Fin m) (Fin (inputSize + witnessSize)) R
 
-abbrev Index.n (index : Index R) : ℕ := 1 + index.inputSize + index.witnessSize
+abbrev Index.n (index : Index R) : ℕ := index.inputSize + index.witnessSize
 
 structure Statement (index : Index R) where
   x : Fin index.inputSize → R
@@ -36,17 +36,12 @@ structure Statement (index : Index R) where
 structure Witness (index : Index R) where
   w : Fin index.witnessSize → R
 
--- Relation structure for R1CS
-def R1CSRel (index : Index R) : (Statement R index) → (Witness R index) → Prop :=
+-- The R1CS relation
+def rel (index : Index R) : (Statement R index) → (Witness R index) → Prop :=
   fun stmt wit =>
-    let z : Fin index.n → R := Fin.append (Fin.append (fun _ => 1) stmt.x) wit.w
+    let z : Fin index.n → R := Fin.append stmt.x wit.w
     (index.A *ᵥ z) * (index.B *ᵥ z) = (index.C *ᵥ z)
 
--- instance relation (index : Index R) : Relation (Statement index) (Witness index) where
---   isValid := fun stmt wit =>
---     let z : Fin index.n → R := Fin.append (Fin.append (λ _ => 1) stmt.x) wit.w
---     (index.A *ᵥ z) * (index.B *ᵥ z) = (index.C *ᵥ z)
-  -- Statement := fun pp index => Statement pp index
-  -- Witness := fun pp index => Witness pp index
+#print rel
 
 end R1CS
