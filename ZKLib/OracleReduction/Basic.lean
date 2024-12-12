@@ -257,6 +257,36 @@ structure Prover (pSpec : ProtocolSpec n) (oSpec : OracleSpec ι)
       ProverRound pSpec oSpec StmtIn,
       ProverOut StmtOut WitOut (PrvState (Fin.last n))
 
+-- def ProtocolSpec'
+
+structure ProtocolSpec' (n : ℕ) where
+  Challenge : Fin n → Type
+  Message : Fin n → Type
+  challenge_decEq : ∀ n, DecidableEq (Challenge n)
+  message_decEq : ∀ n, DecidableEq (Message n)
+  message_inhabited : ∀ n, Inhabited (Message n)
+  -- May require removing this from `OracleSpec` if this is too restrictive
+  message_fintype : ∀ n, Fintype (Message n)
+
+def proverSpec (protocolSpec : ProtocolSpec' n)
+    (StmtIn WitIn : Type) [DecidableEq StmtIn] [DecidableEq WitIn] :
+    OracleSpec (Fin n) where
+  domain n := StmtIn × WitIn × protocolSpec.Challenge n
+  range n := protocolSpec.Message n
+  domain_decidableEq' := let _ := protocolSpec.challenge_decEq; inferInstance
+  range_decidableEq' := protocolSpec.message_decEq
+  range_inhabited' := protocolSpec.message_inhabited
+  range_fintype' := protocolSpec.message_fintype
+
+structure Prover' (oSpec : OracleSpec ι)
+    (protocolSpec : ProtocolSpec' n)
+    (StmtIn WitIn StmtOut WitOut : Type)
+    [DecidableEq StmtIn] [DecidableEq WitIn] where
+  ProverState : Type
+  initial_state : ProverState
+  roundImplementation : proverSpec protocolSpec StmtIn WitIn →[ProverState]ₛₒ oSpec
+  output : ProverState → StmtOut × WitOut
+
 -- structure Prover (pSpec : ProtocolSpec n) (oSpec : OracleSpec ι)
 --     (StmtIn WitIn StmtOut WitOut : Type) where
 --   PrvState : Fin (n + 1) → Type

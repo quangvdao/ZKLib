@@ -11,7 +11,7 @@ import Mathlib.Data.Nat.Log
 import Mathlib.Data.Matrix.Basic
 import Mathlib.Data.Fin.VecNotation
 import Batteries.Data.Array.Lemmas
-import Batteries.Data.Vector.Lemmas
+-- import Batteries.Data.Vector.Lemmas
 
 /-!
   # Multilinear Polynomials
