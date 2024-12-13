@@ -11,11 +11,24 @@ import ZKLib.Data.Math.Operations
 /-!
   # Univariate Polynomials with Efficient Operations
 
-  Note: this file was originally taken from Bolton Bailey, but has been heavily modified to fit our
-  needs.
+  This file is based on various similar implementations. Credits:
+  - Bolton Bailey
+  - ...
 -/
 
-section Polynomial
+namespace Array
+
+def trim {R : Type*} [DecidableEq R] (a : Array R) (y : R) : Array R :=
+  a.popWhile (fun x => x = y)
+
+theorem trim_trim {R : Type*} [DecidableEq R] (a : Array R) (y : R) :
+    (a.trim y).trim y = a.trim y := by
+  simp [trim]
+  sorry
+
+end Array
+
+open Polynomial
 
 /-- A type analogous to `Polynomial` that supports computable operations. This polynomial is
   represented internally as an Array of coefficients.
@@ -23,15 +36,25 @@ section Polynomial
 For example the Array `#[1,2,3]` represents the polynomial `1 + 2x + 3x^2`. Two arrays may represent
 the same polynomial via zero-padding, for example `#[1,2,3] = #[1,2,3,0,0,0,...]`.
  -/
-structure UniPoly (R : Type _) [Semiring R] where
+@[ext, specialize]
+structure UniPoly (R : Type*) [Semiring R] where
   mk::
   coeffs : Array R
-  -- h : coeffs last is non zero
 deriving Inhabited, DecidableEq, Repr
+
+@[ext, specialize]
+structure UniPoly' (R : Type*) [Semiring R] [DecidableEq R] where
+  coeffs : Array R
+  hTrim : coeffs.trim 0 = coeffs
+  -- Alternatively (requires `Nontrivial R` as well)
+  -- hTrim' : coeffs.getLastD 1 ≠ 0
+deriving Repr
 
 namespace UniPoly
 
-variable {R : Type _} [Semiring R]
+variable {R : Type*} [Semiring R]
+
+instance [DecidableEq R] : Inhabited (UniPoly' R) := ⟨⟨#[], rfl⟩⟩
 
 /-- Another way to access `coeffs` -/
 def toArray (p : UniPoly R) : Array R := p.coeffs
@@ -189,20 +212,15 @@ instance [BEq R] [Field R] : Mod (UniPoly R) := ⟨UniPoly.mod⟩
 to the left by one. -/
 def divX (p : UniPoly R) : UniPoly R := ⟨p.coeffs.extract 1 p.size⟩
 
-theorem ext {p q : UniPoly R} (h : p.coeffs = q.coeffs) : p = q := by
-  cases p; cases q; simp at h; rw [h]
-
 @[simp] theorem zero_def : (0 : UniPoly R) = ⟨#[]⟩ := rfl
 
-theorem add_comm {p q : UniPoly R} : p + q = q + p := by
+variable {p q r : UniPoly R}
+
+theorem add_comm : p + q = q + p := by
   simp only [instHAdd, Add.add, add, List.zipWith_toArray, mk.injEq, Array.mk.injEq]
   exact List.zipWith_comm_of_comm _ (fun x y ↦ by change x + y = y + x; rw [_root_.add_comm]) _ _
 
-private lemma zipWith_const {α β : Type _} {f : α → β → β} {l₁ : List α} {l₂ : List β}
-  (h₁ : l₁.length = l₂.length) (h₂ : ∀ a b, f a b = b) : l₁.zipWith f l₂ = l₂ := by
-  induction' l₁ with hd tl ih generalizing l₂ <;> rcases l₂ <;> aesop
-
-@[simp] theorem zero_add {p : UniPoly R} : 0 + p = p := by
+@[simp] theorem zero_add : 0 + p = p := by
   simp [instHAdd, instAdd, add, List.matchSize]
   refine UniPoly.ext (Array.ext' ?_)
   simp only
@@ -212,12 +230,10 @@ private lemma zipWith_const {α β : Type _} {f : α → β → β} {l₁ : List
                  intros i h
                  change 0 + p.coeffs[i] = p.coeffs[i]
                  simp)]
-  exact zipWith_const (by simp) (by simp)
+  exact List.zipWith_const (by simp) (by simp)
 
-@[simp] theorem add_assoc (p q r : UniPoly R) : p + q + r = p + (q + r) := by
+theorem add_assoc : p + q + r = p + (q + r) := by
   simp [instHAdd, instAdd, add, List.matchSize]
-  -- refine Array.ext' ?_
-  -- simp [Array.toList_zipWith]
   sorry
 
 -- TODO: define `SemiRing` structure on `UniPoly`
@@ -284,17 +300,20 @@ end Equiv
 
 end UniPoly
 
+namespace Lagrange
+
 -- unique polynomial of degree n that has nodes at ω^i for i = 0, 1, ..., n-1
-def Lagrange.nodal' {F : Type} [Semiring F] (n : ℕ) (ω : F) : UniPoly F :=
-  .mk (Array.range n |>.map (fun i => ω^i))
+def nodal {R : Type*} [Semiring R] (n : ℕ) (ω : R) : UniPoly R := sorry
+  -- .mk (Array.range n |>.map (fun i => ω^i))
 
 /--
 This function produces the polynomial which is of degree n and is equal to r i at ω^i for i = 0, 1,
 ..., n-1.
 -/
-def Lagrange.interpolate' {F : Type} [Semiring F] (n : ℕ) (ω : F) (r : Fin n → F) : UniPoly F :=
-  -- .mk (Array.finRange n |>.map (fun i => r i))
-  sorry
+def interpolate {R : Type*} [Semiring R] (n : ℕ) (ω : R) (r : Vector R n) : UniPoly R := sorry
+  -- .mk (Array.finRange n |>.map (fun i => r[i])) * nodal n ω
+
+end Lagrange
 
 section Tropical
 /-- This section courtesy of Junyan Xu -/
@@ -345,6 +364,3 @@ noncomputable def Equiv.UniPoly.TropicallyBoundPolynomial {R : Type} [Semiring R
       map_add' := by sorry
 
 end Tropical
-
-
-end Polynomial

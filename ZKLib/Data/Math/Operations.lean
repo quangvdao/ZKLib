@@ -108,7 +108,7 @@ theorem mapM_single (f : α → m β) (a : α) : List.mapM f [a] = return [← f
 @[simp]
 theorem getLastI_append_single [Inhabited α] (x : α) : (l ++ [x]).getLastI = x := by
   simp only [List.getLastI_eq_getLast?, List.getLast?_append, List.getLast?_singleton,
-    Option.or_some]
+    Option.some_or]
 
 variable {α : Type*} {unit : α}
 
@@ -204,6 +204,10 @@ theorem matchSize_eq_iff_forall_eq (l₁ l₂ : List α) (unit : α) :
   list, followed by a reversal. -/
 def dropLastWhile (p : α → Bool) (l : List α) : List α :=
   (l.reverse.dropWhile p).reverse
+
+lemma zipWith_const {α β : Type _} {f : α → β → β} {l₁ : List α} {l₂ : List β}
+  (h₁ : l₁.length = l₂.length) (h₂ : ∀ a b, f a b = b) : l₁.zipWith f l₂ = l₂ := by
+  induction' l₁ with hd tl ih generalizing l₂ <;> rcases l₂ <;> aesop
 
 end List
 
