@@ -194,15 +194,25 @@ theorem ext {p q : UniPoly R} (h : p.coeffs = q.coeffs) : p = q := by
 
 @[simp] theorem zero_def : (0 : UniPoly R) = ⟨#[]⟩ := rfl
 
-theorem add_comm (p q : UniPoly R) : p + q = q + p := by
+theorem add_comm {p q : UniPoly R} : p + q = q + p := by
   simp only [instHAdd, Add.add, add, List.zipWith_toArray, mk.injEq, Array.mk.injEq]
   exact List.zipWith_comm_of_comm _ (fun x y ↦ by change x + y = y + x; rw [_root_.add_comm]) _ _
 
-@[simp] theorem zero_add (p : UniPoly R) : 0 + p = p := by
+private lemma zipWith_const {α β : Type _} {f : α → β → β} {l₁ : List α} {l₂ : List β}
+  (h₁ : l₁.length = l₂.length) (h₂ : ∀ a b, f a b = b) : l₁.zipWith f l₂ = l₂ := by
+  induction' l₁ with hd tl ih generalizing l₂ <;> rcases l₂ <;> aesop
+
+@[simp] theorem zero_add {p : UniPoly R} : 0 + p = p := by
   simp [instHAdd, instAdd, add, List.matchSize]
   refine UniPoly.ext (Array.ext' ?_)
-  simp [Array.toList_zipWith, List.zipWith]
-  sorry
+  simp only
+  rw [List.zipWith_congr
+        (g := fun _ x ↦ x)
+        (h := by simp [List.forall₂_iff_get]
+                 intros i h
+                 change 0 + p.coeffs[i] = p.coeffs[i]
+                 simp)]
+  exact zipWith_const (by simp) (by simp)
 
 @[simp] theorem add_assoc (p q r : UniPoly R) : p + q + r = p + (q + r) := by
   simp [instHAdd, instAdd, add, List.matchSize]
