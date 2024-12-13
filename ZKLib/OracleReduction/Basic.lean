@@ -40,15 +40,20 @@ open OracleComp OracleSpec SubSpec
 section Prelude
 
 -- Figure out where to put this instance
-instance instDecidableEqOption {α : Type*} [DecidableEq α] : DecidableEq (Option α) := inferInstance
+instance instDecidableEqOption {α : Type*} [DecidableEq α] :
+    DecidableEq (Option α) := inferInstance
+
+class VCVCompatible (α : Type) extends Fintype α, Inhabited α where
+  [toDecidableEq : DecidableEq α]
+
+instance {α : Type} [VCVCompatible α] : DecidableEq α := VCVCompatible.toDecidableEq
 
 /-- `Sampleable` is a type class for types that can be sampled uniformly at random (via the VCV
     framework). This is mostly used for uniform sampling from challenges in an interactive protocol.
 -/
-class Sampleable (α : Type) extends Fintype α, Inhabited α, SelectableType α where
-  [toDecidableEq : DecidableEq α]
+class Sampleable (α : Type) extends VCVCompatible α, SelectableType α
 
-instance {α : Type} [Sampleable α] : DecidableEq α := Sampleable.toDecidableEq
+instance {α : Type} [Sampleable α] : DecidableEq α := inferInstance
 
 /-- Enum type for the direction of a round in a protocol specification -/
 inductive Direction where
@@ -180,10 +185,30 @@ def challengeOracle (pSpec : ProtocolSpec n) [S : ∀ i, Sampleable (pSpec.Chall
     OracleSpec (ChallengeIndex pSpec) where
   domain := fun _ => Unit
   range := fun i => pSpec.Challenge i
-  domain_decidableEq' := fun _ => decEq
-  range_decidableEq' := fun i => @Sampleable.toDecidableEq _ (S i)
-  range_inhabited' := fun i => @Sampleable.toInhabited _ (S i)
-  range_fintype' := fun i => @Sampleable.toFintype _ (S i)
+  domain_decidableEq' := inferInstance
+  range_decidableEq' := inferInstance
+  range_inhabited' := inferInstance
+  range_fintype' := inferInstance
+
+@[simps]
+def messageOracle (pSpec : ProtocolSpec n) [O : ∀ i, ToOracle (pSpec.Message i)]
+    [∀ i, DecidableEq (O i).Query] [∀ i, VCVCompatible (O i).Response] :
+    OracleSpec (MessageIndex pSpec) where
+  domain := fun i => (O i).Query
+  range := fun i => (O i).Response
+  domain_decidableEq' := inferInstance
+  range_decidableEq' := inferInstance
+  range_inhabited' := inferInstance
+  range_fintype' := inferInstance
+
+-- def statementOracle (oStmt : OracleStatementType) [S : ∀ i, Sampleable (pSpec.Message i)] :
+--     OracleSpec (MessageIndex pSpec) where
+--   domain := fun _ => Unit
+--   range := fun i => pSpec.Message i
+--   domain_decidableEq' := fun _ => decEq
+--   range_decidableEq' := fun i => @Sampleable.toDecidableEq _ (S i)
+--   range_inhabited' := fun i => @Sampleable.toInhabited _ (S i)
+--   range_fintype' := fun i => @Sampleable.toFintype _ (S i)
 
 end ProtocolSpec
 
