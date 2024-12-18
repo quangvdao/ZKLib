@@ -51,10 +51,10 @@ variable {ι : Type} {spec : OracleSpec ι} {α σ : Type}
 
   TODO: add state for `f`
 -/
-def runWithOracle (f : Oracle spec) : OracleComp spec α → α
-  | pure' _ x => x
+def runWithOracle (f : Oracle spec) : OracleComp spec α → Option α
+  | pure' _ x => some x
   | queryBind' i q _ oa => runWithOracle f (oa (f i q))
-
+  | failure' _ => none
 
 -- Oracle with bounded use; returns `default` if the oracle is used more than `bound` times.
 -- We could then have the range be an `Option` type, so that `default` is `none`.
@@ -115,5 +115,6 @@ theorem SatisfiesM_OracleComp_eq {p : α → Prop} {x : OracleComp spec α} :
       simp at hBind'
       have h' := fun a => Classical.choose_spec (hBind' a)
       exact ⟨ queryBind' i q _ (fun a =>Classical.choose (hBind' a)), by simp [map_bind, h'] ⟩
+    | failure' _ => by sorry
 
 end OracleComp

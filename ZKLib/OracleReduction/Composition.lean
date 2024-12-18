@@ -341,22 +341,25 @@ open OracleComp OracleSpec SubSpec
 
 variable [∀ i, Sampleable (pSpec₁.Challenge i)] [∀ i, Sampleable (pSpec₂.Challenge i)]
 
-instance : SubSpec (challengeOracle pSpec₁ ++ₒ challengeOracle pSpec₂)
-    (challengeOracle (pSpec₁ ++ₚ pSpec₂)) where
+instance : SubSpec ([pSpec₁.Challenge]ₒ ++ₒ [pSpec₂.Challenge]ₒ)
+    ([(pSpec₁ ++ₚ pSpec₂).Challenge]ₒ) where
   toFun := fun i _ => by
     cases i with
     | inl j =>
-      simpa [OracleSpec.append, ChallengeIndex.inl, ProtocolSpec.append] using
-        query (spec := challengeOracle (pSpec₁ ++ₚ pSpec₂)) j.inl ()
+      have := query (spec := [(pSpec₁ ++ₚ pSpec₂).Challenge]ₒ) j.inl ()
+      sorry
+      -- simpa [OracleSpec.append, ChallengeIndex.inl, ProtocolSpec.append,
+      --   Fin.append_comp', Fin.append_left] using this
     | inr j =>
-      simpa [OracleSpec.append, ChallengeIndex.inr, ProtocolSpec.append] using
-        query (spec := challengeOracle (pSpec₁ ++ₚ pSpec₂)) j.inr ()
+      sorry
+      -- simpa [OracleSpec.append, ChallengeIndex.inr, ProtocolSpec.append] using
+      --   query (spec := [(pSpec₁ ++ₚ pSpec₂).Challenge]ₒ) j.inr ()
   evalDist_toFun' := fun i q => by
     cases i with
     | inl j =>
       simp only [eq_mp_eq_cast, id_eq]
-      have : (pSpec₁ ++ₚ pSpec₂).challengeOracle.range j.inl =
-        (pSpec₁.challengeOracle ++ₒ pSpec₂.challengeOracle).range (Sum.inl j) := by
+      have : [(pSpec₁ ++ₚ pSpec₂).Challenge]ₒ.range j.inl =
+        ([pSpec₁.Challenge]ₒ ++ₒ [pSpec₂.Challenge]ₒ).range (Sum.inl j) := by
         simp [OracleSpec.append, ProtocolSpec.append, ChallengeIndex.inl]
       rw [evalDist_cast _ this, evalDist_query, evalDist_query]
       simp [OracleSpec.append, ProtocolSpec.append, ChallengeIndex.inl]
@@ -367,8 +370,8 @@ instance : SubSpec (challengeOracle pSpec₁ ++ₒ challengeOracle pSpec₂)
       congr <;> try { simp only [Fin.append_left] } <;> symm <;> simp only [cast_heq]
     | inr j =>
       simp only [eq_mp_eq_cast, id_eq]
-      have : (pSpec₁ ++ₚ pSpec₂).challengeOracle.range j.inr =
-        (pSpec₁.challengeOracle ++ₒ pSpec₂.challengeOracle).range (Sum.inr j) := by
+      have : [(pSpec₁ ++ₚ pSpec₂).Challenge]ₒ.range j.inr =
+        ([pSpec₁.Challenge]ₒ ++ₒ [pSpec₂.Challenge]ₒ).range (Sum.inr j) := by
         simp [OracleSpec.append, ProtocolSpec.append, ChallengeIndex.inr]
       rw [evalDist_cast _ this, evalDist_query, evalDist_query]
       simp [OracleSpec.append, ProtocolSpec.append, ChallengeIndex.inr]
@@ -383,9 +386,9 @@ instance : SubSpec (challengeOracle pSpec₁ ++ₒ challengeOracle pSpec₂)
 --     [@SubSpec ι₁ ι₂ spec₁ spec₂] [@SubSpec ι₂ ι₃ spec₂ spec₃] :
 -- @SubSpec ι₁ ι₃ spec₁ spec₃ := sorry
 
-instance : SubSpec (challengeOracle pSpec₁) (challengeOracle (pSpec₁ ++ₚ pSpec₂)) := sorry
+instance : SubSpec [pSpec₁.Challenge]ₒ ([(pSpec₁ ++ₚ pSpec₂).Challenge]ₒ) := sorry
 
-instance : SubSpec (challengeOracle pSpec₂) (challengeOracle (pSpec₁ ++ₚ pSpec₂)) := sorry
+instance : SubSpec [pSpec₂.Challenge]ₒ ([(pSpec₁ ++ₚ pSpec₂).Challenge]ₒ) := sorry
 
 end Instances
 
@@ -497,23 +500,12 @@ def Reduction.append (R₁ : Reduction pSpec₁ oSpec Stmt₁ Wit₁ Stmt₂ Wit
   verifier := Verifier.append R₁.verifier R₂.verifier
 
 variable [O₁ : ∀ i, ToOracle (pSpec₁.Message i)] [O₂ : ∀ i, ToOracle (pSpec₂.Message i)]
+  {nStmt : ℕ} {OStmt : Fin nStmt → Type} [O_S : ∀ i, ToOracle (OStmt i)]
 
-def OracleVerifier.append (V : OracleVerifier pSpec₁ oSpec Stmt₁ Stmt₂)
-    (V' : OracleVerifier pSpec₂ oSpec Stmt₂ Stmt₃) :
-      OracleVerifier (pSpec₁ ++ₚ pSpec₂) oSpec Stmt₁ Stmt₃ where
-  genQueries := fun stmt transcript => do sorry
-    -- let queries ← V.genQueries stmt transcript.fst.challenges
-    -- let queries' ← V'.genQueries stmt transcript.snd.challenges
-    -- return queries ++ queries'
-  verify := fun stmt transcript responseList => do sorry
-    -- let firstTranscript : FullTranscript pSpec₁ := by
-    --   have := transcript.take n (by omega)
-    --   simp at this; exact this
-    -- let stmt₂ ← V.verify stmt firstTranscript
-    -- let secondTranscript : FullTranscript pSpec₂ := by
-    --   have := transcript.rtake m (by omega)
-    --   sorry
-    -- return ← V'.verify stmt₂ secondTranscript
+def OracleVerifier.append (V : OracleVerifier pSpec₁ oSpec Stmt₁ Stmt₂ OStmt)
+    (V' : OracleVerifier pSpec₂ oSpec Stmt₂ Stmt₃ OStmt) :
+      OracleVerifier (pSpec₁ ++ₚ pSpec₂) oSpec Stmt₁ Stmt₃ OStmt where
+  verify := fun stmt oStmt challenges => sorry
 
 def OracleReduction.append (R₁ : OracleReduction pSpec₁ oSpec Stmt₁ Wit₁ Stmt₂ Wit₂)
     (R₂ : OracleReduction pSpec₂ oSpec Stmt₂ Wit₂ Stmt₃ Wit₃) :

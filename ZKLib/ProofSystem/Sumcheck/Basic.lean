@@ -4,7 +4,6 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Quang Dao
 -/
 
-import ZKLib.OracleReduction.ToOracle
 import ZKLib.OracleReduction.Security
 import ZKLib.ProofSystem.Relation.Sumcheck
 
@@ -22,13 +21,13 @@ implementations derive security from that of the abstract protocol.
 
 The sum-check protocol is parameterized by the following:
 - `R`: the underlying ring (for soundness, required to be finite and a domain)
-- `n`: the number of variables (also number of rounds)
-- `deg`: the individual degree bound for the polynomial
-- `D`: the set of `m` evaluation points for each variable (for some `m`), represented as an
-  injection `Fin m ↪ R`. The image of `D` as a finite subset of `R` is written as `Finset.univ.map
-  D`.
-- `oSpec`: the set of underlying oracles (e.g. random oracles) that may be needed for other
-  reductions. However, the sum-check protocol does _not_ use any oracles.
+- `n : ℕ`: the number of variables (also number of rounds)
+- `deg : ℕ`: the individual degree bound for the polynomial
+- `D : Fin m ↪ R`: the set of `m` evaluation points for each variable (for some `m`),
+  represented as an injection `Fin m ↪ R`. The image of `D` as a finite subset of `R` is written
+  as `Finset.univ.map D`.
+- `oSpec : OracleSpec ι`: the set of underlying oracles (e.g. random oracles) that may be needed for
+  other reductions. However, the sum-check protocol does _not_ use any oracles.
 
 The sum-check relation has no witness. The statement for the `i`-th round, where `i ≤ n`, contains:
 - `poly : MvPolynomial (Fin n) R`, which is the multivariate polynomial that is summed over
@@ -80,8 +79,8 @@ degree checks.
 
 There are some generalizations that we could consider later:
 
-- Generalize to `degs : Fin n → ℕ` and `domain : Fin n → Finset R`, e.g. can vary the degree bound
-  and the summation domain for each variable
+- Generalize to `degs : Fin (n + 1) → ℕ` and `domain : Fin (n + 1) → (Fin m ↪ R)`, e.g. can vary the
+  degree bound and the summation domain for each variable
 
 - Generalize the challenges to come from a suitable subset of `R` (e.g. subtractive sets), and not
   necessarily the whole domain. This is used in lattice-based protocols.
@@ -100,38 +99,36 @@ noncomputable section
 
 namespace Spec
 
-
 -- The variables for sum-check
 variable (R : Type) [CommSemiring R] [Sampleable R] (n : ℕ) (deg : ℕ) {m : ℕ} (D : Fin m ↪ R)
 
-/-- Statement for sum-check, parameterized by the ring `R`, the number of variables `n`, the domain
-  `D`, and the round index `i ≤ n`
+/-- Statement for sum-check, parameterized by the ring `R`, the number of variables `n`, the
+  domain `D`, and the round index `i : Fin (n + 1)`
 
-Note that when `i = n`, this is the output statement of the sum-check protocol -/
-structure Statement (i : ℕ) (hi : i ≤ n) where
+Note that when `i = Fin.last n`, this is the output statement of the sum-check protocol -/
+structure Statement (i : Fin (n + 1)) where
   -- The multivariate polynomial for sum-check
   poly : R⦃≤ deg⦄[X Fin n]
   -- The target value for sum-check
   target : R
   -- The challenges sent from the verifier to the prover from previous rounds
   challenges : Fin i → R
-  -- Whether the statement has already been rejected
-  earlyReject : Bool
 
 /-- The sum-check relation for the `i`-th round, for `i ≤ n` -/
-def relation (i : ℕ) (hi : i ≤ n) : (Statement R n deg i hi) → Unit → Prop :=
-  fun ⟨⟨poly, _⟩, target, challenges, earlyReject⟩ _ =>
-    earlyReject = false ∧ ∑ x ∈ (univ.map D) ^ᶠ (n - i), poly ⸨challenges, x⸩ = target
+def relation (i : Fin (n + 1)) : (Statement R n deg i) → Unit → Prop :=
+  fun ⟨⟨poly, _⟩, target, challenges⟩ _ =>
+    ∑ x ∈ (univ.map D) ^ᶠ (n - i), poly ⸨challenges, x⸩ = target
 
 /-- Protocol specification for the `i`-th round of the sum-check protocol
 
 Consists of a message from prover to verifier of degree at most `deg`, and a message
 from verifier to prover of a field element in `R`. -/
+@[reducible]
 def pSpec : ProtocolSpec 2 := ![(.P_to_V, R⦃≤ deg⦄[X]), (.V_to_P, R)]
 
-/-- Combination of the protocol specifications for all rounds -/
-def pSpecCombined (n : ℕ) : ProtocolSpec (n * 2) := by
-  simpa using Fin.join (fun (_ : Fin n) => pSpec R deg)
+-- /-- Combination of the protocol specifications for all rounds -/
+-- def pSpecCombined : ProtocolSpec ((n + 1) * 2) :=
+--   (compose n (fun _ => 2) (fun _ => pSpec R deg)).cast (by simp)
 
 instance : IsSingleRound (pSpec R deg) where
   prover_first' := by simp [pSpec, getDir]
@@ -150,55 +147,66 @@ instance instSampleableChallengePSpec : Sampleable ((pSpec R deg).Challenge defa
   infer_instance
 
 @[reducible]
-def proverState (i : Fin n) : ProverState 2 := ⟨fun _ => Statement R n deg i (by omega)⟩
+def proverState (i : Fin (n + 1)) : ProverState 2 :=
+  ⟨fun j => if j ≠ 2 then Statement R n deg i.castSucc else Statement R n deg i.succ⟩
 
-/-- Prover input for the `i`-th round of the sum-check protocol, where `i < n` -/
-def proverIn (i : Fin n) : ProverIn (Statement R n deg i (by omega)) Unit
+/-- Prover input for the `i`-th round of the sum-check protocol, where `i < n + 1` -/
+def proverIn (i : Fin (n + 1)) : ProverIn (Statement R n deg i.castSucc) Unit
     ((proverState R n deg i).PrvState 0) where
   input := fun stmt _ => stmt
 
 variable {ι : Type} (oSpec : OracleSpec ι)
 
+-- Some proof goals are omitted
+def proverRound (i : Fin n) : ProverRound (pSpec R deg) oSpec where
+
+  PrvState := fun j => if j ≠ 2 then Statement R n deg i.castSucc else Statement R n deg i.succ
+
+  sendMessage := fun idx ⟨⟨poly, hp⟩, target, challenges⟩ =>
+    pure ⟨ ⟨∑ x ∈ (univ.map D) ^ᶠ (n - i), poly ⸨X ⦃i⦄, challenges, x⸩'(by simp; omega),
+      by sorry⟩, ⟨⟨poly, hp⟩, target, challenges⟩⟩
+
+  receiveChallenge := fun idx ⟨⟨poly, hp⟩, target, challenges⟩ chal =>
+    haveI newChallenges : Fin i.succ → R := Fin.snoc challenges chal
+    haveI newTarget := ∑ x ∈ (univ.map D) ^ᶠ (n - i), poly ⸨newChallenges, x⸩'(by simp; omega)
+    ⟨⟨poly, hp⟩, newTarget, newChallenges⟩
+
 /-- Prover interaction for the `i`-th round of the sum-check protocol, where `i < n`. This is only
   well-defined for `n > 0` -/
-def proverRound (i : Fin n) :
-    ProverRound (pSpec R deg) oSpec (Statement R n deg i (by omega)) where
+def proverRound (i : Fin (n + 1)) : ProverRound (pSpec R deg) oSpec where
   PrvState := (proverState R n deg i).PrvState
   sendMessage := fun idx state => by
-    have ⟨⟨poly, hp⟩, target, challenges, earlyReject⟩ := state
     haveI : idx = default := Unique.uniq _ idx
-    simp [pSpec, Message, getType, this, default]
-    haveI : n ≠ 0 := fun h => by subst h; exact Fin.elim0 i
-    -- have hn : n = (n - 1) + 1 := by omega
-    -- rw [hn] at hp
-    generalize hn' : n - 1 = n'
-    haveI hn : n = n' + 1 := by omega
-    have : Fin n = Fin (n' + 1) := congrArg Fin hn
-    let newPoly : R[X Fin (n' + 1)] := MvPolynomial.rename (fun i => by simpa [hn] using i) poly
-    have hNewPoly : newPoly ∈ R⦃≤ deg⦄[X Fin (n' + 1)] := by
-      simp [newPoly]; sorry
-    exact pure ⟨ ⟨∑ x ∈ (univ.map D) ^ᶠ (n' - i), newPoly ⸨X ⦃i⦄, challenges, x⸩, by
-      refine Polynomial.mem_degreeLE.mpr ?_
-      refine le_trans (Polynomial.degree_sum_le ((univ.map D) ^ᶠ (n' - i)) _) ?_
+    simp [this, default] at state ⊢
+    have ⟨⟨poly, hp⟩, target, challenges⟩ := state
+    exact pure ⟨ ⟨∑ x ∈ (univ.map D) ^ᶠ (n - i), poly ⸨X ⦃i⦄, challenges, x⸩'(by simp; omega), by
+      -- TODO: separate out this degree proof
+      refine mem_degreeLE.mpr ?_
+      refine le_trans (degree_sum_le ((univ.map D) ^ᶠ (n - i)) _) ?_
       simp only [Finset.sup_le_iff, Fintype.mem_piFinset, mem_map, mem_univ, true_and]
       intro x hx
-      refine le_trans (Polynomial.degree_map_le) ?_
-      refine Polynomial.natDegree_le_iff_degree_le.mp ?_
-      simp [MvPolynomial.natDegree_finSuccEquivNth]
-      exact degreeOf_le_iff.mpr fun m a ↦ hNewPoly a ↑↑i
-      ⟩, state ⟩
-  receiveChallenge := fun _ state _ => state
+      refine le_trans (degree_map_le) ?_
+      refine natDegree_le_iff_degree_le.mp ?_
+      rw [natDegree_finSuccEquivNth]
+      exact degreeOf_le_iff.mpr fun m a ↦ hp a _⟩, state⟩
+  receiveChallenge := fun idx state chal => by
+    haveI : idx = default := Unique.uniq _ idx
+    simp [this, default] at state chal ⊢
+    obtain ⟨⟨poly, hp⟩, target, challenges⟩ := state
+    haveI newChallenges : Fin i.succ → R := Fin.snoc challenges chal
+    haveI newTarget := ∑ x ∈ (univ.map D) ^ᶠ (n - i), poly ⸨newChallenges, x⸩'(by simp; omega)
+    exact ⟨⟨poly, hp⟩, newTarget, newChallenges⟩
 
 /-- Since there is no witness, the prover's output for each round `i < n` of the sum-check protocol
   is trivial -/
-def proverOut (i : Fin n) : ProverOut (Statement R n deg (i + 1) (by omega)) Unit
+def proverOut (i : Fin (n + 1)) : ProverOut (Statement R n deg i.succ) Unit
     ((proverState R n deg i).PrvState (Fin.last 2)) where
-  output := fun state => ⟨sorry, ()⟩
+  output := fun state => ⟨state, ()⟩
 
 /-- The overall prover for the `i`-th round of the sum-check protocol, where `i < n`. This is only
   well-defined for `n > 0`, since when `n = 0` there is no protocol. -/
-def prover (i : Fin n) : Prover (pSpec R deg) oSpec
-    (Statement R n deg i (by omega)) Unit (Statement R n deg (i + 1) (by omega)) Unit where
+def prover (i : Fin (n + 1)) : Prover (pSpec R deg) oSpec
+    (Statement R n deg i.castSucc) Unit (Statement R n deg i.succ) Unit where
   toProverState := proverState R n deg i
   toProverIn := proverIn R n deg i
   sendMessage := (proverRound R n deg D oSpec i).sendMessage
@@ -212,23 +220,25 @@ instance : Inhabited ((i : MessageIndex (pSpec R deg)) × ToOracle.Query ((pSpec
     by simpa! [instToOracleMessagePSpec] using 0⟩
 
 /-- The (non-oracle) verifier of the sum-check protocol for the `i`-th round, where `i < n` -/
-def verifier (i : Fin n) : Verifier (pSpec R deg) oSpec
-    (Statement R n deg i (by omega)) (Statement R n deg (i + 1) (by omega)) where
-  verify := fun ⟨poly, target, challenges, earlyReject⟩ transcript =>
+def verifier (i : Fin (n + 1)) : Verifier (pSpec R deg) oSpec
+    (Statement R n deg i.castSucc) (Statement R n deg i.succ) where
+  verify := fun ⟨poly, target, challenges⟩ transcript =>
     have ⟨p_i, _⟩ : R⦃≤ deg⦄[X] := transcript 0
     letI r_i : R := transcript 1
-    letI accept := decide (∑ x ∈ (univ.map D), p_i.eval x = target)
-    pure ⟨poly, p_i.eval r_i, Fin.snoc challenges r_i, earlyReject ∨ ¬ accept⟩
+    if ∑ x ∈ (univ.map D), p_i.eval x = target then
+      pure ⟨poly, p_i.eval r_i, Fin.snoc challenges r_i⟩
+    else
+      failure
 
 /-- The oracle verifier for the `i`-th round, where `i < n` -/
-def oracleVerifier (i : Fin n) : OracleVerifier (pSpec R deg) oSpec
-    (Statement R n deg i (by omega)) (Statement R n deg (i + 1) (by omega)) where
+def oracleVerifier (i : Fin (n + 1)) : OracleVerifier (pSpec R deg) oSpec
+    (Statement R n deg i.castSucc) (Statement R n deg i.succ) where
   -- Queries for the evaluations of the polynomial at all points in `D`,
   -- plus one query for the evaluation at the challenge `r_i`
   genQueries := fun _ chal => List.ofFn (fun j => ⟨default, D j⟩) ++ [⟨default, chal default⟩]
   -- Check that the sum of the evaluations equals the target, and updates the statement accordingly
   -- (the new target is the evaluation of the polynomial at the challenge `r_i`)
-  verify := fun ⟨poly, target, challenges, earlyReject⟩ chal responses => by
+  verify := fun ⟨poly, target, challenges⟩ chal responses => by
     simp [ResponseList] at responses
     have f : (i : MessageIndex (pSpec R deg)) × ToOracle.Query ((pSpec R deg).Message i)
         × ToOracle.Response ((pSpec R deg).Message i) → R := fun ⟨i, q, r⟩ => by
@@ -241,16 +251,16 @@ def oracleVerifier (i : Fin n) : OracleVerifier (pSpec R deg) oSpec
       haveI : (responses.getLastD default).fst = default := Unique.uniq _ _
       rw [this] at newTarget
       simpa only using newTarget
-    exact pure ⟨poly, newTarget, Fin.snoc challenges (chal default), earlyReject ∨ ¬ accept⟩
+    exact if accept then pure ⟨poly, newTarget, Fin.snoc challenges (chal default)⟩ else failure
 
 /-- The sum-check reduction for the `i`-th round, where `i < n` and `n > 0` -/
-def reduction (i : Fin n) : Reduction (pSpec R deg) oSpec
-    (Statement R n deg i (by omega)) Unit (Statement R n deg (i + 1) (by omega)) Unit :=
+def reduction (i : Fin (n + 1)) : Reduction (pSpec R deg) oSpec
+    (Statement R n deg i.castSucc) Unit (Statement R n deg i.succ) Unit :=
   .mk (prover R n deg D oSpec i) (verifier R n deg D oSpec i)
 
 /-- The sum-check oracle reduction for the `i`-th round, where `i < n` and `n > 0` -/
-def oracleReduction (i : Fin n) : OracleReduction (pSpec R deg) oSpec
-    (Statement R n deg i (by omega)) Unit (Statement R n deg (i + 1) (by omega)) Unit :=
+def oracleReduction (i : Fin (n + 1)) : OracleReduction (pSpec R deg) oSpec
+    (Statement R n deg i.castSucc) Unit (Statement R n deg i.succ) Unit :=
   .mk (prover R n deg D oSpec i) (oracleVerifier R n deg D oSpec i)
 
 section Security
@@ -258,7 +268,7 @@ section Security
 open Reduction
 
 variable {R : Type} [CommSemiring R] [Sampleable R] {n : ℕ} {deg : ℕ} {m : ℕ} {D : Fin m ↪ R}
-  {ι : Type} [DecidableEq ι] {oSpec : OracleSpec ι} {i : Fin n}
+  {ι : Type} [DecidableEq ι] {oSpec : OracleSpec ι} {i : Fin (n + 1)}
 
 omit [DecidableEq ι] in
 /-- The oracle verifier does the same thing as the non-oracle verifier -/
@@ -269,9 +279,10 @@ theorem oracleVerifier_eq_verifier :
     Bool.decide_or, Bool.decide_eq_true, bind_pure_comp, verifier, sum_map,
     Verifier.mk.injEq, pSpec, instToOracleMessagePSpec]
   funext stmt transcript
-  split; next x p_i hp_i hEq =>
+  split; split; next x p_i hp_i hEq =>
   have : p_i = (transcript 0).1 := by simp only [hEq]
   subst this
+  split
   stop
   simp [default, Transcript.messages, Transcript.challenges, instToOraclePolynomialDegreeLE]
   constructor
@@ -282,22 +293,17 @@ theorem oracleVerifier_eq_verifier :
   · congr
     simp only [List.ofFn, Fin.foldr_eq_foldr_list, List.map_eq_foldr]
     congr
-    clear * -
-    induction m with
-    | zero => simp only [Fin.list_zero, List.finRange_zero]
-    | succ n ih => simp only [Fin.list_succ, ih, List.finRange_succ_eq_map]
 
 set_option trace.profiler true
 
 /-- Completeness theorem for sumcheck-/
-theorem perfect_completeness : (reduction R n deg D oSpec i).perfectCompleteness
-    (relation R n deg D i (by omega)) (relation R n deg D (i + 1) (by omega)) := by
+theorem perfect_completeness : Reduction.perfectCompleteness
+    (relation R n deg D i.castSucc) (relation R n deg D i.succ)
+    (reduction R n deg D oSpec i) := by
   simp only [perfectCompleteness_eq, eq_iff_iff, iff_true, probEvent_eq_one_iff, Prod.forall]
   unfold relation reduction prover verifier Reduction.run
-  intro ⟨⟨poly, hPoly⟩, target, challenges, earlyReject⟩ _ hValid
-  simp only [eq_iff_iff, iff_true] at hValid
-  obtain ⟨hReject, hSum⟩ := hValid
-  -- simp?
+  intro ⟨⟨poly, hPoly⟩, target, challenges⟩ _ hValid
+  simp at hValid
   -- simp [Reduction.run, Prover.run] at hRun ⊢
   sorry
   -- simp [Reduction.run]
@@ -324,11 +330,11 @@ theorem perfect_completeness : (reduction R n deg D oSpec i).perfectCompleteness
   --   -- at this point we have reduced to a purely polynomial problem
 
 /-- State function for round-by-round soundness -/
-def stateFunction (i : Fin n) : StateFunction
-    (relation R n deg D (i + 1) (by omega)).language (verifier R n deg D oSpec i) where
+def stateFunction (i : Fin (n + 1)) : StateFunction
+    (relation R n deg D i.succ).language (verifier R n deg D oSpec i) where
   fn := fun m stmt partialTranscript => match m with
     -- If `m = 0`, so the transcript is empty, returns whether the statement satisfies the relation
-    | 0 => relation R n deg D i (by omega) stmt () = true
+    | 0 => relation R n deg D i.castSucc stmt () = true
     -- If `m = 1`, so the transcript contains the new polynomial `p_i`, returns the above check,
     -- and also whether `p_i` is as expected
     | 1 => sorry
@@ -339,12 +345,17 @@ def stateFunction (i : Fin n) : StateFunction
   fn_next := sorry
   fn_full := sorry
 
--- -- /-- Round-by-round soundness theorem for sumcheck -/
--- theorem rbr_soundness : Reduction.rbrSoundness (pSpec R deg) oSpec
---     (verifier R n deg D oSpec i) (relation R n deg D i (by omega))
---       (relation R n deg D (i + 1) (by omega)) (stateFunction i)
---         (fun _ => ⟨(deg : ℝ) / Fintype.card R, by
---           refine div_nonneg ?_ ?_ <;> simp only [Nat.cast_nonneg]⟩) := sorry
+def rbrExtractor := sorry
+
+/-- Round-by-round knowledge soundness theorem for sumcheck -/
+theorem rbr_knowledge_soundness : Reduction.rbrKnowledgeSoundness
+    (relation R n deg D i.castSucc) (relation R n deg D i.succ) (stateFunction i)
+    (verifier R n deg D oSpec i) (fun _ => (deg : ℝ≥0) / Fintype.card R) := sorry
+
+-- def rbrKnowledgeSoundness (relIn : StmtIn → WitIn → Prop) (relOut : StmtOut → WitOut → Prop)
+--     (verifier : Verifier pSpec oSpec StmtIn StmtOut)
+--     (stateFunction : StateFunction relOut.language verifier)
+--     (rbrKnowledgeError : pSpec.ChallengeIndex → ℝ≥0) : Prop :=
 
 end Security
 
