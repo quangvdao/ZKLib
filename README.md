@@ -1,4 +1,4 @@
-# A Library for Formally Verified Cryptographic Proof Systems
+# Deprecated Project
 
 The development of ZKLib now happens as part of the Verified zkEVM project.
 
